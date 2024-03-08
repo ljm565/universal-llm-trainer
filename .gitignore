@@ -1,0 +1,6 @@
+data/
+outputs/
+.junk/
+__pycache__/
+*.ipynb
+test.py
