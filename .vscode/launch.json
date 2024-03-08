@@ -1,0 +1,44 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "dataset_download.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/run/dataset_download.py",
+            "args": ["--dataset", "junelee/sharegpt_deepl_ko", "--download_path", "data"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "dataset_translate.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/run/dataset_translate.py",
+            "args": ["--dataset_folder_path", "data/truthful_qa", "--save_path", "data", "--src", "en", "--trg", "ko", "--nmt", "google", "--verbose"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "nmt & llm train",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/run/train.py",
+            "args": ["--config", "config/llm.yaml", "--mode", "train"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "nmt & llm train huggingface",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/run/train.py",
+            "args": ["--config", "config/llm.yaml", "--mode", "train", "--use_huggingface_trainer"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

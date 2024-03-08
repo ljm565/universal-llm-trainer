@@ -4,3 +4,4 @@ outputs/
 __pycache__/
 *.ipynb
 test.py
+*.whl
