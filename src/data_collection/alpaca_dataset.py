@@ -39,7 +39,7 @@ class AlpacaDataset(Dataset):
         self.length = len(self.data)
 
         # calculate statistics
-        if self.verbose:
+        if config.is_rank_zero and self.verbose:
             save_dir = os.path.join(config.save_dir, 'vis_data')
             os.makedirs(save_dir, exist_ok=True)
 
@@ -55,7 +55,7 @@ class AlpacaDataset(Dataset):
             plt.xlabel('Length of samples')
             plt.ylabel('Number of samples')
             plt.tight_layout()
-            plt.savefig(os.path.join(save_dir, f'{mode}_data_hist.png'))
+            plt.savefig(os.path.join(save_dir, f'{name}_{mode}_data_hist.png'))
 
     
     def get_token_len_statistics(self, data):

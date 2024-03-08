@@ -51,7 +51,8 @@ def choose_proper_model(config):
         raise NotImplementedError
     
     # logs
-    LOGGER.info(f"Chosen model: {colorstr(model_list[idx])}")
+    if config.is_rank_zero:
+        LOGGER.info(f"Chosen model: {colorstr(model_list[idx])}")
     return model_list[idx]
 
 

@@ -64,6 +64,7 @@ class Trainer:
         self.loss_names = ['cross_entropy']
         self.train_verbose = self.config.train_verbose
         self.use_huggingface_trainer = use_huggingface_trainer
+        self.config.is_rank_zero = self.is_rank_zero
 
         # sanity check
         assert self.optimizer_step_criterion in OPTIM_CRITERION, \
@@ -109,9 +110,8 @@ class Trainer:
                 self.lf = lambda x: (1 - (x - self.warmup_steps_n) / (all_steps_n - self.warmup_steps_n)) * (1.0 - self.config.lrf) + self.config.lrf
             self.scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lf)
             self.scheduler.last_epoch = self.start_epoch - 1  # do not move
-            if self.train_verbose:
+            if self.is_rank_zero and self.train_verbose:
                 draw_training_lr_curve(self.config, self.lf, all_steps_n, self.warmup_steps_n)
-            print()
 
 
     def _init_model(self, config, mode):

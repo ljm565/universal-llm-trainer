@@ -25,7 +25,8 @@ class KoAlpaca(nn.Module):
         )
         self.tokenizer = KoAlpacaTokenizer(config, self.model_path)
 
-        print_mem_consumption(self.model_path)
+        if config.is_rank_zero:
+            print_mem_consumption(self.model_path)
     
 
     def set_bit(self, bit):

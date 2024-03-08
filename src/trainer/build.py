@@ -131,6 +131,7 @@ def get_peft_model(model, config):
         raise NotImplementedError
     
     # logs
-    print_trainable_parameters(model)
-    LOGGER.info(f'Applied {colorstr(peft_type)} to the model.')
+    if config.is_rank_zero:
+        print_trainable_parameters(model)
+        LOGGER.info(f'Applied {colorstr(peft_type)} to the model.')
     return model
