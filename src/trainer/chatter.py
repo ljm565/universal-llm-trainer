@@ -14,12 +14,15 @@ class Chatter:
     def __init__(
             self, 
             config,
+            model_path,
             device,
         ):
         # init
         self.device = torch.device(device)
         self.config = config
         self.model, self.tokenizer = self._init_model(self.config)
+        checkpoints = torch.load(model_path, map_location=self.device)
+        self.model.load_state_dict(checkpoints['model'])
         self.template = json_load('data/koalpaca_easy/templates/template1.json')
 
 
@@ -51,10 +54,10 @@ class Chatter:
                 break
             if char == self.tokenizer.pad_token:
                 break
-            if char == '<|endoftext|>':
-                break
-            if char == '#':
-                break
+            # if char == '<|endoftext|>':
+            #     break
+            # if char == '#':
+            #     break
 
             asyncio.run(self.print_one_by_one(char))
         return src_tok

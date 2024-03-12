@@ -56,7 +56,7 @@ def choose_proper_model(config):
     return model_list[idx]
 
 
-def draw_training_lr_curve(config, func, all_steps_n, warmup_steps_n):
+def draw_training_lr_curve(config, func, all_steps_n, warmup_steps_n, is_ddp, world_size):
     save_dir = os.path.join(config.save_dir, 'vis_data')
     lr0 = config.lr0
     
@@ -67,7 +67,10 @@ def draw_training_lr_curve(config, func, all_steps_n, warmup_steps_n):
     plt.plot(range(all_steps_n), lrs, marker='o')
     plt.xlabel(f'{config.optimizer_step_criterion}')
     plt.ylabel('Learning Rate')
-    plt.title('Learning Rate Schedule')
+    if is_ddp:
+        plt.title(f'Learning Rate Schedule per GPU (World Size: {world_size})')
+    else:
+        plt.title('Learning Rate Schedule')
     plt.grid()
     plt.tight_layout()
     plt.savefig(os.path.join(save_dir, 'lr_schedule.png'))
@@ -82,15 +85,15 @@ def lr_warmup(cur_step, warmup_steps_n, lr0, func):
     return new_lr
 
 
-def init_train_progress_bar(train_loader, is_rank_zero, loss_names, nb):
+def init_train_progress_bar(dloader, is_rank_zero, loss_names, nb):
     if is_rank_zero:
         header = tuple(['Epoch', 'GPU_mem'] + \
                 loss_names + \
                 ['Instances', 'Size'])
         LOGGER.info(('\n' + '%15s' * (4 + len(loss_names))) % header)
-        pbar = TQDM(enumerate(train_loader), total=nb)
+        pbar = TQDM(enumerate(dloader), total=nb)
     else:
-        pbar = enumerate(train_loader)
+        pbar = enumerate(dloader)
     return pbar
 
 

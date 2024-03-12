@@ -95,7 +95,7 @@ class AlpacaDataset(Dataset):
         assert len(full_prompt_tokens) == len(label), \
             f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(label)}'
         
-        return full_prompt_tokens, label
+        return full_prompt_tokens, label, user_prompt, response
         
 
     def _pad(self, data, max_length, pad_token_id, add_eos=False, return_data_len=False):
@@ -116,7 +116,7 @@ class AlpacaDataset(Dataset):
     
 
     def __getitem__(self, idx):
-        full_prompt_token, label = self.generate_prompt(idx)
+        full_prompt_token, label, user_prompt, response = self.generate_prompt(idx)
         
         # padding
         full_prompt_token, data_len = self._pad(full_prompt_token, self.max_length,  self.pad_token_id, self.add_eos, True)
@@ -127,7 +127,8 @@ class AlpacaDataset(Dataset):
             f'Length of template, attention_mask, label are not same: {len(full_prompt_token)}, {len(attention_mask)}, {len(label)}'
         
         return {'src': torch.tensor(full_prompt_token, dtype=torch.long), 'src_attention_mask': torch.tensor(attention_mask, dtype=torch.long),
-                'label': torch.tensor(label, dtype=torch.long)}
+                'label': torch.tensor(label, dtype=torch.long),
+                'user_prompt': user_prompt, 'response': response}
     
 
     def __len__(self):

@@ -36,7 +36,7 @@ epochs: 300
 warmup_epochs: 0
 steps: 15000
 warmup_steps: 300
-optimizer_step_criterion: 'step'   # ['epoch', 'step']
+optimizer_step_criterion: 'epoch'   # ['epoch', 'step']
 lr0: 5e-4
 lrf: 0.001      # last_lr = lr0 * lrf
 scheduler_type: 'cosine'   # ['linear', 'cosine']
@@ -52,5 +52,8 @@ train_verbose: True
 # peft
 peft_config_path: config/llm_lora_config.yaml   # if False, training without peft
 
-# logging
-log_data: ['train_loss', 'validation_loss', 'lr']  # ['train_loss', 'validation_loss', 'lr']
+# logging data and metrics
+common: ['train_loss', 'validation_loss', 'lr']               # ['train_loss', 'validation_loss', 'lr']
+metrics: ['ppl', 'bleu', 'rouge', 'edit_distance', 'meteor']  # ['ppl', 'bleu', 'edit_distance', 'rouge', 'meteor']  # TODO: CIDEr 추가
+fast_validation_n: 1                                       # [null, 1, 2, ...], Only the number of data of the set value is evaluated per step
+validation_step_interval: 50                                  # [null, 1, 2, ...], if null, all validation steps will be executed

@@ -88,14 +88,14 @@ def get_data_loader(config, tokenizer, mode, is_ddp=False):
         dataloaders = {m: build_dataloader(datasets[m], 
                                            config.batch_size, 
                                            config.workers, 
-                                           shuffle=m == 'train', 
+                                           shuffle=(m == 'train' or config.fast_validation_n is not None or config.validation_step_interval is not None), 
                                            is_ddp=is_ddp) for m in mode}
     elif config.train_type == 'llm':
         datasets = build_llm_dataset(config, tokenizer, mode)
         dataloaders = {m: build_dataloader(datasets[m], 
                                            config.batch_size, 
                                            config.workers, 
-                                           shuffle=m == 'train', 
+                                           shuffle=(m == 'train' or config.fast_validation_n is not None or config.validation_step_interval is not None), 
                                            is_ddp=is_ddp) for m in mode}
     return dataloaders
 

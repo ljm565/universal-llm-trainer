@@ -57,8 +57,9 @@ def multi_gpu_train(gpu, ngpus_per_node, config, args):
 
 def chat(args):
     config = load_config(os.path.join(args.saved_model_dir, 'args.yaml'))
+    model_path = os.path.join(args.saved_model_dir, 'model.pt')
     device = torch.device('cpu') if args.device == 'cpu' else torch.device(f'cuda:{args.device}')
-    chatter = Chatter(config, device)
+    chatter = Chatter(config, model_path, device)
     chatter.do_chat()
 
 

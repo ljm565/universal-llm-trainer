@@ -39,6 +39,15 @@
             "args": ["--config", "config/llm.yaml", "--mode", "train", "--use_huggingface_trainer"],
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "chat",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/run/train.py",
+            "args": ["-p", "outputs/llm/llm_test/", "--mode", "chat", "-d", "0"],
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
     ]
 }

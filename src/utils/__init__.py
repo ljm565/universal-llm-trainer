@@ -254,4 +254,3 @@ SCHEDULER_MSG = 'scheduler_type must be belonged to' + f' [{colorstr("linear")},
 ##################### Assertion List #####################
 OPTIM_CRITERION = ['epoch', 'step']
 SCHEDULER_TYPE = ['linear', 'cosine']
-LOG_DATA = ['train_loss', 'validation_loss', 'lr']

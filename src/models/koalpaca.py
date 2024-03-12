@@ -1,3 +1,5 @@
+import random
+
 import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM
@@ -47,9 +49,8 @@ class KoAlpaca(nn.Module):
         self.criterion = nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
     
 
-    def forward(self, src, trg, label, return_loss=False):
-        src_tok, enc_mask = src
-        
+    def forward(self, batch, return_loss=False):
+        src_tok, enc_mask, label = batch['src'], batch['src_attention_mask'], batch['label']
         output = self.model(
             input_ids=src_tok,
             attention_mask=enc_mask,
@@ -60,6 +61,18 @@ class KoAlpaca(nn.Module):
             return output, loss
         return output
     
+
+    def inference(self, src, max_length, num_return_sequences=1, greedy=False):
+        if isinstance(src, str):
+            src_tok = torch.tensor(self.tokenizer.encode(src), dtype=torch.long).unsqueeze(0).to(self.device)
+            return self.tokenizer.decode(self.generate(src_tok, max_length, num_return_sequences, greedy)[0][src_tok.size(-1):].tolist())
+        elif isinstance(src, list):
+            assert all([isinstance(s, str) for s in src]), f'All elements in src should be str type'
+            src_tok = [torch.tensor(self.tokenizer.encode(s), dtype=torch.long).unsqueeze(0).to(self.device) for s in src]
+            return [self.tokenizer.decode(self.generate(tok, max_length, num_return_sequences, greedy)[0][tok.size(-1):].tolist()) for tok in src_tok]
+        else:
+            raise AssertionError('Inference input should be str or list of str')
+
 
     def generate(self, src_tok, max_length, num_return_sequences=1, greedy=False):
         attention_mask = torch.ones_like(src_tok).to(self.device)

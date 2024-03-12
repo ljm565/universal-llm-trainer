@@ -15,14 +15,14 @@ from torch.cuda import amp
 import torch.optim as optim
 from torch import distributed as dist
 
-from tools import ModelEMA
+from tools import ModelEMA, Evaluator, TrainingLogger
 from trainer.build import get_data_loader, get_model, get_peft_model
 from utils import (
     OPTIM_CRITERION, 
     OPTIM_CRITERION_MSG,
     SCHEDULER_TYPE,
     SCHEDULER_MSG, 
-    RANK, LOGGER, LOG_DATA,
+    RANK, LOGGER,
     colorstr, init_seeds,
     TQDM
 )
@@ -51,34 +51,30 @@ class Trainer:
         self.is_ddp = is_ddp
         self.is_rank_zero = True if not self.is_ddp or (self.is_ddp and device == 0) else False
         self.config = config
+        self.world_size = len(self.config.device) if self.is_ddp else 1
         self.amp = True if self.config.amp_training else False
         self.ema = self.config.ema_updating
         self.epochs = self.config.epochs
-        self.steps = self.config.steps
+        self.steps = math.ceil(self.config.steps / self.world_size)
         self.optimizer_step_criterion = self.config.optimizer_step_criterion
         self.scheduler_type = self.config.scheduler_type
+        self.metrics = self.config.metrics
+        self.common = self.config.common
         self.batch_size = self.config.batch_size
         self.save_dir = make_project_dir(self.config, self.is_rank_zero)
         self.wdir = self.save_dir / 'weights'
         self.last, self.best = self.wdir / 'last.pt', self.wdir / 'best.pt'
+        self.config.is_rank_zero = self.is_rank_zero
         self.loss_names = ['cross_entropy']
         self.train_verbose = self.config.train_verbose
         self.use_huggingface_trainer = use_huggingface_trainer
-        self.config.is_rank_zero = self.is_rank_zero
 
         # sanity check
         assert self.optimizer_step_criterion in OPTIM_CRITERION, \
             OPTIM_CRITERION_MSG + f' but got {colorstr(self.optimizer_step_criterion)}'
         assert self.scheduler_type in SCHEDULER_TYPE, \
             SCHEDULER_MSG + f' but got {colorstr(self.scheduler_type)}'
-        assert all([d in LOG_DATA for d in self.config.log_data]), \
-            SCHEDULER_MSG + f' but got {colorstr(self.scheduler_type)}'
         self.is_update_per_epoch = True if self.optimizer_step_criterion == 'epoch' else False
-        self.training_log_data = {d: [] for d in self.config.log_data}
-        if self.is_update_per_epoch:
-            self.training_log_data['epoch'] = []
-        else:
-            self.training_log_data['step'] = []
 
         # save the yaml config
         if self.is_rank_zero and self.mode == 'train':
@@ -86,9 +82,11 @@ class Trainer:
             self.config.save_dir = str(self.save_dir)
             yaml_save(self.save_dir / 'args.yaml', self.config)  # save run args
         
-        # init model, dataset, dataloader
+        # init model, dataset, dataloader, etc.
         self.modes = ['train', 'validation'] if self.mode == 'train' else ['validation']
         self.model, self.tokenizer = self._init_model(self.config, self.mode)
+        self.evaluator = Evaluator(self.tokenizer)
+        self.training_logger = TrainingLogger(self.config)
         self.dataloaders = get_data_loader(self.config, self.tokenizer, self.modes, self.is_ddp)
         if self.use_huggingface_trainer:
             self.do_train = self.huggingface_trainer
@@ -111,7 +109,8 @@ class Trainer:
             self.scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lf)
             self.scheduler.last_epoch = self.start_epoch - 1  # do not move
             if self.is_rank_zero and self.train_verbose:
-                draw_training_lr_curve(self.config, self.lf, all_steps_n, self.warmup_steps_n)
+                draw_training_lr_curve(self.config, self.lf, all_steps_n, self.warmup_steps_n, self.is_ddp, self.world_size)
+            self.stop = False
 
 
     def _init_model(self, config, mode):
@@ -157,13 +156,13 @@ class Trainer:
         
     def do_train(self) -> None:
         self.train_time_start = time.time()
-        self.nb = len(self.dataloaders['train'])  # number of batches
-        self.world_size = len(self.config.device) if self.is_ddp else 1
         if not self.is_update_per_epoch:
-            self.epochs = math.ceil(self.steps / self.nb / self.world_size)  # adjust number of epochs 
-        LOGGER.info(f'Using {self.dataloaders["train"].num_workers * (self.world_size or 1)} dataloader workers\n'
-                    f"Logging results to {colorstr('bold', self.save_dir)}\n"
-                    f'Starting training for {self.epochs} epochs...\n')
+            self.epochs = math.ceil(self.steps / len(self.dataloaders['train']))
+        
+        if self.is_rank_zero:
+            LOGGER.info(f'Using {self.dataloaders["train"].num_workers * (self.world_size or 1)} dataloader workers\n'
+                        f"Logging results to {colorstr('bold', self.save_dir)}\n"
+                        f'Starting training for {self.epochs} epochs...\n')
 
         if self.is_ddp:
             dist.barrier()
@@ -181,11 +180,10 @@ class Trainer:
 
                 if phase == 'train':
                     self.epoch_train(phase, epoch)
+                    # if self.is_rank_zero:
+                    #     save_model(str(self.save_dir / 'model.pt'), self.model.state_dict())
                     if self.is_ddp:
                         dist.barrier()
-                    
-                    save_model(str(self.save_dir / 'model.pt'), self.model.state_dict())
-                
                 else:
                     self.epoch_validate(phase, epoch)
                     if self.is_ddp:
@@ -223,38 +221,29 @@ class Trainer:
                     phase: str,
                     epoch: int
         ):
-
         self.model.train()
-        epoch_loss = 0
         train_loader = self.dataloaders[phase]
+        nb = len(train_loader)
+        
         if self.is_ddp:
             train_loader.sampler.set_epoch(epoch)
 
         # init progress bar
         if RANK in (-1, 0):
-            pbar = init_train_progress_bar(train_loader, self.is_rank_zero, self.loss_names, self.nb)
+            pbar = init_train_progress_bar(train_loader, self.is_rank_zero, self.loss_names, nb)
     
         # training loop
         self.optimizer.zero_grad()
         for i, batch in pbar:
             # Warmup
-            cur_step = epoch if self.is_update_per_epoch else i + self.nb * epoch
+            cur_step = epoch if self.is_update_per_epoch else i + nb * epoch
             if cur_step <= self.warmup_steps_n:
                 self.optimizer.param_groups[0]['lr'] = lr_warmup(cur_step, self.warmup_steps_n, self.lr0, self.lf)
             
             with torch.cuda.amp.autocast(self.amp):
-                src_tok, src_mask = batch['src'].to(self.device), batch['src_attention_mask'].to(self.device)
-                trg_tok = batch['trg'].to(self.device) if 'trg' in batch else None
-                trg_mask = batch['trg_attention_mask'].to(self.device) if 'trg_attention_mask' in batch else None
-                label = batch['label'].to(self.device) if 'label' in batch else None
-                    
-                batch_size = src_tok.size(0)
-                _, loss = self.model(
-                    (src_tok, src_mask), 
-                    (trg_tok, trg_mask),
-                    label,
-                    return_loss=True
-                )
+                batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+                batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
+                _, loss = self.model(batch, return_loss=True)
             
             # backward and optimizer step
             self.scaler.scale(loss).backward() if self.amp else loss.backward()
@@ -264,22 +253,21 @@ class Trainer:
 
             # logging if update criterion is step
             if RANK in (-1, 0) and self.is_rank_zero:
-                epoch_loss += loss.item() * batch_size
+                self.training_logger.update(batch_size, **{'train_loss': loss.item(), 'lr': self.optimizer.param_groups[0]['lr']})
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                 loss_log = [loss.item()]
                 msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log)
                 pbar.set_description(('%15s' * 2 + '%15.4g' * len(loss_log)) % msg)
-                if not self.is_update_per_epoch:
-                    self.logging(cur_step, loss.item())
                 
             # break if step is over when the update criterion is step
-            if not self.is_update_per_epoch:
-                if cur_step == self.steps:
-                    break
+            if not self.is_update_per_epoch and cur_step == self.steps:
+                break
+            
+            if i == 10:
+                break
 
-        # logging if update criterion is epoch
-        epoch_loss = epoch_loss / len(train_loader.dataset)
-        self.logging(epoch, epoch_loss)
+        # upadate logs
+        self.training_logger.update_phase_end()
         
         # scheduler step if update criterion is epoch
         if self.is_update_per_epoch:
@@ -290,11 +278,16 @@ class Trainer:
                        phase: str,
                        epoch: int
         ):
+        def _get_val_pbar(dloader, nb):
+            header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics + ['Instances', 'Size'])
+            LOGGER.info(('\n' + '%15s' * (4 + len(self.loss_names) + len(self.metrics))) % header)
+            return TQDM(enumerate(dloader), total=nb)
+
         with torch.no_grad():
             if RANK in (-1, 0) and self.is_rank_zero:
                 val_loader = self.dataloaders[phase]
-                pbar = init_train_progress_bar(val_loader, self.is_rank_zero, self.loss_names, self.nb)
-                epoch_loss = 0
+                nb = len(val_loader)
+                pbar = _get_val_pbar(val_loader, nb)
 
                 # is ema attributes updating really necessary?
                 if self.ema:
@@ -305,74 +298,59 @@ class Trainer:
                 model.eval()
 
                 # validation loop
-                for i, batch in enumerate(pbar):
-                    cur_step = epoch if self.is_update_per_epoch else i + self.nb * epoch
+                for i, batch in pbar:
+                    if self.config.validation_step_interval and i % self.config.validation_step_interval != 0:
+                        continue                    
 
-                    src_tok, src_mask = batch['src'].to(self.device), batch['src_attention_mask'].to(self.device)
-                    trg_tok = batch['trg'].to(self.device) if 'trg' in batch else None
-                    trg_mask = batch['trg_attention_mask'].to(self.device) if 'trg_attention_mask' in batch else None
-                    label = batch['label'].to(self.device) if 'label' in batch else None
-                        
-                    batch_size = src_tok.size(0)
-                    _, loss = self.model(
-                        (src_tok, src_mask), 
-                        (trg_tok, trg_mask),
-                        label,
-                        return_loss=True
-                    )
+                    cur_step = epoch if self.is_update_per_epoch else i + nb * epoch
+
+                    batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+                    batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
+                    _, loss = self.model(batch, return_loss=True)
+
+                    # preparing for model evaluation
+                    inference_batch_size = min(batch_size, self.config.fast_validation_n) if self.config.fast_validation_n else batch_size
+                    user_prompt = batch['user_prompt'][:inference_batch_size] if 'user_prompt' in batch else batch['src'][:inference_batch_size]
+                    response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
+                    response_pred = self.model.inference(user_prompt, max_length=self.config.max_length, num_return_sequences=1, greedy=True)
+
+                    # evaluation and logging
+                    metric_results = self.metric_evaluation(loss, response_pred, response_gt)
+                    self.training_logger.update(inference_batch_size, **{'validation_loss': loss.item()})
+                    self.training_logger.update(inference_batch_size, **metric_results)
 
                     # logging
-                    epoch_loss += loss.item() * batch_size    
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                     loss_log = [loss.item()]
-                    msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log)
-                    pbar.set_description(('%15s' * 2 + '%15.4g' * len(loss_log)) % msg)
-                    if not self.is_update_per_epoch:
-                        self.logging(cur_step, loss.item(), 'validation')
+                    msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
+                    pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
+        
+        # upadate logs
+        self.training_logger.update_phase_end()
 
-                    # inference
-                    if not query_end_loc == None:
-                        for j, loc in enumerate(query_end_loc.tolist()):
-                            gt_seq = self.tokenizer.decode(src_tok[j][loc:].tolist())
-                            pred_seq = self.tokenizer.decode(self.model.generate(src_tok[j][:loc].unsqueeze(0), max_length=self.config.max_length, greedy=True)[0].tolist())
-                            print(f'GT: {gt_seq.replace(self.tokenizer.pad_token, "")}')
-                            print('-'*100)
-                            print(f'Pred: {pred_seq}')
-                            print('/n'*2)
+                            
 
+    def metric_evaluation(self, loss, response_pred, response_gt):
+        metric_results = {k: 0 for k in self.metrics}
+        for m in self.metrics:
+            if m == 'ppl':
+                metric_results[m] = self.evaluator.cal_ppl(loss.item())
+            elif m == 'bleu':
+                metric_results[m] = self.evaluator.cal_bleu_score(response_pred, response_gt)
+            elif m == 'rouge':
+                metric_results[m] = self.evaluator.cal_rouge_score(response_pred, response_gt, n=None)
+            elif m == 'meteor':
+                metric_results[m] = self.evaluator.cal_meteor_score(response_pred, response_gt)
+            elif m == 'edit_distance':
+                metric_results[m] = self.evaluator.cal_edit_distance(response_pred, response_gt)
+            else:
+                LOGGER.warning(f'{colorstr("red", "Invalid key")}: {m}')
+        
+        return metric_results
+    
+        
+    
 
-
-                    
-
-                # stats = [self.det_metrics[i].finalize_valiation(i, dt, val_loader) for i in range(len(preds))]
-                # model.float()
-
-                # self.fitness = 0
-                # all_metrics = {}
-                # for i in range(len(preds)):
-                #     self.fitness += stats[i].pop('fitness', -self.loss[i].detach().cpu().numpy())  # use loss as fitness measure if not found
-                #     results = {k+f'({i})': v for k, v in stats[i].items()}
-                #     results.update({**label_loss_items(self.loss_names[i*3:(i+1)*3], self.loss[i].cpu() / len(val_loader), prefix='val')})
-                #     metrics = {k: round(float(v), 5) for k, v in results.items()}
-                #     all_metrics.update(metrics)
-                    
-                # if not self.best_fitness or self.best_fitness < self.fitness:
-                #     self.best_fitness = self.fitness
-
-                # self.save_metrics(
-                #     metrics={
-                #         **label_loss_items(
-                #             self.loss_names,
-                #             torch.cat([loss if loss != None else torch.zeros(self.loss_len[i]).to(self.device) for i, loss in enumerate(self.tlosses)])
-                #         ), 
-                #         **all_metrics,
-                #         **self.lr}
-                # )
-                # self.stop = self.stopper(epoch + 1, self.fitness)
-
-                # # Save model
-                # if self.config.save or (epoch + 1 == self.epochs):
-                #     self.save_model()
             
 
     def save_metrics(self, metrics):
@@ -423,12 +401,6 @@ class Trainer:
                 #     self.metrics.pop('fitness', None)
                 #     self.run_callbacks('on_fit_epoch_end')
     
-
-    def logging(self, cur_step, loss, state='train'):
-        self.training_log_data['lr'].append(self.optimizer.param_groups[0]['lr'])
-        self.training_log_data[f'{state}_loss'].append(loss)
-        self.training_log_data['step'].append(cur_step)
-
 
     def huggingface_trainer(self):
         import pandas as pd
