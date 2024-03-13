@@ -36,7 +36,7 @@ epochs: 300
 warmup_epochs: 0
 steps: 15000
 warmup_steps: 300
-optimizer_step_criterion: 'epoch'   # ['epoch', 'step']
+optimizer_step_criterion: 'step'   # ['epoch', 'step']
 lr0: 5e-4
 lrf: 0.001      # last_lr = lr0 * lrf
 scheduler_type: 'cosine'   # ['linear', 'cosine']

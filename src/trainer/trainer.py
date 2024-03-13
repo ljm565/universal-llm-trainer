@@ -1,13 +1,6 @@
-import os
 import time
 import math
-import warnings
-import numpy as np
 import transformers
-from tqdm import tqdm
-from pathlib import Path
-from copy import deepcopy
-from datetime import datetime
 
 import torch
 import torch.nn as nn
@@ -63,7 +56,6 @@ class Trainer:
         self.batch_size = self.config.batch_size
         self.save_dir = make_project_dir(self.config, self.is_rank_zero)
         self.wdir = self.save_dir / 'weights'
-        self.last, self.best = self.wdir / 'last.pt', self.wdir / 'best.pt'
         self.config.is_rank_zero = self.is_rank_zero
         self.loss_names = ['cross_entropy']
         self.train_verbose = self.config.train_verbose
@@ -204,16 +196,9 @@ class Trainer:
                 print('\n'*2)
 
         if RANK in (-1, 0) and self.is_rank_zero:
-            # Do final val with best.pt
             LOGGER.info(f'\n{epoch - self.start_epoch + 1} epochs completed in '
                         f'{(time.time() - self.train_time_start) / 3600:.3f} hours.')
             
-            self.final_eval()
-            if self.trainer_plots:
-                plot_results(file=self.csv, function_num=self.config.function_num, on_plot=self.on_plot)  # save results.png
-        
-        torch.cuda.empty_cache()
-
 
     def epoch_train(self, 
                     phase: str,
@@ -261,9 +246,6 @@ class Trainer:
             if not self.is_update_per_epoch and cur_step == self.steps:
                 break
             
-            if i == 10:
-                break
-
         # upadate logs
         self.training_logger.update_phase_end(printing=True)
         
@@ -323,14 +305,12 @@ class Trainer:
                     msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
                     pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
 
-        # if self.is_rank_zero:
-        #     save_model(str(self.save_dir / 'model.pt'), self.model.state_dict())
-        
-        # upadate logs
-        self.training_logger.update_phase_end(printing=True)
+                # upadate logs and save model
+                self.training_logger.update_phase_end(printing=True)
+                self.training_logger.save_model(self.wdir, epoch, self.model)
+                print()
 
                             
-
     def metric_evaluation(self, loss, response_pred, response_gt):
         metric_results = {k: 0 for k in self.metrics}
         for m in self.metrics:
@@ -348,59 +328,6 @@ class Trainer:
                 LOGGER.warning(f'{colorstr("red", "Invalid key")}: {m}')
         
         return metric_results
-    
-        
-    
-
-            
-
-    def save_metrics(self, metrics):
-        """Saves training metrics to a CSV file."""
-        keys, vals = list(metrics.keys()), list(metrics.values())
-        n = len(metrics) + 1  # number of cols
-        s = '' if self.csv.exists() else (('%23s,' * n % tuple(['epoch'] + keys)).rstrip(',') + '\n')  # header
-        with open(self.csv, 'a') as f:
-            f.write(s + ('%23.5g,' * n % tuple([self.epoch + 1] + vals)).rstrip(',') + '\n')
-
-
-    # def save_model(self):
-    #     """Save model training checkpoints with additional metadata."""
-    #     import pandas as pd  # scope for faster startup
-    #     metrics = {**self.metrics, **{'fitness': self.fitness}}
-    #     results = {k.strip(): v for k, v in pd.read_csv(self.csv).to_dict(orient='list').items()}
-    #     ckpt = {
-    #         'epoch': self.epoch,
-    #         'best_fitness': self.best_fitness,
-    #         'model': deepcopy(de_parallel(self.model)).half(),
-    #         'ema': deepcopy(self.ema.ema).half(),
-    #         'updates': self.ema.updates,
-    #         'optimizer': self.optimizer.state_dict(),
-    #         'train_args': self.config,  # save as dict
-    #         'train_metrics': metrics,
-    #         'train_results': results,
-    #         'date': datetime.now().isoformat(),
-    #         'version': __version__}
-
-        # Save last and best
-        torch.save(ckpt, self.last)
-        if self.best_fitness == self.fitness:
-            torch.save(ckpt, self.best)
-        if (self.save_period > 0) and (self.epoch > 0) and (self.epoch % self.save_period == 0):
-            torch.save(ckpt, self.wdir / f'epoch{self.epoch}.pt')
-
-
-    def final_eval(self):
-        """Performs final evaluation and validation for object detection YOLO model."""
-        for f in self.last, self.best:
-            if f.exists():
-                strip_optimizer(f)  # strip optimizers
-
-                # if f is self.best:
-                #     LOGGER.info(f'\nValidating {f}...')
-                #     self.validator.args.plots = self.args.plots
-                #     self.metrics = self.validator(model=f)
-                #     self.metrics.pop('fitness', None)
-                #     self.run_callbacks('on_fit_epoch_end')
     
 
     def huggingface_trainer(self):
