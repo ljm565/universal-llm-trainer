@@ -26,9 +26,9 @@ class TrainingLogger:
                 self.tmp_log_data[k].append(v)
             else:
                 LOGGER.warning(f'{colorstr("red", "Invalid key")}: {k}')
-                
+
     
-    def update_phase_end(self):
+    def update_phase_end(self, printing=False):
         for k, v in self.tmp_log_data.items():
             if len(v) > 0:
                 if self.log_data['logging_step'] == 'epoch':
@@ -40,6 +40,15 @@ class TrainingLogger:
                 else:
                     self.log_data[k] += self.tmp_log_data[k]
         
+        if printing:
+            msg = []
+            for k, v in self.tmp_log_data.items():
+                if not k in ['lr'] and len(v) > 0:
+                    if self.log_data['logging_step'] == 'epoch':
+                        msg.append(f'{k}={self.log_data[k][-1]:.4f}')
+                    else:
+                        msg.append(f'{k}={sum([b*d for b, d in zip(self.batch_sizes, v)]) / sum(self.batch_sizes):.4f}')
+            LOGGER.info(colorstr('green', 'bold', ', '.join(msg)))
         self.tmp_log_data = self._init()
         self.batch_sizes = []
         

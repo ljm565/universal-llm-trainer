@@ -11,18 +11,13 @@ from utils.filesys_utils import json_load
 
 
 class Chatter:
-    def __init__(
-            self, 
-            config,
-            model_path,
-            device,
-        ):
-        # init
+    def __init__(self, config, model_path, device):
         self.device = torch.device(device)
         self.config = config
         self.model, self.tokenizer = self._init_model(self.config)
         checkpoints = torch.load(model_path, map_location=self.device)
         self.model.load_state_dict(checkpoints['model'])
+        self.model.eval()
         self.template = json_load('data/koalpaca_easy/templates/template1.json')
 
 
@@ -54,10 +49,6 @@ class Chatter:
                 break
             if char == self.tokenizer.pad_token:
                 break
-            # if char == '<|endoftext|>':
-            #     break
-            # if char == '#':
-            #     break
 
             asyncio.run(self.print_one_by_one(char))
         return src_tok
@@ -67,16 +58,14 @@ class Chatter:
         print(char, end='', flush=True)
         await asyncio.sleep(0.1)
 
-    
 
     def do_chat(self):
         LOGGER.info(colorstr('Start chatting...'))
-        LOGGER.info(f"You can {colorstr('ignore discription')} by pressing Enter.")
+        LOGGER.info(f"You can {colorstr('ignore description')} by pressing Enter.")
         LOGGER.info(f"Press {colorstr('Ctrl+C')} to exit.")
         LOGGER.warning(colorstr('red', 'Only alpaca style is supported.\n'))
         warmup = True
         
-        self.model.eval()
         with torch.no_grad():   
             # chat
             while True:
@@ -89,13 +78,13 @@ class Chatter:
                     continue
                     
                 instruction = input('Instruction: ')
-                discription = input('Discription: ')
-                if not discription:
+                description = input('Description: ')
+                if not description:
                     template = random.choice(self.template['prompt_no_input'])
                     user_prompt = template.format(instruction=instruction)
                 else:
                     template = random.choice(self.template['prompt_input'])
-                    user_prompt = template.format(instruction=instruction, input=discription)
+                    user_prompt = template.format(instruction=instruction, input=description)
                 
                 # tokenize
                 user_prompt_tokens = torch.tensor(self.tokenizer.encode(user_prompt), dtype=torch.long).to(self.device).unsqueeze(0)
@@ -122,9 +111,4 @@ class Chatter:
             response = response.split('###')[0]
         if '#' in response:
             response = response.split('#')[0]
-        return response
-
-
-
-                
-            
+        return response   

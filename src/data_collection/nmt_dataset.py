@@ -63,7 +63,7 @@ class NMTDataset(Dataset):
         max_n = 200000
         interv = len(data) // max_n if len(data) > max_n else 1
         if interv > 1:
-            LOGGER.warning(f'Length of {colorstr(len(data))} is too long. Approximately {colorstr(len(data) // interv)} samples will be used to calculate statistics.')
+            LOGGER.warning(f"Length of {colorstr('yellow', len(data))} is too long. Approximately {colorstr('yellow', len(data) // interv)} samples will be used to calculate statistics.")
         length = [len(self.tokenizer.encode(data[i])) for i in tqdm(range(0, len(data), interv)) if isinstance(data[i], str)]
         max_length = max(length)
         min_length = min(length)

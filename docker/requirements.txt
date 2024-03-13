@@ -7,4 +7,7 @@ datasets==2.16.1
 easynmt==2.0.2
 matplotlib==3.7.1
 nltk==3.8.1
-rouge-score==0.1.2
+rouge==1.0.1
+streamlit==1.21.0
+aiohttp==3.8.4
+python-socketio==5.11.1

@@ -180,8 +180,6 @@ class Trainer:
 
                 if phase == 'train':
                     self.epoch_train(phase, epoch)
-                    # if self.is_rank_zero:
-                    #     save_model(str(self.save_dir / 'model.pt'), self.model.state_dict())
                     if self.is_ddp:
                         dist.barrier()
                 else:
@@ -202,7 +200,7 @@ class Trainer:
                 break  # must break all DDP ranks
             
             if self.is_rank_zero:
-                print(f"epoch {epoch+1} time: {time.time() - start} s\n")
+                print(f"\nepoch {epoch+1} time: {time.time() - start} s\n")
                 print('\n'*2)
 
         if RANK in (-1, 0) and self.is_rank_zero:
@@ -267,7 +265,7 @@ class Trainer:
                 break
 
         # upadate logs
-        self.training_logger.update_phase_end()
+        self.training_logger.update_phase_end(printing=True)
         
         # scheduler step if update criterion is epoch
         if self.is_update_per_epoch:
@@ -324,9 +322,12 @@ class Trainer:
                     loss_log = [loss.item()]
                     msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
                     pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
+
+        # if self.is_rank_zero:
+        #     save_model(str(self.save_dir / 'model.pt'), self.model.state_dict())
         
         # upadate logs
-        self.training_logger.update_phase_end()
+        self.training_logger.update_phase_end(printing=True)
 
                             
 
