@@ -1,4 +1,5 @@
 import os
+import pickle
 
 from .model_manager import ModelManager
 from utils import LOGGER, colorstr
@@ -64,7 +65,7 @@ class TrainingLogger:
         self.batch_sizes = []
 
     
-    def delete_model(self, save_dir, flag):
+    def delete_file(self, save_dir, flag):
         file = list(filter(lambda x: flag in x, os.listdir(save_dir)))
         if len(file) > 0:
             os.remove(os.path.join(save_dir, file[0]))
@@ -78,15 +79,21 @@ class TrainingLogger:
         lower_flag, higher_flag = self.model_manager.update_best(self.tmp_log_data_per_epoch)
 
         if lower_flag:
-            self.delete_model(save_dir, 'loss')
-            model_path = os.path.join(save_dir, f'model_{epoch+1}_loss_best.pt')
+            self.delete_file(save_dir, 'loss')
+            model_path = os.path.join(save_dir, f'model_epoch:{epoch+1}_loss_best.pt')
             self.model_manager.save(model, model_path, self.tmp_log_data_per_epoch)
 
         if higher_flag:
-            self.delete_model(save_dir, 'metric')
-            model_path = os.path.join(save_dir, f'model_{epoch+1}_metric_best.pt')
+            self.delete_file(save_dir, 'metric')
+            model_path = os.path.join(save_dir, f'model_epoch:{epoch+1}_metric_best.pt')
             self.model_manager.save(model, model_path, self.tmp_log_data_per_epoch)
         
-        self.delete_model(save_dir, 'last')
-        model_path = os.path.join(save_dir, f'model_{epoch+1}_last_best.pt')
+        self.delete_file(save_dir, 'last')
+        model_path = os.path.join(save_dir, f'model_epoch:{epoch+1}_last_best.pt')
         self.model_manager.save(model, model_path, self.tmp_log_data_per_epoch)
+
+    
+    def save_logs(self, save_dir):
+        self.delete_file(save_dir, 'log_data')
+        with open(os.path.join(save_dir, 'log_data.pkl'), 'wb') as f:
+            pickle.dump(self.log_data, f)

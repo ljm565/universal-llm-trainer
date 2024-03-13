@@ -308,7 +308,7 @@ class Trainer:
                 # upadate logs and save model
                 self.training_logger.update_phase_end(printing=True)
                 self.training_logger.save_model(self.wdir, epoch, self.model)
-                print()
+                self.training_logger.save_logs(self.save_dir)
 
                             
     def metric_evaluation(self, loss, response_pred, response_gt):
