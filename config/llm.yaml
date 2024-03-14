@@ -20,7 +20,7 @@ half_inference: False
 # data config
 max_length: 256
 add_eos_token_when_respose_end: True
-data_verbose: False
+data_verbose: True
 
 # tokenizer config (I recommend to double check the tokenizer's specila token map)
 pad_token_id: 0       # if null, tokenizer pad_token_id will not be overrided

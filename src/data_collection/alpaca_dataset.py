@@ -77,14 +77,14 @@ class AlpacaDataset(Dataset):
     def generate_prompt(self, idx):
         single_data = self.data[idx]
         template = random.choice(self.templates)
-        response = single_data['output']
-        if single_data['input'] == '':
+        response = single_data['output'][0]
+        if len(single_data['input']) == 0:
             template = random.choice(template['prompt_no_input'])
-            instruction = single_data['instruction']
+            instruction = single_data['instruction'][0]
             user_prompt = template.format(instruction=instruction)
         else:
             template = random.choice(template['prompt_input'])
-            instruction, input = single_data['instruction'], single_data['input']
+            instruction, input = single_data['instruction'][0], single_data['input'][0]
             user_prompt = template.format(instruction=instruction, input=input)
 
         user_prompt_tokens = self.tokenizer.encode(user_prompt)
