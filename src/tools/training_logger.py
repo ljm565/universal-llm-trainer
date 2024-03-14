@@ -57,8 +57,8 @@ class TrainingLogger:
             msg = []
             for k, v in self.tmp_log_data_per_epoch.items():
                 if not k in ['lr'] and len(v) > 0:
-                    msg.append(f'{k}={self.log_data[k][-1]:.4f}')
-            LOGGER.info(colorstr('green', 'bold', ', '.join(msg)))
+                    msg.append(f'{k}={self.tmp_log_data_per_epoch[k][-1]:.4f}')
+            LOGGER.info(f"{colorstr('green', 'bold', ', '.join(msg))}\n")
 
         # reset
         self.tmp_log_data = self._init()

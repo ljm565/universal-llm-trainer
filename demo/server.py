@@ -14,9 +14,9 @@ from src.trainer import Chatter
 from src.utils import LOGGER
 
 
-model_dir = 'outputs/llm/llm_test/'
+model_dir = 'outputs/llm/llm_test2/'
 config = Config(os.path.join(model_dir, 'args.yaml'))
-model_path = os.path.join(model_dir, 'model.pt')
+model_path = os.path.join(model_dir, 'weights/model_epoch:2_last_best.pt')
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 chatter = Chatter(config, model_path, device)
 
