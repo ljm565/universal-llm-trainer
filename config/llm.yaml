@@ -9,7 +9,7 @@ model_size: 10b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b 
 data_path: ['data/koalpaca_easy']
 
 # project config
-project: outputs/llm
+project: outputs/llm_easy
 name: llm_test
 
 # environment config
@@ -20,7 +20,7 @@ half_inference: False
 # data config
 max_length: 256
 add_eos_token_when_respose_end: True
-data_verbose: True
+data_verbose: False
 
 # tokenizer config (I recommend to double check the tokenizer's specila token map)
 pad_token_id: 0       # if null, tokenizer pad_token_id will not be overrided
@@ -44,7 +44,7 @@ momentum: 0.9
 weight_decay: 0.0
 warmup_momentum: 0.8
 early_stop_criterion: 50
-workers: 0
+workers: 8
 amp_training: False
 ema_updating: False
 train_verbose: True

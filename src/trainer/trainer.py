@@ -48,7 +48,7 @@ class Trainer:
         self.amp = True if self.config.amp_training else False
         self.ema = self.config.ema_updating
         self.epochs = self.config.epochs
-        self.steps = math.ceil(self.config.steps / self.world_size)
+        self.steps = self.config.steps
         self.optimizer_step_criterion = self.config.optimizer_step_criterion
         self.scheduler_type = self.config.scheduler_type
         self.metrics = self.config.metrics

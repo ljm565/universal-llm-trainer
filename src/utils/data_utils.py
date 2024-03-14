@@ -20,9 +20,7 @@ def seed_worker(worker_id):  # noqa
 def choose_proper_dataset(dataset_name):
     if 'arc' in dataset_name.lower():
         return ARCDataset
-    elif 'sharegpt' in dataset_name.lower():
-        return AlpacaDataset
-    elif 'koalpaca_easy' in dataset_name.lower():
+    elif dataset_name.lower() in ['koalpaca_easy', 'koalpaca_hard', 'sharegpt']:
         return AlpacaDataset
     else:
         raise NotImplementedError
