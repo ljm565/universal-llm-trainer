@@ -238,7 +238,7 @@ class Trainer:
 
             # logging if update criterion is step
             if RANK in (-1, 0) and self.is_rank_zero:
-                self.training_logger.update(phase, self.train_cur_step, batch_size, **{'epoch': epoch, 'train_loss': loss.item(), 'lr': cur_lr})
+                self.training_logger.update(phase, epoch+1, self.train_cur_step, batch_size, **{'train_loss': loss.item(), 'lr': cur_lr})
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                 loss_log = [loss.item()]
                 msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log)
@@ -248,12 +248,12 @@ class Trainer:
             if not self.is_update_per_epoch and self.train_cur_step == self.steps:
                 break
 
-            # # validataion
-            # if self.train_cur_step != 0 and self.train_cur_step % self.config.validation_step_interval == 0:
-            #     self.epoch_validate('validation', epoch)
-            #     self.model.train()
-            #     if self.is_ddp:
-            #         dist.barrier()
+            # validataion
+            if self.train_cur_step != 0 and self.train_cur_step % self.config.validation_step_interval == 0:
+                self.epoch_validate('validation', epoch)
+                self.model.train()
+                if self.is_ddp:
+                    dist.barrier()
             
         # upadate logs
         self.training_logger.update_phase_end(printing=True)
@@ -299,8 +299,7 @@ class Trainer:
 
                     # evaluation and logging
                     metric_results = self.metric_evaluation(loss, response_pred, response_gt)
-                    self.training_logger.update(phase, self.train_cur_step, inference_batch_size, **{'validation_loss': loss.item()})
-                    self.training_logger.update(phase, self.train_cur_step, inference_batch_size, **metric_results)
+                    self.training_logger.update(phase, epoch, self.train_cur_step, inference_batch_size, **{'validation_loss': loss.item()}, **metric_results)
 
                     # logging
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
