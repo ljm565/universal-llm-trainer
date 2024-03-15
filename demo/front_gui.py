@@ -1,3 +1,4 @@
+import re
 import streamlit as st
 
 from async_request import main
@@ -7,14 +8,14 @@ st.title('Chatting')
 st.text('\n')
 st.text('\n')
 st.markdown('<b>Instruction</b>', unsafe_allow_html=True)
-instruction = st.text_input('', key='instruction')
-st.markdown('<b>Description</b>', unsafe_allow_html=True)
-description = st.text_input('', key='description')
-st.text('\n')
-st.text('\n')
+instruction = st.text_area('', key='instruction')
 
+instruction = re.sub(r'\n+', '\n', instruction)
+instructions = instruction.split('\n')
+instruction = instructions[0].strip()
+description = '\n'.join(instructions[1:]).strip()
 
-if st.button('Send'):
+if instruction:
     with st.spinner("processing..."):
         url = ['http://127.0.0.1:8502']
 

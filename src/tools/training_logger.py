@@ -1,6 +1,8 @@
 import os
 import pickle
 
+from torch.utils.tensorboard import SummaryWriter
+
 from .model_manager import ModelManager
 from utils import LOGGER, colorstr
 
@@ -16,17 +18,27 @@ class TrainingLogger:
         if config.is_rank_zero:
             LOGGER.info(f'{colorstr("Logging data")}: {[k for k in self.log_data.keys()]}')
         self.model_manager = ModelManager()
+        self.tensorboard_logging_interval = config.tensorboard_logging_interval
+        self.writer = SummaryWriter(log_dir=config.save_dir)
 
 
     def _init(self):
         return {k: [] for k in self.log_keys}
     
+
+    def _update_tensorboard(self, phase, step, tag, scalar_value):
+        if phase == 'train' and step % self.tensorboard_logging_interval == 0:
+            self.writer.add_scalar(tag, scalar_value, step)
+        else:
+            self.writer.add_scalar(tag, scalar_value, step)
     
-    def update(self, batch_size, **kwargs):
+    
+    def update(self, phase, step, batch_size, **kwargs):
         self.batch_sizes.append(batch_size)
         for k, v in kwargs.items():
             if k in self.tmp_log_data:
                 self.tmp_log_data[k].append(v)
+                self._update_tensorboard(phase, step, k, v)
             else:
                 LOGGER.warning(f'{colorstr("red", "Invalid key")}: {k}')
 

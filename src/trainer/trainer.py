@@ -219,9 +219,11 @@ class Trainer:
         self.optimizer.zero_grad()
         for i, batch in pbar:
             # Warmup
-            cur_step = epoch if self.is_update_per_epoch else i + nb * epoch
-            if cur_step <= self.warmup_steps_n:
-                self.optimizer.param_groups[0]['lr'] = lr_warmup(cur_step, self.warmup_steps_n, self.lr0, self.lf)
+            self.train_cur_step = i + nb * epoch
+            warmup_step_or_epoch = epoch if self.is_update_per_epoch else self.train_cur_step
+            if warmup_step_or_epoch <= self.warmup_steps_n:
+                self.optimizer.param_groups[0]['lr'] = lr_warmup(warmup_step_or_epoch, self.warmup_steps_n, self.lr0, self.lf)
+            cur_lr = self.optimizer.param_groups[0]['lr']
             
             with torch.cuda.amp.autocast(self.amp):
                 batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
@@ -236,15 +238,22 @@ class Trainer:
 
             # logging if update criterion is step
             if RANK in (-1, 0) and self.is_rank_zero:
-                self.training_logger.update(batch_size, **{'train_loss': loss.item(), 'lr': self.optimizer.param_groups[0]['lr']})
+                self.training_logger.update(phase, self.train_cur_step, batch_size, **{'epoch': epoch, 'train_loss': loss.item(), 'lr': cur_lr})
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                 loss_log = [loss.item()]
                 msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log)
                 pbar.set_description(('%15s' * 2 + '%15.4g' * len(loss_log)) % msg)
                 
             # break if step is over when the update criterion is step
-            if not self.is_update_per_epoch and cur_step == self.steps:
+            if not self.is_update_per_epoch and self.train_cur_step == self.steps:
                 break
+
+            # # validataion
+            # if self.train_cur_step != 0 and self.train_cur_step % self.config.validation_step_interval == 0:
+            #     self.epoch_validate('validation', epoch)
+            #     self.model.train()
+            #     if self.is_ddp:
+            #         dist.barrier()
             
         # upadate logs
         self.training_logger.update_phase_end(printing=True)
@@ -269,20 +278,14 @@ class Trainer:
                 nb = len(val_loader)
                 pbar = _get_val_pbar(val_loader, nb)
 
-                # is ema attributes updating really necessary?
-                if self.ema:
-                    self.ema.update_attr(self.model, include=['yaml', 'nc', 'args', 'names', 'stride', 'class_weights'])
-                                
                 model = self.ema.ema or self.model if self.ema else self.model
                 model = model.half() if self.config.half_inference else model.float()
                 model.eval()
 
                 # validation loop
                 for i, batch in pbar:
-                    if self.config.validation_step_interval and i % self.config.validation_step_interval != 0:
+                    if self.config.fast_validation_step_interval and i % self.config.fast_validation_step_interval != 0:
                         continue                    
-
-                    cur_step = epoch if self.is_update_per_epoch else i + nb * epoch
 
                     batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                     batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
@@ -296,8 +299,8 @@ class Trainer:
 
                     # evaluation and logging
                     metric_results = self.metric_evaluation(loss, response_pred, response_gt)
-                    self.training_logger.update(inference_batch_size, **{'validation_loss': loss.item()})
-                    self.training_logger.update(inference_batch_size, **metric_results)
+                    self.training_logger.update(phase, self.train_cur_step, inference_batch_size, **{'validation_loss': loss.item()})
+                    self.training_logger.update(phase, self.train_cur_step, inference_batch_size, **metric_results)
 
                     # logging
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)

@@ -14,9 +14,9 @@ from src.trainer import Chatter
 from src.utils import LOGGER
 
 
-model_dir = 'outputs/llm/llm_test2/'
+model_dir = 'outputs/llm_easy/llm_test3/'
 config = Config(os.path.join(model_dir, 'args.yaml'))
-model_path = os.path.join(model_dir, 'weights/model_epoch:2_last_best.pt')
+model_path = os.path.join(model_dir, 'weights/model_epoch:1_loss_best.pt')
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 chatter = Chatter(config, model_path, device)
 
@@ -28,9 +28,11 @@ class Server(BaseHTTPRequestHandler):
         instruction, description = message['instruction'], message['description']
 
         if description == '':
+            LOGGER.info('no discription')
             template = random.choice(chatter.template['prompt_no_input'])
             user_prompt = template.format(instruction=instruction)
         else:
+            LOGGER.info('discription')
             template = random.choice(chatter.template['prompt_input'])
             user_prompt = template.format(instruction=instruction, input=description)
         
