@@ -10,19 +10,16 @@ from utils import LOGGER, colorstr
 
 class TrainingLogger:
     def __init__(self, config):
-        self.log_data = {'step': [], 'epoch': [], 'batch_size': []}
+        self.log_data = {'step': [], 'epoch': []}
         self.log_keys = config.common + config.metrics
         self.log_data.update({k: [] for k in self.log_keys})
-        self.val_batch_sizes = []
+        self.train_batch_sizes, self.val_batch_sizes = [], []
+        self.st = 0
         if config.is_rank_zero:
             LOGGER.info(f'{colorstr("Logging data")}: {self.log_keys}')
         self.model_manager = ModelManager()
         self.tensorboard_logging_interval = config.tensorboard_logging_interval
         self.writer = SummaryWriter(log_dir=config.save_dir)
-
-
-    def _record(self, _dict, key, value):
-        _dict[key] = value
     
 
     def _update_tensorboard(self, phase, step, tag, scalar_value):
@@ -38,9 +35,8 @@ class TrainingLogger:
         if phase == 'train':
             self.log_data['step'].append(step)
             self.log_data['epoch'].append(epoch)
-            self.log_data['batch_size'].append(batch_size)
+            self.train_batch_sizes.append(batch_size)
             self._update_tensorboard(phase, step, 'epoch', epoch)
-
             for k in self.log_keys:
                 if k in kwargs:
                     self.log_data[k].append(kwargs[k])
@@ -57,72 +53,61 @@ class TrainingLogger:
                     else:
                         self.log_data[k][step] = [kwargs[k]]
 
-        aaa = 1
+
+    def update_phase_end(self, phase, printing=False):
+        if phase == 'train':
+            train_epoch_result = {}
+            for k, v in self.log_data.items():
+                if k == 'train_loss':
+                    train_epoch_result[k] = sum([b*vv for b, vv in zip(self.train_batch_sizes[self.st:], v[self.st:])]) / sum(self.train_batch_sizes[self.st:])
+            self.st += len(self.train_batch_sizes)
+            self.train_batch_sizes = []
+        else:
+            self.validation_epoch_result = {}
+            for k, v in self.log_data.items():
+                if isinstance(v[-1], list):
+                    assert len(self.val_batch_sizes) == len(v[-1])
+                    v[-1] = sum([b*vv for b, vv in zip(self.val_batch_sizes, v[-1])]) / sum(self.val_batch_sizes)
+                    self.validation_epoch_result[k] = v[-1]
+                    self._update_tensorboard(phase, self.log_data['step'][-1], k, v[-1])
+            self.val_batch_sizes = []
             
-    
-    # def update_phase_end(self, printing=False):
-    #     def _make_step_logs_to_epoch_logs(logs):
-    #         # calculate epoch average exept for lr
-    #         tmp_log_data_per_epoch = {}
-    #         for k, v in logs.items():
-    #             if len(v) > 0:
-    #                 if k in ['lr']:
-    #                     tmp_log_data_per_epoch[k] = [v[0]]
-    #                 else:
-    #                     tmp_log_data_per_epoch[k] = [sum([b*d for b, d in zip(self.batch_sizes, v)]) / sum(self.batch_sizes)]
-    #             else:
-    #                 tmp_log_data_per_epoch[k] = []
-    #         return tmp_log_data_per_epoch
+        if printing:
+            result = train_epoch_result if phase == 'train' else self.validation_epoch_result
+            msg = [f'{k}={v:.4f}' for k, v in result.items()]
+            LOGGER.info(f"{colorstr('green', 'bold', ', '.join(msg))}\n")
 
-    #     self.tmp_log_data_per_epoch = _make_step_logs_to_epoch_logs(self.tmp_log_data)
-    #     for k, v in self.tmp_log_data.items():
-    #         if len(v) > 0:
-    #             if self.log_data['logging_step'] == 'epoch':
-    #                 self.log_data[k] += self.tmp_log_data_per_epoch[k]
-    #             else:
-    #                 self.log_data[k] += self.tmp_log_data[k]
+    
+    def delete_file(self, save_dir, flag):
+        file = list(filter(lambda x: flag in x, os.listdir(save_dir)))
+        if len(file) > 0:
+            os.remove(os.path.join(save_dir, file[0]))
+
+
+    def save_model(self, save_dir, model):
+        if not hasattr(self, 'validation_epoch_result') or len(self.validation_epoch_result) == 0:
+            LOGGER.warning(f'{colorstr("red", "No log data to save")}')
+            return
+
+        epoch, step = self.log_data['epoch'][-1], self.log_data['step'][-1]
+        lower_flag, higher_flag = self.model_manager.update_best(self.validation_epoch_result)
+
+        if lower_flag:
+            self.delete_file(save_dir, 'loss')
+            model_path = os.path.join(save_dir, f'model_epoch:{epoch}_step:{step}_loss_best.pt')
+            self.model_manager.save(model, model_path, self.validation_epoch_result)
+
+        if higher_flag:
+            self.delete_file(save_dir, 'metric')
+            model_path = os.path.join(save_dir, f'model_epoch:{epoch}_step:{step}_metric_best.pt')
+            self.model_manager.save(model, model_path, self.validation_epoch_result)
         
-    #     if printing:
-    #         msg = []
-    #         for k, v in self.tmp_log_data_per_epoch.items():
-    #             if not k in ['lr'] and len(v) > 0:
-    #                 msg.append(f'{k}={self.tmp_log_data_per_epoch[k][-1]:.4f}')
-    #         LOGGER.info(f"{colorstr('green', 'bold', ', '.join(msg))}\n")
-
-    #     # reset
-    #     self.tmp_log_data = self._init()
-    #     self.batch_sizes = []
+        self.delete_file(save_dir, 'last')
+        model_path = os.path.join(save_dir, f'model_epoch:{epoch}_step:{step}_last_best.pt')
+        self.model_manager.save(model, model_path, self.validation_epoch_result)
 
     
-    # def delete_file(self, save_dir, flag):
-    #     file = list(filter(lambda x: flag in x, os.listdir(save_dir)))
-    #     if len(file) > 0:
-    #         os.remove(os.path.join(save_dir, file[0]))
-
-
-    # def save_model(self, save_dir, epoch, model):
-    #     if not hasattr(self, 'tmp_log_data_per_epoch'):
-    #         LOGGER.warning(f'{colorstr("red", "No log data to save")}')
-    #         return
-
-    #     lower_flag, higher_flag = self.model_manager.update_best(self.tmp_log_data_per_epoch)
-
-    #     if lower_flag:
-    #         self.delete_file(save_dir, 'loss')
-    #         model_path = os.path.join(save_dir, f'model_epoch:{epoch+1}_loss_best.pt')
-    #         self.model_manager.save(model, model_path, self.tmp_log_data_per_epoch)
-
-    #     if higher_flag:
-    #         self.delete_file(save_dir, 'metric')
-    #         model_path = os.path.join(save_dir, f'model_epoch:{epoch+1}_metric_best.pt')
-    #         self.model_manager.save(model, model_path, self.tmp_log_data_per_epoch)
-        
-    #     self.delete_file(save_dir, 'last')
-    #     model_path = os.path.join(save_dir, f'model_epoch:{epoch+1}_last_best.pt')
-    #     self.model_manager.save(model, model_path, self.tmp_log_data_per_epoch)
-
-    
-    # def save_logs(self, save_dir):
-    #     self.delete_file(save_dir, 'log_data')
-    #     with open(os.path.join(save_dir, 'log_data.pkl'), 'wb') as f:
-    #         pickle.dump(self.log_data, f)
+    def save_logs(self, save_dir):
+        self.delete_file(save_dir, 'log_data')
+        with open(os.path.join(save_dir, 'log_data.pkl'), 'wb') as f:
+            pickle.dump(self.log_data, f)

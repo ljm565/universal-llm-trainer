@@ -95,8 +95,3 @@ def init_train_progress_bar(dloader, is_rank_zero, loss_names, nb):
     else:
         pbar = enumerate(dloader)
     return pbar
-
-
-def save_model(path, model_state_dict):
-    state = {'model': model_state_dict}
-    torch.save(state, path)
