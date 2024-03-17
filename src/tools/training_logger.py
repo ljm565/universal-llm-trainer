@@ -41,6 +41,7 @@ class TrainingLogger:
                 if k in kwargs:
                     self.log_data[k].append(kwargs[k])
                     self._update_tensorboard(phase, step, k, kwargs[k])
+                # validation log data
                 else:
                     self.log_data[k].append(None)
         # validation case
