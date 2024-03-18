@@ -15,6 +15,7 @@ name: llm_test
 # environment config
 device: [0]
 bit: 8
+load_unnecessary_half: False
 half_inference: False
 
 # data config
@@ -56,6 +57,6 @@ peft_config_path: config/llm_lora_config.yaml   # if False, training without pef
 common: ['train_loss', 'validation_loss', 'lr']               # ['train_loss', 'validation_loss', 'lr']
 metrics: ['ppl', 'bleu', 'rouge', 'edit_distance', 'meteor']  # ['ppl', 'bleu', 'edit_distance', 'rouge', 'meteor']  # TODO: CIDEr 추가
 fast_validation_n: 1                                          # [null, 1, 2, ...], Only the number of data of the set value is evaluated per step
-fast_validation_step_interval: 50                                  # [null, 1, 2, ...], if null, all validation steps will be executed
-validation_step_interval: 20
+fast_validation_step_interval: 200                            # [null, 1, 2, ...], if null, all validation steps will be executed
+validation_step_interval_prop: 0.3                            # setting between 0 and 1 values
 tensorboard_logging_interval: 1

@@ -27,15 +27,16 @@ class ModelManager:
     def update_best(self, epoch_log_data):
         lower_candidates = self.select_keys(epoch_log_data, higher_better=False)
         higher_candidates = self.select_keys(epoch_log_data, higher_better=True)
-        cur_lower = sum([epoch_log_data[candidate][-1] * self.lower_candidates_weights[candidate] for candidate in lower_candidates]) if len(lower_candidates) > 0 else None
-        cur_higher = sum([epoch_log_data[candidate][-1] * self.higher_candidates_weights[candidate] for candidate in higher_candidates]) if len(higher_candidates) > 0 else None
+        cur_lower = sum([epoch_log_data[candidate] * self.lower_candidates_weights[candidate] for candidate in lower_candidates]) if len(lower_candidates) > 0 else None
+        cur_higher = sum([epoch_log_data[candidate] * self.higher_candidates_weights[candidate] for candidate in higher_candidates]) if len(higher_candidates) > 0 else None
 
         # update best
         lower_update_flag, higher_update_flag = False, False
         if self.is_init:
             self.best_lower, self.best_higher = cur_lower, cur_higher
             self.is_init = False
-            lower_update_flag, higher_update_flag = True, True
+            lower_update_flag = True if self.best_lower is not None else False
+            higher_update_flag = True if self.best_higher is not None else False
         else:
             if (cur_lower is not None and 
                 self.best_lower is not None and 
@@ -55,7 +56,7 @@ class ModelManager:
     def select_keys(self, epoch_log_data, higher_better=True):
         if higher_better:
             candidates = self.higher_candidates_weights.keys()
-            return [candidate for candidate in candidates if candidate in epoch_log_data and len(epoch_log_data[candidate]) > 0]
+            return [candidate for candidate in candidates if candidate in epoch_log_data and epoch_log_data[candidate] != None]
         else:
             candidates = self.lower_candidates_weights.keys()
-            return [candidate for candidate in candidates if candidate in epoch_log_data and len(epoch_log_data[candidate]) > 0]
+            return [candidate for candidate in candidates if candidate in epoch_log_data and epoch_log_data[candidate] != None]

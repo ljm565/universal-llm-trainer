@@ -1,5 +1,3 @@
-import random
-
 import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM
@@ -15,16 +13,20 @@ class KoAlpaca(nn.Module):
         super(KoAlpaca, self).__init__()
         self.model_path = choose_proper_model(config)
         self.device = device
+        self.load_unnecessary_half = config.load_unnecessary_half
         self.set_bit(config.bit)
 
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path, 
             load_in_4bit=self.is4bit,
             load_in_8bit=self.is8bit,
-            torch_dtype=torch.float16 if self.is16bit else torch.float32,
+            torch_dtype=torch.float16 if self.load16bit else torch.float32,
             device_map=self.device,
             low_cpu_mem_usage=True,
         )
+        if self.load16bit:
+            self.mapping_neccessary_32bit()
+
         self.tokenizer = KoAlpacaTokenizer(config, self.model_path)
 
         if config.is_rank_zero:
@@ -41,8 +43,18 @@ class KoAlpaca(nn.Module):
             self.is8bit = True
         elif bit == 16:
             self.is16bit = True
+            raise AssertionError('16bit is not supported yet')
         else:
             self.is32bit = True
+
+        self.load16bit = True if self.is16bit or self.load_unnecessary_half else False
+
+    
+    def mapping_neccessary_32bit(self):
+        for param in self.model.parameters():
+            if param.ndim == 1:
+                # cast the small parameters (e.g. layernorm) to fp32 for stability
+                param.data = param.data.to(torch.float32)
     
 
     def _init_criterion(self):

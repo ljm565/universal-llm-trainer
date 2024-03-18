@@ -45,7 +45,7 @@ class Trainer:
         self.is_rank_zero = True if not self.is_ddp or (self.is_ddp and device == 0) else False
         self.config = config
         self.world_size = len(self.config.device) if self.is_ddp else 1
-        self.amp = True if self.config.amp_training else False
+        self.amp = True if self.config.amp_training or self.config.load_unnecessary_half else False
         self.ema = self.config.ema_updating
         self.epochs = self.config.epochs
         self.steps = self.config.steps
@@ -207,6 +207,7 @@ class Trainer:
         self.model.train()
         train_loader = self.dataloaders[phase]
         nb = len(train_loader)
+        validation_step_interval = int(self.config.validation_step_interval_prop * nb)
         
         if self.is_ddp:
             train_loader.sampler.set_epoch(epoch)
@@ -249,7 +250,7 @@ class Trainer:
                 break
 
             # validataion
-            if self.train_cur_step != 0 and self.train_cur_step % self.config.validation_step_interval == 0:
+            if self.train_cur_step != 0 and self.train_cur_step % validation_step_interval == 0 and self.config.validation_step_interval_prop != 1:
                 self.epoch_validate('validation', epoch, middle_validation=True)
                 self.model.train()
                 if self.is_ddp:
@@ -270,11 +271,11 @@ class Trainer:
                        middle_validation=False
         ):
         def _get_val_pbar(dloader, nb, middle_validation):
-            if not middle_validation:
-                header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics + ['Instances', 'Size'])
-                LOGGER.info(('\n' + '%15s' * (4 + len(self.loss_names) + len(self.metrics))) % header)
-                return TQDM(enumerate(dloader), total=nb)
-            return enumerate(dloader)
+            # if not middle_validation:
+            header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics + ['Instances', 'Size'])
+            LOGGER.info(('\n' + '%15s' * (4 + len(self.loss_names) + len(self.metrics))) % header)
+            return TQDM(enumerate(dloader), total=nb)
+            # return enumerate(dloader)
 
         with torch.no_grad():
             if RANK in (-1, 0) and self.is_rank_zero:
@@ -306,14 +307,14 @@ class Trainer:
                     self.training_logger.update(phase, epoch, self.train_cur_step, inference_batch_size, **{'validation_loss': loss.item()}, **metric_results)
 
                     # logging
-                    if not middle_validation:
-                        mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-                        loss_log = [loss.item()]
-                        msg = tuple([f'{epoch+1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
-                        pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
+                    # if not middle_validation:
+                    mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
+                    loss_log = [loss.item()]
+                    msg = tuple([f'{epoch+1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
+                    pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
 
                 # upadate logs and save model
-                self.training_logger.update_phase_end(phase, printing=middle_validation==False)
+                self.training_logger.update_phase_end(phase, printing=True)
                 self.training_logger.save_model(self.wdir, self.model)
                 self.training_logger.save_logs(self.save_dir)
 
