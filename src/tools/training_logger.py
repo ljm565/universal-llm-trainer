@@ -17,9 +17,9 @@ class TrainingLogger:
         self.st = 0
         if config.is_rank_zero:
             LOGGER.info(f'{colorstr("Logging data")}: {self.log_keys}')
+            self.writer = SummaryWriter(log_dir=config.save_dir)
         self.model_manager = ModelManager()
         self.tensorboard_logging_interval = config.tensorboard_logging_interval
-        self.writer = SummaryWriter(log_dir=config.save_dir)
     
 
     def _update_tensorboard(self, phase, step, tag, scalar_value):
