@@ -11,3 +11,4 @@ rouge==1.0.1
 streamlit==1.21.0
 aiohttp==3.8.4
 python-socketio==5.11.1
+tensorboard==2.11.2
