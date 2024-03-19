@@ -88,9 +88,8 @@ def lr_warmup(cur_step, warmup_steps_n, lr0, func):
 def init_train_progress_bar(dloader, is_rank_zero, loss_names, nb):
     if is_rank_zero:
         header = tuple(['Epoch', 'GPU_mem'] + \
-                loss_names + \
-                ['Instances', 'Size'])
-        LOGGER.info(('\n' + '%15s' * (4 + len(loss_names))) % header)
+                loss_names)
+        LOGGER.info(('\n' + '%15s' * (2 + len(loss_names))) % header)
         pbar = TQDM(enumerate(dloader), total=nb)
     else:
         pbar = enumerate(dloader)

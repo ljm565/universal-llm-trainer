@@ -272,8 +272,8 @@ class Trainer:
         ):
         def _get_val_pbar(dloader, nb, middle_validation):
             # if not middle_validation:
-            header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics + ['Instances', 'Size'])
-            LOGGER.info(('\n' + '%15s' * (4 + len(self.loss_names) + len(self.metrics))) % header)
+            header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics)
+            LOGGER.info(('\n' + '%15s' * (2 + len(self.loss_names) + len(self.metrics))) % header)
             return TQDM(enumerate(dloader), total=nb)
             # return enumerate(dloader)
 
