@@ -12,6 +12,7 @@ from trainer import Trainer, Chatter
 def env_setup():
     os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
     os.environ['CUDA_DEVICE_ORDER'] = "PCI_BUS_ID"
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 def load_config(config_path):

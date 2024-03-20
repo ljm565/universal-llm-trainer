@@ -60,7 +60,7 @@ class TrainingLogger:
             train_epoch_result = {}
             for k, v in self.log_data.items():
                 if k == 'train_loss':
-                    train_epoch_result[k] = sum([b*vv for b, vv in zip(self.train_batch_sizes[self.st:], v[self.st:])]) / sum(self.train_batch_sizes[self.st:])
+                    train_epoch_result[k] = sum([b*vv for b, vv in zip(self.train_batch_sizes, v[self.st:])]) / sum(self.train_batch_sizes)
             self.st += len(self.train_batch_sizes)
             self.train_batch_sizes = []
         else:

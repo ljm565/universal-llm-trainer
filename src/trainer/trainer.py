@@ -148,6 +148,7 @@ class Trainer:
         
     def do_train(self) -> None:
         self.train_time_start = time.time()
+        self.train_cur_step = -1
         if not self.is_update_per_epoch:
             self.epochs = math.ceil(self.steps / len(self.dataloaders['train']))
         
@@ -220,7 +221,7 @@ class Trainer:
         self.optimizer.zero_grad()
         for i, batch in pbar:
             # Warmup
-            self.train_cur_step = i + nb * epoch
+            self.train_cur_step += 1
             warmup_step_or_epoch = epoch if self.is_update_per_epoch else self.train_cur_step
             if warmup_step_or_epoch <= self.warmup_steps_n:
                 self.optimizer.param_groups[0]['lr'] = lr_warmup(warmup_step_or_epoch, self.warmup_steps_n, self.lr0, self.lf)
