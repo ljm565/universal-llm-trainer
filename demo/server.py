@@ -14,9 +14,9 @@ from src.trainer import Chatter
 from src.utils import LOGGER
 
 
-model_dir = 'outputs/llm_easy/llm_test3/'
+model_dir = 'outputs/llm_hard/llm_test/'
 config = Config(os.path.join(model_dir, 'args.yaml'))
-model_path = os.path.join(model_dir, 'weights/model_epoch:1_loss_best.pt')
+model_path = os.path.join(model_dir, 'weights/model_epoch:1_step:37491_metric_best.pt')
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 chatter = Chatter(config, model_path, device)
 
@@ -39,10 +39,10 @@ class Server(BaseHTTPRequestHandler):
         # tokenize and post
         user_prompt_tokens = torch.tensor(chatter.tokenizer.encode(user_prompt), dtype=torch.long).to(chatter.device).unsqueeze(0)
         response = chatter.generate_custom(user_prompt_tokens, max_length=256, num_return_sequences=1, greedy=True)
+        
         response = chatter.tokenizer.decode(response[0].tolist())
         response = response.split(chatter.template['response_split'])[-1]
         response = chatter.output_pp(response)
-        response = ' '.join(response.split())
 
         message['response'] = response
         
