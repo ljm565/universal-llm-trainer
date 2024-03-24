@@ -25,6 +25,7 @@ class AlpacaDataset(Dataset):
         self.data = data
         self.tokenizer = tokenizer
         self.pad_token_id = self.tokenizer.pad_token_id
+        self.generate_prompt = self.generate_prompt_multi_turn if config.is_multi_turn else self.generate_prompt_single_turn
         
         # read data and template
         template_paths = [p for p in filter(lambda x: x.startswith('template'), os.listdir(template_dir))]
@@ -74,7 +75,7 @@ class AlpacaDataset(Dataset):
         return length, max_length, min_length, avg_length
 
 
-    def generate_prompt(self, idx):
+    def generate_prompt_single_turn(self, idx):
         single_data = self.data[idx]
         template = random.choice(self.templates)
         response = single_data['output'][0]
@@ -91,6 +92,55 @@ class AlpacaDataset(Dataset):
         response_tokens = self.tokenizer.encode(response)
         full_prompt_tokens = user_prompt_tokens + response_tokens
         label = [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+
+        assert len(full_prompt_tokens) == len(label), \
+            f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(label)}'
+        
+        return full_prompt_tokens, label, user_prompt, response
+    
+
+    def generate_prompt_multi_turn(self, idx):
+        single_data = self.data[idx]
+        template = random.choice(self.templates)
+        if len(single_data['instruction']) < 2:
+            return self.generate_prompt_single_turn(idx)
+        
+        # multi-turn sanity check
+        full_prompt, full_prompt_tokens, label = '', [], []
+        responses = single_data['output']
+        instructions = single_data['instruction']
+        assert len(responses) == len(instructions), f'Length of instruction and response are not same: {len(instructions)}, {len(responses)}'
+
+        # conversation template
+        no_input_template = random.choice(template['prompt_no_input'])
+        guidance_template = no_input_template.split('### Instruction')[0]
+        dialogue_template = '### Instruction' + no_input_template.split('### Instruction')[-1]
+        
+        if len(single_data['input']) == 0:
+            for i, (instruction, response) in enumerate(zip(instructions, responses)):
+                response_end = '' if i == len(instructions) - 1 else '\n' + self.tokenizer.sep_token
+                user_prompt = guidance_template + dialogue_template.format(instruction=instruction) if i == 0 else dialogue_template.format(instruction=instruction)
+                response = response + response_end
+                
+                user_prompt_tokens = self.tokenizer.encode(user_prompt)
+                response_tokens = self.tokenizer.encode(response)
+                
+                full_prompt += user_prompt + response     
+                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+        else:
+            template = random.choice(template['prompt_input'])
+            for i, (instruction, response) in enumerate(zip(instructions, responses)):
+                response_end = '' if i == len(instructions) - 1 else '\n' + self.tokenizer.sep_token
+                user_prompt = template.format(instruction=instruction, input=single_data['input'][0]) if i == 0 else dialogue_template.format(instruction=instruction)
+                response = response + response_end
+            
+                user_prompt_tokens = self.tokenizer.encode(user_prompt)
+                response_tokens = self.tokenizer.encode(response)
+                
+                full_prompt += user_prompt + response
+                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+
+        full_prompt_tokens = self.tokenizer.encode(full_prompt)
 
         assert len(full_prompt_tokens) == len(label), \
             f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(label)}'
@@ -133,78 +183,3 @@ class AlpacaDataset(Dataset):
 
     def __len__(self):
         return self.length
-    
-
-
-# def huggingface_arc_generator(single_data, templates, responses, instructions, tokenizer):
-#     def _mapping_data(text, data, instruction_type):
-#         tmp_dict = {}
-#         matches = re.findall(r'\{([^}]+)\}', text)      # find all texts inside the braces
-#         for match in matches:
-#             tmp = data
-#             for key in match.split('.'):
-#                 tmp = tmp[key]
-#             tmp_dict[match] = tmp
-#         if instruction_type == 'response':
-#             text = text.format(**tmp_dict)
-#         elif instruction_type == 'instruction':
-#             choices = ''
-#             for i, (l, t) in enumerate(zip(tmp_dict['choices.label'], tmp_dict['choices.text'])):
-#                 if i == len(tmp_dict['choices.label']) - 1:
-#                     choices += f'{l}. {t}'
-#                 else:
-#                     choices += f'{l}. {t}\n'
-#             text = text.replace('{question}', tmp_dict['question'])
-#             text = text.replace('{choices.label} {choices.text}', choices)
-#         else:
-#             AssertionError(f'Invalid instruction type: {instruction_type}')
-#         return text
-    
-#     def random_choice(texts, data):
-#         indices = list(range(len(texts)))
-#         while 1:
-#             if len(indices) == 0:
-#                 LOGGER.warning(f'All texts are invalid. Randomly select one text.')
-#                 return None
-#             idx = random.choice(indices)
-#             if _check_valid_format(texts[idx], data):
-#                 return texts[idx]
-#             indices.remove(idx)
-
-#     def _check_valid_format(text, data):
-#         matches = re.findall(r'\{([^}]+)\}', text)      # find all texts inside the braces
-#         for match in matches:
-#             tmp = data
-#             for key in match.split('.'):
-#                 if key not in tmp:
-#                     return False
-#                 tmp = tmp[key]
-#         return True
-    
-#     def _generate_prompt():
-#         template = random.choice(templates)
-#         response = random_choice(responses, single_data)
-#         instruction = random_choice(instructions, single_data)
-
-#         # mapping instruction, response and template
-#         response = single_data['answerKey'] if not response else _mapping_data(response, single_data, 'response')
-#         instruction = single_data['question'] if not instruction else _mapping_data(instruction, single_data, 'instruction')
-#         template = template.format(instruction=instruction, response=response, eos_token=tokenizer.eos_token)
-
-#         # find location to be masked
-#         query_end_loc = 0
-#         template = template.split('<<<masking_area>>>')
-#         if len(template) != 2:
-#             return template, query_end_loc
-#         query_end_loc = len(tokenizer.encode(template[0]))
-#         template = template[0] + template[1]
-#         return template, query_end_loc
-    
-#     # for k in data.keys():
-
-#     template, query_end_loc = _generate_prompt()
-#     template = tokenizer(template)
-#     del template['token_type_ids']
-    
-#     return template
-

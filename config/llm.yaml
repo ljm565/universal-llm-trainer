@@ -6,10 +6,10 @@ model: koalpaca
 model_size: 10b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
-data_path: ['data/koalpaca_easy']
+data_path: ['data/koalpaca_hard']
 
 # project config
-project: outputs/llm_easy
+project: outputs/llm_hard
 name: llm_test
 
 # environment config
@@ -19,16 +19,17 @@ load_unnecessary_half: False
 half_inference: False
 
 # data config
-max_length: 256
+max_length: 1024
+is_multi_turn: True
 add_eos_token_when_respose_end: True
-data_verbose: False
+data_verbose: True
 
 # tokenizer config (I recommend to double check the tokenizer's specila token map)
 pad_token_id: 0       # if null, tokenizer pad_token_id will not be overrided
 bos_token_id: null    # if null, tokenizer bos_token_id will not be overrided
 eos_token_id: 1       # if null, tokenizer eos_token_id will not be overrided
 cls_token_id: null    # if null, tokenizer cls_token_id will not be overrided
-sep_token_id: null    # if null, tokenizer sep_token_id will not be overrided
+sep_token_id: 3       # if null, tokenizer sep_token_id will not be overrided
 unk_token_id: null    # if null, tokenizer unk_token_id will not be overrided
 
 # training config
