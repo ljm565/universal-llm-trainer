@@ -5,3 +5,4 @@ __pycache__/
 *.ipynb
 test.py
 *.whl
+*.DS_store
