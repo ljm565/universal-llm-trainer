@@ -74,6 +74,7 @@
                     <p>
                         <br>Response
                     </p>
+                    <div id="status"></div>
                     <div id="response"></div>
                     <p>
                         <br>
@@ -92,9 +93,11 @@
 
             const textarea = document.getElementById('instructions');
             const responseDiv = document.getElementById('response');
+            const statusDiv = document.getElementById('status');
             let socket = null;
+            let status = null;
 
-            socket = connectWebSocket();
+            socket, status = connectWebSocket(statusDiv);
 
             textarea.addEventListener('keydown', function(event) {
                 if (event.ctrlKey && event.key === 'Enter') {
@@ -110,9 +113,6 @@
                     };
                 }
             });
-
-
-
         </script>
     </body>
 </html>

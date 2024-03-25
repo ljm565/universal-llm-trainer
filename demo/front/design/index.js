@@ -113,21 +113,25 @@ function detectScroll(){
 }
 
 
-function connectWebSocket() {
-    socket = new WebSocket('ws://localhost:8000/ws/stream');
+function connectWebSocket(statusDiv) {
+    var status = false;
+    socket = new WebSocket('ws://localhost:8502/ws/stream');
 
     socket.onopen = function(event) {
+        status = true;
         console.log('WebSocket connected');
+        statusDiv.innerHTML = '';
     };
-
+    
     socket.onerror = function(event) {
         console.error('WebSocket error:', event);
     };
 
-    // 서버로부터 메시지를 받았을 때 실행할 함수
-    socket.onmessage = function(event) {
-        responseDiv.innerHTML += event.data;
-    };
+    // status update
+    if (status === false) {
+        statusDiv.innerHTML = 'Failed to connect to the server';
+        $('#status').css('color', 'red');
+    }
 
-    return socket
+    return socket, status;
 }

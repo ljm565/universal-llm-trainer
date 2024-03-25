@@ -5,12 +5,13 @@
 
 ## 실행 방법
 * 서버 실행
-```
+```bash
 python3 demo/server.py
 ```
 <br>
+
 * 화면 실행
-```
-streamlit run demo/front_gui.py
+```bash
+cd demo/front && python3 -m http.server {$PORT}
 ```
 <br>
