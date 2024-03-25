@@ -29,7 +29,7 @@ pad_token_id: 0       # if null, tokenizer pad_token_id will not be overrided
 bos_token_id: null    # if null, tokenizer bos_token_id will not be overrided
 eos_token_id: 1       # if null, tokenizer eos_token_id will not be overrided
 cls_token_id: null    # if null, tokenizer cls_token_id will not be overrided
-sep_token_id: 3       # if null, tokenizer sep_token_id will not be overrided
+sep_token_id: null    # if null, tokenizer sep_token_id will not be overrided
 unk_token_id: null    # if null, tokenizer unk_token_id will not be overrided
 
 # training config

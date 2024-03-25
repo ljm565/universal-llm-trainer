@@ -118,9 +118,9 @@ class AlpacaDataset(Dataset):
         
         if len(single_data['input']) == 0:
             for i, (instruction, response) in enumerate(zip(instructions, responses)):
-                response_end = '' if i == len(instructions) - 1 else '\n' + self.tokenizer.sep_token
+                response_end = '' if i == len(instructions) - 1 else self.tokenizer.eos_token + '\n\n'
                 user_prompt = guidance_template + dialogue_template.format(instruction=instruction) if i == 0 else dialogue_template.format(instruction=instruction)
-                response = response + response_end
+                response = response + response_end if response[-1] != '\n' else response[:-1] + response_end
                 
                 user_prompt_tokens = self.tokenizer.encode(user_prompt)
                 response_tokens = self.tokenizer.encode(response)
@@ -130,9 +130,9 @@ class AlpacaDataset(Dataset):
         else:
             template = random.choice(template['prompt_input'])
             for i, (instruction, response) in enumerate(zip(instructions, responses)):
-                response_end = '' if i == len(instructions) - 1 else '\n' + self.tokenizer.sep_token
+                response_end = '' if i == len(instructions) - 1 else self.tokenizer.eos_token + '\n\n'
                 user_prompt = template.format(instruction=instruction, input=single_data['input'][0]) if i == 0 else dialogue_template.format(instruction=instruction)
-                response = response + response_end
+                response = response + response_end if response[-1] != '\n' else response[:-1] + response_end
             
                 user_prompt_tokens = self.tokenizer.encode(user_prompt)
                 response_tokens = self.tokenizer.encode(response)
