@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>LLM Test Page</title>
+        <meta name="description" content="구글 드라이브를 통해 웹 페이지에 이미지를 URL로 불러와서 띄워주는 방법을 설명합니다.">
+        <meta charset="utf-8">
+        <link rel="stylesheet" href="design/index.css">
+        <link rel="stylesheet" href="design/contents.css">
+
+        <link rel="preconnect" href="https://fonts.googleapis.com"> 
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> 
+        <link href="https://fonts.googleapis.com/css2?family=Dongle:wght@300&display=swap" rel="stylesheet">
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR&display=swap" rel="stylesheet">
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang&display=swap" rel="stylesheet">
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic&display=swap" rel="stylesheet">
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+        <script src="design/index.js"></script>
+        <script src="design/jquery.pjax.js"></script>
+        
+        <meta name="viewport" content="width=device-width, initial-scale=0.8, max-width=1">
+
+        <meta property="og:title" content="LLM Test Page" />
+        <meta property="og:image" content="design/index_img/background.jpg" />
+    </head>   
+    <body>
+        <div id="modeButton">
+            <button type="button" value="dark" onclick="darkMode(this)" onmouseover="hoveringOn(this)" onmouseout="hoveringOff(this)">
+                <div class="modeImg"><img id="modeImg" src="design/index_img/moon_off.png"></div>
+                <div id="modeState">다크 모드로 보기</div>
+            </button>
+        </div>
+
+        <div id="container" onclick="reload();">
+            <article>
+                <div id="mainHeadWrapper">
+                    <div id="mainHead">
+                        <h1 class="contentHead">LLM Test Page</h1>
+                    </div>
+                </div>
+                
+                <div class="title" style="background-image:url(design/index_img/background.jpg);"></div>
+
+                <div id="content">
+                    
+                    <p>
+                        Write <span class="highlight" style="color: rgb(0, 3, 206);">"Instruction"</span> or <span class="highlight" style="color: rgb(0, 3, 206);">"Instruction" + "Description"</span>
+
+                        <br>For example:
+                        <ol>
+                            <li>Instruction-only case</li>
+                            <ul>
+                                <li>너는 삶이 힘들 때 어떻게 해?</li>
+                                <li>여름 휴가 장소 추천해줘</li>
+                            </ul>
+                            <li>Instruction + Description case (Description은 enter로 구분)</li>
+                            <ul>
+                                <li>아래 문구 영어로 번역해줘<br>나는 스위스로 휴가를 떠날거야</li>
+                                <li>아래 글 요약해줘<br>(글 내용)</li>
+                            </ul>
+                        </ol>
+                        
+                        <textarea id="instructions" rows="10" style="width:100%;" placeholder="Press ctrl+enter to send messages"></textarea>                        
+                    </p>
+                    <p>
+                        <br>Response
+                    </p>
+                    <div id="status"></div>
+                    <div id="response"></div>
+                    <p>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                    </p>
+                </div> 
+            </article>
+        </div>
+
+
+        <script>
+            detectScroll();
+
+            const textarea = document.getElementById('instructions');
+            const responseDiv = document.getElementById('response');
+            const statusDiv = document.getElementById('status');
+            let socket = null;
+            let status = null;
+
+            socket, status = connectWebSocket(statusDiv);
+
+            textarea.addEventListener('keydown', function(event) {
+                if (event.ctrlKey && event.key === 'Enter') {
+                    event.preventDefault(); // 기본 동작인 줄 바꿈 방지
+                    const message = textarea.value; 
+                    console.log(message);
+                    socket.send(message);
+
+                    const responseDiv = document.getElementById('response');
+                    responseDiv.innerHTML = ''
+                    socket.onmessage = function(event) {
+                        responseDiv.innerHTML += event.data;
+                    };
+                }
+            });
+        </script>
+    </body>
+</html>

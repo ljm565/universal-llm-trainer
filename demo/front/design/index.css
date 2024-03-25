@@ -1,0 +1,56 @@
+html, body{
+    font-family: 'Gowun Batang', serif;
+    font-size: 15px;
+    margin: 0;
+    height: 100%;
+}
+
+
+article{
+    overflow: auto;
+}
+#container{
+    height: 100%;
+}
+
+
+#mainHeadWrapper{
+    width: 100%;
+    margin-bottom: 99.5px;
+}
+#mainHead{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 2;
+}
+
+
+#modeButton button{
+    background-color: rgb(224, 224, 224);
+    color: black;
+    width: 150px;
+    height: 30px;
+    border: none;
+    border-radius:1em;
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 4;
+}
+#modeButton .modeImg{
+    margin-bottom: 0;
+    display: inline-block;
+}
+#modeButton #modeImg{
+    height: 15px;
+    padding-right: 3px;
+    padding-bottom: 2px;
+    vertical-align: middle;
+}
+#modeButton #modeState{
+    position: relative;
+    font-family: 'Noto Sans KR', sans-serif;
+    display: inline-block;
+}
