@@ -1,5 +1,4 @@
 import os
-import re
 import random
 from tqdm import tqdm
 import matplotlib.pyplot as plt

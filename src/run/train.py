@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 import torch
 
-from trainer import Trainer, Chatter
+from trainer import Trainer
 
 
 def env_setup():
@@ -56,24 +56,15 @@ def multi_gpu_train(gpu, ngpus_per_node, config, args):
         trainer.do_train()
 
 
-def chat(args):
-    config = load_config(os.path.join(args.saved_model_dir, 'args.yaml'))
-    model_path = os.path.join(args.saved_model_dir, 'model.pt')
-    device = torch.device('cpu') if args.device == 'cpu' else torch.device(f'cuda:{args.device}')
-    chatter = Chatter(config, model_path, device)
-    chatter.do_chat()
-
-
-
-    
 
 
 
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-c', '--config', type=str, required=False)
-    parser.add_argument('-m', '--mode', type=str, required=True, choices=['train', 'chat'])
+    parser.add_argument('-m', '--mode', type=str, required=True, choices=['train', 'resume'])
     parser.add_argument('-p', '--saved_model_dir', type=str, required=False)
+    parser.add_argument('-s', '--status', type=str, default='metric', required=False, choices=['metric', 'loss', 'last'])
     parser.add_argument('-d', '--device', type=str, required=False)
     parser.add_argument('--use_huggingface_trainer', action='store_true')
     args = parser.parse_args()
@@ -81,9 +72,5 @@ if __name__ == '__main__':
     if args.mode == 'train':
         assert args.config, 'config file is required for training'
         main(args)
-    elif args.mode == 'chat':
-        assert args.saved_model_dir, 'saved_model_dir is required for chat'
-        assert args.device, 'device is required for chat, you can choose cpu or gpu number like 0,1,2,3'
-        chat(args)
 
     
