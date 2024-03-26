@@ -118,34 +118,46 @@ class AlpacaDataset(Dataset):
         
         if len(single_data['input']) == 0:
             for i, (instruction, response) in enumerate(zip(instructions, responses)):
-                response_end = '' if i == len(instructions) - 1 else self.tokenizer.eos_token + '\n\n'
+                is_last = i == len(instructions) - 1
+                response_end = '' if is_last else self.tokenizer.eos_token
                 user_prompt = guidance_template + dialogue_template.format(instruction=instruction) if i == 0 else dialogue_template.format(instruction=instruction)
-                response = response + response_end if response[-1] != '\n' else response[:-1] + response_end
+                response = response.strip() + response_end
                 
                 user_prompt_tokens = self.tokenizer.encode(user_prompt)
                 response_tokens = self.tokenizer.encode(response)
+                new_line_tokens = [] if is_last else self.tokenizer.encode('\n\n')
+                response = response if is_last else response + '\n\n'
+
+                if is_last:
+                    final_user_prompt = full_prompt + user_prompt
                 
                 full_prompt += user_prompt + response     
-                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * len(new_line_tokens)
         else:
             template = random.choice(template['prompt_input'])
             for i, (instruction, response) in enumerate(zip(instructions, responses)):
-                response_end = '' if i == len(instructions) - 1 else self.tokenizer.eos_token + '\n\n'
+                is_last = i == len(instructions) - 1
+                response_end = '' if is_last else self.tokenizer.eos_token
                 user_prompt = template.format(instruction=instruction, input=single_data['input'][0]) if i == 0 else dialogue_template.format(instruction=instruction)
-                response = response + response_end if response[-1] != '\n' else response[:-1] + response_end
+                response = response.strip() + response_end
             
                 user_prompt_tokens = self.tokenizer.encode(user_prompt)
                 response_tokens = self.tokenizer.encode(response)
+                new_line_tokens = [] if is_last else self.tokenizer.encode('\n\n')
+                response = response if is_last else response + '\n\n'
+
+                if is_last:
+                    final_user_prompt = full_prompt + user_prompt
                 
                 full_prompt += user_prompt + response
-                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * len(new_line_tokens)
 
         full_prompt_tokens = self.tokenizer.encode(full_prompt)
 
         assert len(full_prompt_tokens) == len(label), \
             f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(label)}'
         
-        return full_prompt_tokens, label, user_prompt, response
+        return full_prompt_tokens, label, final_user_prompt, response
         
 
     def _pad(self, data, max_length, pad_token_id, add_eos=False, return_data_len=False):
