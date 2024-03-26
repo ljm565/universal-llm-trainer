@@ -6,6 +6,8 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 import torch
 
+from utils import colorstr
+from utils.training_utils import choose_proper_resume_model
 from trainer import Trainer
 
 
@@ -39,7 +41,13 @@ def main(args):
     
 def single_gpu_train(args, config):
     device = torch.device('cpus') if config.device == False else torch.device(f'cuda:{config.device[0]}')
-    trainer = Trainer(config, args.mode, device, use_huggingface_trainer=args.use_huggingface_trainer)
+    trainer = Trainer(
+        config, 
+        args.mode, 
+        device, 
+        use_huggingface_trainer=args.use_huggingface_trainer,
+        resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.mode == 'resume' else None
+    )
 
     if args.mode == 'train':
         trainer.do_train()
@@ -50,7 +58,13 @@ def multi_gpu_train(gpu, ngpus_per_node, config, args):
     torch.distributed.init_process_group(backend='nccl', init_method='tcp://127.0.0.1:10001', world_size=ngpus_per_node, rank=gpu)
     torch.cuda.set_device(gpu)
     torch.distributed.barrier()
-    trainer = Trainer(config, args.mode, gpu, is_ddp=True)
+    trainer = Trainer(
+        config,
+        args.mode,
+        gpu,
+        is_ddp=True,
+        resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.mode == 'resume' else None
+    )
 
     if args.mode == 'train':
         trainer.do_train()
@@ -63,14 +77,17 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-c', '--config', type=str, required=False)
     parser.add_argument('-m', '--mode', type=str, required=True, choices=['train', 'resume'])
-    parser.add_argument('-p', '--saved_model_dir', type=str, required=False)
-    parser.add_argument('-s', '--status', type=str, default='metric', required=False, choices=['metric', 'loss', 'last'])
-    parser.add_argument('-d', '--device', type=str, required=False)
+    parser.add_argument('-r', '--resume_model_dir', type=str, required=False)
+    parser.add_argument('-l', '--load_model_type', type=str, default='metric', required=False, choices=['metric', 'loss', 'last'])
     parser.add_argument('--use_huggingface_trainer', action='store_true')
     args = parser.parse_args()
 
     if args.mode == 'train':
-        assert args.config, 'config file is required for training'
+        assert args.config, colorstr('red', 'config file is required for training')
+        main(args)
+    elif args.mode == 'resume':
+        assert args.config, colorstr('red', 'config file is required for training')
+        assert args.resume_model_dir, colorstr('red', 'Path for model resuming is required')
         main(args)
 
     

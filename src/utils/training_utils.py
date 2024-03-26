@@ -56,6 +56,14 @@ def choose_proper_model(config):
     return model_list[idx]
 
 
+def choose_proper_resume_model(resume_dir, type):
+    weights_dir = os.listdir(os.path.join(resume_dir, 'weights'))
+    try:
+        return list(filter(lambda x: type in x, weights_dir))[0]
+    except IndexError:
+        raise IndexError(f"There's no model path in {weights_dir} of type {type}")
+
+
 def draw_training_lr_curve(config, func, all_steps_n, warmup_steps_n, is_ddp, world_size):
     save_dir = os.path.join(config.save_dir, 'vis_data')
     lr0 = config.lr0

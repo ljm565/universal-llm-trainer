@@ -34,7 +34,8 @@ class Trainer:
             mode: str,
             device,
             is_ddp=False,
-            use_huggingface_trainer=False
+            use_huggingface_trainer=False,
+            resume_path=None,
         ):
         init_seeds(config.seed + 1 + RANK, config.deterministic)
 
@@ -60,6 +61,7 @@ class Trainer:
         self.loss_names = ['cross_entropy']
         self.train_verbose = self.config.train_verbose
         self.use_huggingface_trainer = use_huggingface_trainer
+        self.resume_path = resume_path
 
         # sanity check
         assert self.optimizer_step_criterion in OPTIM_CRITERION, \
@@ -115,8 +117,11 @@ class Trainer:
         else:
             LOGGER.info(f'PEFT is not applied.')
 
-
-        # model = model.to(self.device).half() if self.half else model.to(self.device).float()
+        # resume model
+        if mode == 'resume':
+            LOGGER.info(f'Resumed model: {self.resume_path}')
+            checkpoints = torch.load(self.resume_path, map_location=self.device)
+            model.load_state_dict(checkpoints['model'])
 
         # init ddp
         if self.is_ddp:
