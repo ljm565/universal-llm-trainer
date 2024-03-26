@@ -49,7 +49,7 @@ def single_gpu_train(args, config):
         resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.mode == 'resume' else None
     )
 
-    if args.mode == 'train':
+    if args.mode in ['train', 'resume']:
         trainer.do_train()
 
 
@@ -66,7 +66,7 @@ def multi_gpu_train(gpu, ngpus_per_node, config, args):
         resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.mode == 'resume' else None
     )
 
-    if args.mode == 'train':
+    if args.mode in ['train', 'resume']:
         trainer.do_train()
 
 

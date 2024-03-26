@@ -59,7 +59,8 @@ def choose_proper_model(config):
 def choose_proper_resume_model(resume_dir, type):
     weights_dir = os.listdir(os.path.join(resume_dir, 'weights'))
     try:
-        return list(filter(lambda x: type in x, weights_dir))[0]
+        weight = list(filter(lambda x: type in x, weights_dir))[0]
+        return os.path.join(resume_dir, 'weights', weight)
     except IndexError:
         raise IndexError(f"There's no model path in {weights_dir} of type {type}")
 

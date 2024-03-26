@@ -41,11 +41,11 @@
             "justMyCode": true
         },
         {
-            "name": "chat",
+            "name": "resume",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/train.py",
-            "args": ["-p", "outputs/llm/llm_test/", "--mode", "chat", "-d", "0"],
+            "args": ["-c", "config/llm.yaml", "-m", "resume", "-r", "outputs/llm_easy/llm_test3"],
             "console": "integratedTerminal",
             "justMyCode": true
         }

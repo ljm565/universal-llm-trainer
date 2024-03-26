@@ -41,6 +41,7 @@ class Trainer:
 
         # init
         self.mode = mode
+        self.is_training_mode = self.mode in ['train', 'resume']
         self.device = torch.device(device)
         self.is_ddp = is_ddp
         self.is_rank_zero = True if not self.is_ddp or (self.is_ddp and device == 0) else False
@@ -53,8 +54,6 @@ class Trainer:
         self.optimizer_step_criterion = self.config.optimizer_step_criterion
         self.scheduler_type = self.config.scheduler_type
         self.metrics = self.config.metrics
-        self.common = self.config.common
-        self.batch_size = self.config.batch_size
         self.save_dir = make_project_dir(self.config, self.is_rank_zero)
         self.wdir = self.save_dir / 'weights'
         self.config.is_rank_zero = self.is_rank_zero
@@ -71,13 +70,13 @@ class Trainer:
         self.is_update_per_epoch = True if self.optimizer_step_criterion == 'epoch' else False
 
         # save the yaml config
-        if self.is_rank_zero and self.mode == 'train':
+        if self.is_rank_zero and self.is_training_mode:
             self.wdir.mkdir(parents=True, exist_ok=True)  # make dir
             self.config.save_dir = str(self.save_dir)
             yaml_save(self.save_dir / 'args.yaml', self.config)  # save run args
         
         # init model, dataset, dataloader, etc.
-        self.modes = ['train', 'validation'] if self.mode == 'train' else ['validation']
+        self.modes = ['train', 'validation'] if self.is_training_mode else ['validation']
         self.model, self.tokenizer = self._init_model(self.config, self.mode)
         self.evaluator = Evaluator(self.tokenizer)
         self.training_logger = TrainingLogger(self.config)
@@ -87,7 +86,7 @@ class Trainer:
             return 
         
         # init criterion, optimizer, scheduler
-        if self.mode == 'train':
+        if self.is_training_mode:
             self.lr0 = self.config.lr0
             self.model._init_criterion()
             self.scaler = amp.GradScaler(enabled=self.amp) if self.amp else None
@@ -119,7 +118,7 @@ class Trainer:
 
         # resume model
         if mode == 'resume':
-            LOGGER.info(f'Resumed model: {self.resume_path}')
+            LOGGER.info(f'Resumed model: {colorstr(self.resume_path)}')
             checkpoints = torch.load(self.resume_path, map_location=self.device)
             model.load_state_dict(checkpoints['model'])
 
