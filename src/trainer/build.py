@@ -4,7 +4,6 @@ from sconf import Config
 import torch
 from torch.utils.data import distributed, DataLoader, ConcatDataset
 
-from models import En2KoNMT, Bagel, KoAlpaca
 from data_collection import NMTDataset
 from utils import RANK, LOGGER, colorstr
 from utils.data_utils import seed_worker, choose_proper_dataset
@@ -103,14 +102,21 @@ def get_data_loader(config, tokenizer, mode, is_ddp=False):
 
 def get_model(config, device):
     if config.train_type == 'nmt':
+        from models import En2KoNMT
         model = En2KoNMT(config, device)
         tokenizer = model.tokenizer
     elif config.train_type == 'llm':
         if config.model.lower() == 'bagel':
+            from models import Bagel
             model = Bagel(config, device)
             tokenizer = model.tokenizer
-        if config.model.lower() == 'koalpaca':
+        elif config.model.lower() == 'koalpaca':
+            from models import KoAlpaca
             model = KoAlpaca(config, device)
+            tokenizer = model.tokenizer
+        elif config.model.lower() == 't3q_solar':
+            from models import T3QSolar
+            model = T3QSolar(config, device)
             tokenizer = model.tokenizer
         else:
             raise NotImplementedError

@@ -2,15 +2,15 @@ import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM
 
-from tools.tokenizers import KoAlpacaTokenizer
+from tools.tokenizers import T3QSolarTokenizer
 from utils import print_mem_consumption
 from utils.training_utils import choose_proper_model
 
 
 
-class KoAlpaca(nn.Module):
+class T3QSolar(nn.Module):
     def __init__(self, config, device):
-        super(KoAlpaca, self).__init__()
+        super(T3QSolar, self).__init__()
         self.model_path = choose_proper_model(config)
         self.device = device
         self.load_unnecessary_half = config.load_unnecessary_half
@@ -24,12 +24,12 @@ class KoAlpaca(nn.Module):
             device_map=self.device,
             low_cpu_mem_usage=True,
         )
-
+        
         # 4, 8bit model automatically loads neccesaries to 32bit
         if self.load16bit:
             self.mapping_neccessary_32bit()
 
-        self.tokenizer = KoAlpacaTokenizer(config, self.model_path)
+        self.tokenizer = T3QSolarTokenizer(config, self.model_path)
 
         if config.is_rank_zero:
             print_mem_consumption(self.model_path)

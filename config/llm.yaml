@@ -2,7 +2,7 @@
 train_type: llm
 seed: 0
 deterministic: True
-model: koalpaca
+model: t3q_solar
 model_size: 10b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
@@ -15,19 +15,19 @@ name: llm_test
 # environment config
 device: [0]
 bit: 8
-load_unnecessary_half: False
+load_unnecessary_half: False    # recommend to set True if you set bit to 16 (4, 8bit model automatically loads neccesaries to 32bit)
 half_inference: False
 
 # data config
-max_length: 1024
+max_length: 300
 is_multi_turn: True
 add_eos_token_when_respose_end: True
 data_verbose: False
 
 # tokenizer config (I recommend to double check the tokenizer's specila token map)
-pad_token_id: 0       # if null, tokenizer pad_token_id will not be overrided
+pad_token_id: null       # if null, tokenizer pad_token_id will not be overrided
 bos_token_id: null    # if null, tokenizer bos_token_id will not be overrided
-eos_token_id: 1       # if null, tokenizer eos_token_id will not be overrided
+eos_token_id: null       # if null, tokenizer eos_token_id will not be overrided
 cls_token_id: null    # if null, tokenizer cls_token_id will not be overrided
 sep_token_id: null    # if null, tokenizer sep_token_id will not be overrided
 unk_token_id: null    # if null, tokenizer unk_token_id will not be overrided

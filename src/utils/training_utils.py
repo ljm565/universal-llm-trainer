@@ -47,6 +47,14 @@ def choose_proper_model(config):
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
+    elif config.model.lower() == 't3q_solar':
+        model_list = [
+            'chihoonlee10/T3Q-ko-solar-dpo-v3.0-10.7B',
+        ]
+        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
+                            for text in model_list]
+        idx = size_diff.index(min(size_diff))
+        model_list[idx] = '-'.join(model_list[idx].split('-')[:-1])
     else:
         raise NotImplementedError
     
