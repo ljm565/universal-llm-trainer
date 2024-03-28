@@ -124,14 +124,17 @@ class AlpacaDataset(Dataset):
                 
                 user_prompt_tokens = self.tokenizer.encode(user_prompt)
                 response_tokens = self.tokenizer.encode(response)
-                new_line_tokens = [] if is_last else self.tokenizer.encode('\n\n')
+
+                only_response_tokens_l = len(response_tokens)
                 response = response if is_last else response + '\n\n'
+                final_response_tokens = self.tokenizer.encode(response)
+                new_line_token_l = len(final_response_tokens) - only_response_tokens_l
 
                 if is_last:
-                    final_user_prompt = full_prompt + user_prompt
+                    final_user_prompt = full_prompt_tokens + user_prompt_tokens
                 
-                full_prompt += user_prompt + response     
-                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * len(new_line_tokens)
+                full_prompt_tokens += user_prompt_tokens + final_response_tokens
+                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l   # final_response_tokens contain unnecessary tokens ("\n\n")
         else:
             template = random.choice(template['prompt_input'])
             for i, (instruction, response) in enumerate(zip(instructions, responses)):
@@ -142,16 +145,17 @@ class AlpacaDataset(Dataset):
             
                 user_prompt_tokens = self.tokenizer.encode(user_prompt)
                 response_tokens = self.tokenizer.encode(response)
-                new_line_tokens = [] if is_last else self.tokenizer.encode('\n\n')
+
+                only_response_tokens_l = len(response_tokens)
                 response = response if is_last else response + '\n\n'
+                final_response_tokens = self.tokenizer.encode(response)
+                new_line_token_l = len(final_response_tokens) - only_response_tokens_l
 
                 if is_last:
-                    final_user_prompt = full_prompt + user_prompt
+                    final_user_prompt = full_prompt_tokens + user_prompt_tokens
                 
-                full_prompt += user_prompt + response
-                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * len(new_line_tokens)
-
-        full_prompt_tokens = self.tokenizer.encode(full_prompt)
+                full_prompt_tokens += user_prompt_tokens + final_response_tokens
+                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l   # final_response_tokens contain unnecessary tokens ("\n\n")
 
         assert len(full_prompt_tokens) == len(label), \
             f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(label)}'

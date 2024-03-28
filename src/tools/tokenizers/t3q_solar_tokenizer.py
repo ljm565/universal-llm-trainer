@@ -99,3 +99,22 @@ class T3QSolarTokenizer:
                     setattr(self.tokenizer, k, v)
                 else:
                     raise AttributeError(f'No attribute: {k} in tokenizer. Please check the attribute name.')
+                
+        # add special tokens
+        add_tokens = {
+            'pad_token_id': config.pad_token_id if config.pad_token_id == 'add' else None,
+            'bos_token_id': config.bos_token_id if config.bos_token_id == 'add' else None,
+            'eos_token_id': config.eos_token_id if config.eos_token_id == 'add' else None,
+            'cls_token_id': config.cls_token_id if config.cls_token_id == 'add' else None,
+            'sep_token_id': config.sep_token_id if config.sep_token_id == 'add' else None,
+        }
+        
+        for k, v in add_tokens.items():
+            if v is not None:
+                token = f"<{k.split('_')[0]}>"
+                self.tokenizer.add_tokens([token])
+                if hasattr(self.tokenizer, k):
+                    setattr(self.tokenizer, k, len(self.tokenizer) - 1)
+                    setattr(self.tokenizer, k.split('_id')[0], token)
+                else:
+                    raise AttributeError(f'No attribute: {k} in tokenizer. Please check the attribute name.')

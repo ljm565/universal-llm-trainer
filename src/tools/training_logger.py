@@ -1,5 +1,6 @@
 import os
 import pickle
+import numpy as np
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -20,6 +21,13 @@ class TrainingLogger:
             self.writer = SummaryWriter(log_dir=config.save_dir)
         self.model_manager = ModelManager()
         self.tensorboard_logging_interval = config.tensorboard_logging_interval
+    
+
+    def nan_value_filtering(self, values, batch_sizes):
+        value_sum = sum([b*vv for b, vv in zip(batch_sizes, values) if not np.isnan(vv)])
+        nan_indices = np.where(np.isnan(values))[0]
+        reduce_batch_sizes = sum([batch_sizes[idx] for idx in nan_indices])
+        return value_sum, reduce_batch_sizes
     
 
     def _update_tensorboard(self, phase, step, tag, scalar_value):
@@ -60,7 +68,9 @@ class TrainingLogger:
             train_epoch_result = {}
             for k, v in self.log_data.items():
                 if k == 'train_loss':
-                    train_epoch_result[k] = sum([b*vv for b, vv in zip(self.train_batch_sizes, v[self.st:])]) / sum(self.train_batch_sizes)
+                    # nan value processing
+                    value_sum, reduce_batch_sizes = self.nan_value_filtering(v[self.st:], self.train_batch_sizes)
+                    train_epoch_result[k] = value_sum / (sum(self.train_batch_sizes) - reduce_batch_sizes)
             self.st += len(self.train_batch_sizes)
             self.train_batch_sizes = []
         else:
@@ -68,7 +78,9 @@ class TrainingLogger:
             for k, v in self.log_data.items():
                 if isinstance(v[-1], list):
                     assert len(self.val_batch_sizes) == len(v[-1])
-                    v[-1] = sum([b*vv for b, vv in zip(self.val_batch_sizes, v[-1])]) / sum(self.val_batch_sizes)
+                    # nan value processing
+                    value_sum, reduce_batch_sizes = self.nan_value_filtering(v[-1], self.val_batch_sizes)
+                    v[-1] = value_sum / (sum(self.val_batch_sizes) - reduce_batch_sizes)
                     self.validation_epoch_result[k] = v[-1]
                     self._update_tensorboard(phase, self.log_data['step'][-1], k, v[-1])
             self.val_batch_sizes = []
