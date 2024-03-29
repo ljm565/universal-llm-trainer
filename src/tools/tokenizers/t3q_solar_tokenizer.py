@@ -38,7 +38,11 @@ class T3QSolarTokenizer:
         Returns:
             (list): tokens.
         """
-        return self.tokenizer.encode(s, add_special_tokens=False)
+        # # solar tokenizer attatches "_" (empty space) token in front of the Korean text
+        tokens = self.tokenizer.encode(s, add_special_tokens=False)
+        # if tokens[0] == 28705:
+        #     return tokens[1:]
+        return tokens
 
 
     def decode(self, tok):
@@ -116,5 +120,6 @@ class T3QSolarTokenizer:
                 if hasattr(self.tokenizer, k):
                     setattr(self.tokenizer, k, len(self.tokenizer) - 1)
                     setattr(self.tokenizer, k.split('_id')[0], token)
+                    self.resized = True
                 else:
                     raise AttributeError(f'No attribute: {k} in tokenizer. Please check the attribute name.')

@@ -131,10 +131,11 @@ class AlpacaDataset(Dataset):
                 new_line_token_l = len(final_response_tokens) - only_response_tokens_l
 
                 if is_last:
-                    final_user_prompt = full_prompt_tokens + user_prompt_tokens
+                    final_user_prompt = full_prompt + user_prompt
                 
+                full_prompt += user_prompt + response
                 full_prompt_tokens += user_prompt_tokens + final_response_tokens
-                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l   # final_response_tokens contain unnecessary tokens ("\n\n")
+                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l#len(new_line_tokens)
         else:
             template = random.choice(template['prompt_input'])
             for i, (instruction, response) in enumerate(zip(instructions, responses)):
@@ -152,13 +153,20 @@ class AlpacaDataset(Dataset):
                 new_line_token_l = len(final_response_tokens) - only_response_tokens_l
 
                 if is_last:
-                    final_user_prompt = full_prompt_tokens + user_prompt_tokens
-                
-                full_prompt_tokens += user_prompt_tokens + final_response_tokens
-                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l   # final_response_tokens contain unnecessary tokens ("\n\n")
+                    final_user_prompt = full_prompt + user_prompt
 
+                full_prompt += user_prompt + response
+                full_prompt_tokens += user_prompt_tokens + final_response_tokens
+                label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l#len(new_line_tokens)
+                
+        # full_prompt_tokens = self.tokenizer.encode(full_prompt)
+        
+        # sanity check
         assert len(full_prompt_tokens) == len(label), \
             f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(label)}'
+        
+        for f, l in zip(full_prompt_tokens, label):
+            assert f == l or l == self.pad_token_id, f'Full prompt and label are not same: {f}, {l}'
         
         return full_prompt_tokens, label, final_user_prompt, response
         

@@ -3,7 +3,7 @@ import torch.nn as nn
 from transformers import AutoModelForCausalLM
 
 from tools.tokenizers import KoAlpacaTokenizer
-from utils import print_mem_consumption
+from utils import LOGGER, print_mem_consumption, colorstr
 from utils.training_utils import choose_proper_model
 
 
@@ -30,6 +30,9 @@ class KoAlpaca(nn.Module):
             self.mapping_neccessary_32bit()
 
         self.tokenizer = KoAlpacaTokenizer(config, self.model_path)
+        if hasattr(self.tokenizer, 'resized'):
+            self.model.resize_token_embeddings(len(self.tokenizer))
+            LOGGER.info(colorstr('Model word embedding is resized to match the tokenizer'))
 
         if config.is_rank_zero:
             print_mem_consumption(self.model_path)
