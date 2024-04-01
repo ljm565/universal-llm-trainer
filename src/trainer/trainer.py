@@ -256,8 +256,7 @@ class Trainer:
                 self.model.train()
                 if self.is_ddp:
                     dist.barrier()
-            if i == 100:
-                break
+        
         # upadate logs
         if RANK in (-1, 0) and self.is_rank_zero:
             self.training_logger.update_phase_end(phase, printing=True)

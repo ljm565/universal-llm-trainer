@@ -32,7 +32,8 @@ class KoAlpaca(nn.Module):
         self.tokenizer = KoAlpacaTokenizer(config, self.model_path)
         if hasattr(self.tokenizer, 'resized'):
             self.model.resize_token_embeddings(len(self.tokenizer))
-            LOGGER.info(colorstr('Model word embedding is resized to match the tokenizer'))
+            if config.is_rank_zero:
+                LOGGER.info(colorstr('Model word embedding is resized to match the tokenizer'))
 
         if config.is_rank_zero:
             print_mem_consumption(self.model_path)
