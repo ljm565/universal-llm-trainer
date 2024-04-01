@@ -116,10 +116,5 @@ class T3QSolarTokenizer:
         for k, v in add_tokens.items():
             if v is not None:
                 token = f"<{k.split('_')[0]}>"
-                self.tokenizer.add_tokens([token])
-                if hasattr(self.tokenizer, k):
-                    setattr(self.tokenizer, k, len(self.tokenizer) - 1)
-                    setattr(self.tokenizer, k.split('_id')[0], token)
-                    self.resized = True
-                else:
-                    raise AttributeError(f'No attribute: {k} in tokenizer. Please check the attribute name.')
+                self.tokenizer.add_special_tokens({f'{k[:-3]}': token})
+                self.resized = True
