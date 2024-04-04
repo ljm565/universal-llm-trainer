@@ -48,6 +48,15 @@
             "args": ["-c", "config/llm.yaml", "-m", "resume", "-r", "outputs/llm_easy/llm_test3"],
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": " chat",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/run/chat.py",
+            "args": ["-s", "/home/junmin/nas/members/junmin/Documents/model/llm_hard/llm_hard_notMultiTurn", "-d", "0"],
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
     ]
 }
