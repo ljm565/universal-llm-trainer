@@ -24,18 +24,32 @@ app = FastAPI()
 
 
 class Chatter:
-    def __init__(self, config, model_path, device, save_context=True):
+    def __init__(self, config, model_path, device, save_context=True, efficient_load=False):
         self.context = None
         self.save_context = save_context
-        self.max_context_len = 512
+        self.max_context_len = 256
         self.device = torch.device(device)
         self.config = config
-        self.model, self.tokenizer = self._init_model(self.config)
-        checkpoints = torch.load(model_path, map_location=self.device)
-        self.model.load_state_dict(checkpoints['model'])
-        self.model.eval()
+        self.model, self.tokenizer = self.load_model(model_path, efficient_load)
         self.template = json_load('data/koalpaca_hard/templates/template1.json')
 
+
+    def load_model(self, model_path, efficient_load=False):
+        model, tokenizer = self._init_model(self.config)
+
+        if efficient_load:
+            model = model.to('cpu')
+        
+        checkpoints = torch.load(model_path, map_location=self.device)
+        model.load_state_dict(checkpoints['model'])
+        model.eval()
+        del checkpoints
+        torch.cuda.empty_cache()
+
+        if efficient_load:
+            return model.to(self.device), tokenizer
+        return model, tokenizer
+        
 
     def _init_model(self, config):
         # init model and tokenizer
@@ -86,13 +100,13 @@ class Chatter:
                 'input_ids': src_tok,
                 'attention_mask': attention_mask,
                 'min_length': 10,
-                'max_length': 1024,
+                'max_length': 512,
                 'pad_token_id': self.tokenizer.pad_token_id,
                 'eos_token_id': self.tokenizer.eos_token_id,
                 'do_sample': do_sample,
                 'top_k': 5,
                 'top_p': 0.95,
-                'temperature': 0.7,
+                'temperature': 1,
                 'no_repeat_ngram_size': 3,
                 'repetition_penalty': 1.5,
                 'early_stopping': True,
@@ -192,13 +206,14 @@ class Chatter:
         return text
 
 
-model_dir = 'outputs/llm_hard/llm_test2/'
+model_dir = '/home/junmin/nas/members/junmin/Documents/model/llm_easy/llm_test3'
 config = Config(os.path.join(model_dir, 'args.yaml'))
-model_path = os.path.join(model_dir, 'weights/model_epoch:2_step:70000_metric_best.pt')
+model_path = os.path.join(model_dir, 'weights/model_epoch:1_metric_best.pt')
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-is_greedy = False
+is_greedy = True
 save_context = False
-chatter = Chatter(config, model_path, device, save_context)
+efficient_load = False
+chatter = Chatter(config, model_path, device, save_context, efficient_load)
 
 
 
