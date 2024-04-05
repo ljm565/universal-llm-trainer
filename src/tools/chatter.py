@@ -14,9 +14,10 @@ from trainer.build import get_model, get_peft_model
 
 
 class Chatter:
-    def __init__(self, config, model_path, device, save_context=True, efficient_load=False):
+    def __init__(self, config, model_path, device, save_context=True, efficient_load=False, is_greedy=False):
         self.context = None
         self.save_context = save_context
+        self.is_greedy = is_greedy
         self.max_context_len = 256
         self.device = torch.device(device)
         self.config = config
@@ -75,13 +76,29 @@ class Chatter:
             self.context = None
             template = random.choice(self.template['prompt_input'])
             user_prompt = template.format(instruction=instruction, input=description)
-        
+
+        user_prompt = user_prompt + self.tokenizer.sep_token if self.tokenizer.sep_token else user_prompt
         user_prompt_tokens = torch.tensor(self.tokenizer.encode(user_prompt), dtype=torch.long).to(self.device).unsqueeze(0)
 
         return user_prompt_tokens
     
 
-    def _init_generate_kwargs(self, message, src_tok, attention_mask):
+    def _init_generate_kwargs(self, message, src_tok, attention_mask, is_greedy=False):
+        if is_greedy:
+            return {
+                'input_ids': src_tok,
+                'attention_mask': attention_mask,
+                'min_length': 10,
+                'max_length': 512,
+                'pad_token_id': self.tokenizer.pad_token_id,
+                'eos_token_id': self.tokenizer.eos_token_id,
+                'do_sample': False,
+                'top_k': 1,
+                'early_stopping': True,
+                'use_cache': True,
+                'streamer': self.streamer,
+            }
+
         do_sample = True
         if '번역' in message or '요약' in message:
             do_sample = False
@@ -115,7 +132,7 @@ class Chatter:
             src_tok = src_tok if self.context == None else torch.cat((self.context, src_tok), dim=1)
             attention_mask = torch.ones_like(src_tok).to(self.device)
             response = []
-            generate_kwargs = self._init_generate_kwargs(message, src_tok, attention_mask)
+            generate_kwargs = self._init_generate_kwargs(message, src_tok, attention_mask, self.is_greedy)
             
             t = Thread(target=self.model.model.generate, kwargs=generate_kwargs)
             t.daemon = True
@@ -144,46 +161,17 @@ class Chatter:
                 self.process_context(src_tok)
 
             print('\n', '-'*10, '\n\n')
-
-
-    async def greedy_generate(self, websocket):
-        async for message in websocket.iter_text():
-            src_tok = self.preprocess(message)
-            src_tok = src_tok if self.context == None else torch.cat((self.context, src_tok), dim=1)
-
-            print('Response: ')
-            for _ in range(256):
-                attention_mask = torch.ones_like(src_tok).to(self.device)
-                logit = self.model.model(
-                    input_ids=src_tok,
-                    attention_mask=attention_mask,
-                ).logits
-                src_tok = torch.cat((src_tok, torch.argmax(logit[:, -1], dim=-1).unsqueeze(0)), dim=1)
-                char = self.tokenizer.decode([src_tok[0, -1].item()])
-                
-                if char == self.tokenizer.eos_token:
-                    break
-                if char == self.tokenizer.pad_token:
-                    break
-
-                await self.print_one_by_one(char)
-                await websocket.send_text(char)
-
-            if self.save_context:
-                self.process_context(src_tok)
-
-            print('\n', '-'*10, '\n\n')
     #################################################################################################
         
 
     ########################### Below codes are used to terminal chatting ###########################
-    def generate_demo(self, message):
+    def generate_demo(self, message, is_greedy):
         self.streamer = TextIteratorStreamer(self.tokenizer)
         src_tok = self.preprocess(message)
         src_tok = src_tok if self.context == None else torch.cat((self.context, src_tok), dim=1)
         attention_mask = torch.ones_like(src_tok).to(self.device)
         response = []
-        generate_kwargs = self._init_generate_kwargs(message, src_tok, attention_mask)
+        generate_kwargs = self._init_generate_kwargs(message, src_tok, attention_mask, is_greedy)
         
         t = Thread(target=self.model.model.generate, kwargs=generate_kwargs)
         t.daemon = True
@@ -210,33 +198,6 @@ class Chatter:
         if self.save_context:
             self.process_context(src_tok)
 
-        print('\n\n')
-
-
-    def greedy_generate_demo(self, message):
-        src_tok = self.preprocess(message)
-        src_tok = src_tok if self.context == None else torch.cat((self.context, src_tok), dim=1)
-
-        print('Response: ')
-        for _ in range(256):
-            attention_mask = torch.ones_like(src_tok).to(self.device)
-            logit = self.model.model(
-                input_ids=src_tok,
-                attention_mask=attention_mask,
-            ).logits
-            src_tok = torch.cat((src_tok, torch.argmax(logit[:, -1], dim=-1).unsqueeze(0)), dim=1)
-            char = self.tokenizer.decode([src_tok[0, -1].item()])
-            
-            if char == self.tokenizer.eos_token:
-                break
-            if char == self.tokenizer.pad_token:
-                break
-
-            asyncio.run(self.print_one_by_one(char))
-
-        if self.save_context:
-            self.process_context(src_tok)
-        
         print('\n\n')
     #################################################################################################
     
@@ -269,8 +230,6 @@ class Chatter:
         LOGGER.info(f"Press {colorstr('Ctrl+C')} to exit.")
         LOGGER.warning(colorstr('red', 'Only alpaca style is supported.\n'))
 
-        generate = self.greedy_generate_demo if is_greedy else self.generate_demo
-
         self.model.eval()
         with torch.no_grad():   
             # chat
@@ -278,4 +237,4 @@ class Chatter:
                 instruction = input('Instruction: ')
                 discription = input('Discription: ')
                 message = instruction + '\n' + discription
-                generate(message)
+                self.generate_demo(message, is_greedy)
