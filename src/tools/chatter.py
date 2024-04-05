@@ -143,6 +143,9 @@ class Chatter:
                 # when i == 0, prompt will be printed
                 if i > 0:
                     response.append(char)
+
+                    if self.tokenizer.sep_token and self.tokenizer.sep_token in char:
+                        continue
                     
                     fin_char = self.pp(char)
                     await self.print_one_by_one(fin_char)
@@ -183,6 +186,9 @@ class Chatter:
             if i > 0:
                 response.append(char)
                 
+                if self.tokenizer.sep_token and self.tokenizer.sep_token in char:
+                    continue
+
                 fin_char = self.pp(char)
                 asyncio.run(self.print_one_by_one(fin_char))
 
