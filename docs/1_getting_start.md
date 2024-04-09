@@ -37,7 +37,7 @@ docker exec -it {$CONTAINER_NAME} /bin/bash
 ### 0. Preliminary
 
 Conda 환경과 Python, PyTorch 관련 libaray가 모두 설치가 되어있음을 가정합니다.
-PyTorch는 1.13 버전 이상을 권장합니다. 
+PyTorch는 2.0.1 버전 이상을 권장합니다. 
 
 ```bash
 # torch install example
