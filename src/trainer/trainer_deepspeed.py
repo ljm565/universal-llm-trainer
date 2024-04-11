@@ -4,22 +4,17 @@ import deepspeed
 import transformers
 
 import torch
-import torch.nn as nn
 from torch.cuda import amp
 from torch import distributed as dist
 
-from tools import ModelEMA, Evaluator, TrainingLogger
+from tools import Evaluator, TrainingLogger
 from trainer.build import get_data_loader, get_model, get_peft_model
 from utils import (
-    OPTIM_CRITERION, 
-    OPTIM_CRITERION_MSG,
-    SCHEDULER_TYPE,
-    SCHEDULER_MSG, 
     RANK, LOGGER,
     colorstr, init_seeds,
     TQDM
 )
-from utils.training_utils import lr_warmup, init_train_progress_bar
+from utils.training_utils import init_train_progress_bar
 from utils.filesys_utils import yaml_save, make_project_dir, json_load, json_save
 
 
