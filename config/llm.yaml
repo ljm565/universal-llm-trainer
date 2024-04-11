@@ -2,14 +2,14 @@
 train_type: llm
 seed: 0
 deterministic: True
-model: t3q_solar
+model: koalpaca
 model_size: 10b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
-data_path: ['data/koalpaca_hard']
+data_path: ['data/koalpaca_easy']
 
 # project config
-project: outputs/llm_hard
+project: outputs/deepspeed
 name: llm_test
 
 # environment config
@@ -19,21 +19,21 @@ load_unnecessary_half: False    # recommend to set True if you set bit to 16 (4,
 half_inference: False
 
 # data config
-max_length: 2048
+max_length: 256
 is_multi_turn: True
 add_eos_token_when_respose_end: True
 data_verbose: False
 
 # tokenizer config (I recommend to double check the tokenizer's special token map)
-pad_token_id: add     # [add, null, int] if null, tokenizer pad_token_id will not be overrided
+pad_token_id: 0     # [add, null, int] if null, tokenizer pad_token_id will not be overrided
 bos_token_id: null    # [add, null, int] if null, tokenizer bos_token_id will not be overrided
 eos_token_id: null    # [add, null, int] if null, tokenizer eos_token_id will not be overrided
 cls_token_id: null    # [add, null, int] if null, tokenizer cls_token_id will not be overrided
-sep_token_id: add    # [add, null, int] if null, tokenizer sep_token_id will not be overrided
+sep_token_id: 1    # [add, null, int] if null, tokenizer sep_token_id will not be overrided
 unk_token_id: null    # [add, null, int] if null, tokenizer unk_token_id will not be overrided
 
 # training config
-batch_size: 100
+batch_size: 1
 epochs: 300
 warmup_epochs: 0
 steps: 15000
