@@ -118,6 +118,10 @@ def get_model(config, device):
             from models import T3QSolar
             model = T3QSolar(config, device)
             tokenizer = model.tokenizer
+        elif config.model.lower() == 'kogemma':
+            from models import KoGemma
+            model = KoGemma(config, device)
+            tokenizer = model.tokenizer
         else:
             raise NotImplementedError
     else:

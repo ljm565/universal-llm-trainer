@@ -55,6 +55,13 @@ def choose_proper_model(config):
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
         model_list[idx] = '-'.join(model_list[idx].split('-')[:-1])
+    elif config.model.lower() == 'kogemma':
+        model_list = [
+            'gemmathon/gemma-2b-ko-dev-pbmt192',
+        ]
+        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
+                            for text in model_list]
+        idx = size_diff.index(min(size_diff))
     else:
         raise NotImplementedError
     

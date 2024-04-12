@@ -4,4 +4,5 @@ from .cokal_dpo import CokalDPO
 from .koalpaca import KoAlpaca
 from .ldcc_solar import LDCCSolar
 from .t3q_solar import T3QSolar
+from .kogemma import KoGemma
 from .m2m100_nmt import En2KoNMT
