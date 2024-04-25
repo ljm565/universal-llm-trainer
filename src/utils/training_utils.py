@@ -55,6 +55,13 @@ def choose_proper_model(config):
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
         model_list[idx] = '-'.join(model_list[idx].split('-')[:-1])
+    elif config.model.lower() == 'llama3':
+        model_list = [
+            'meta-llama/Meta-Llama-3-8B-Instruct',
+        ]
+        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
+                            for text in model_list]
+        idx = size_diff.index(min(size_diff))
     elif config.model.lower() == 'kogemma':
         model_list = [
             'gemmathon/gemma-2b-ko-dev-pbmt192',

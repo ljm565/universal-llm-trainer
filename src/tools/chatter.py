@@ -22,7 +22,7 @@ class Chatter:
         self.device = torch.device(device)
         self.config = config
         self.model, self.tokenizer = self.load_model(model_path, efficient_load)
-        self.template = json_load('data/koalpaca_hard/templates/template1.json')
+        self.template = json_load('data/koalpaca_easy_v2/templates/template1.json')
 
 
     def load_model(self, model_path, efficient_load=False):
@@ -96,6 +96,8 @@ class Chatter:
                 'top_k': 1,
                 'early_stopping': True,
                 'use_cache': True,
+                'no_repeat_ngram_size': 3,
+                'repetition_penalty': 1.5,
                 'streamer': self.streamer,
             }
 
@@ -111,9 +113,9 @@ class Chatter:
                 'pad_token_id': self.tokenizer.pad_token_id,
                 'eos_token_id': self.tokenizer.eos_token_id,
                 'do_sample': do_sample,
-                'top_k': 5,
-                'top_p': 0.95,
-                'temperature': 1,
+                'top_k': 2,
+                'top_p': 0.98,
+                'temperature': 0.5,
                 'no_repeat_ngram_size': 3,
                 'repetition_penalty': 1.5,
                 'early_stopping': True,
