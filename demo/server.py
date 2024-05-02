@@ -15,9 +15,9 @@ from tools import Chatter
 
 app = FastAPI()
 
-model_dir = '/home/junmin/nas/members/junmin/Documents/model/llm_easy/llm_test3'
+model_dir = 'outputs/polyglot/easy_v2'
 config = Config(os.path.join(model_dir, 'args.yaml'))
-model_path = os.path.join(model_dir, 'weights/model_epoch:1_metric_best.pt')
+model_path = os.path.join(model_dir, 'weights/model_epoch:1_step:20000_last_best.pt')
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 is_greedy = False
 save_context = False

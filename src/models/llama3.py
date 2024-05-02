@@ -14,7 +14,7 @@ class Llama3(nn.Module):
         self.model_path = choose_proper_model(config)
         self.device = device
         self.load_unnecessary_half = config.load_unnecessary_half
-        self.set_bit(config.bit)
+        self.set_bit(config.bit, config.training_stage)
 
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path, 
@@ -24,6 +24,9 @@ class Llama3(nn.Module):
             device_map=self.device,
             low_cpu_mem_usage=True,
         )
+
+        # freezing proper layers
+        self.freeze_layers(config.training_stage)
 
         # 4, 8bit model automatically loads neccesaries to 32bit
         if self.load16bit:
@@ -39,21 +42,26 @@ class Llama3(nn.Module):
             print_mem_consumption(self.model_path)
     
 
-    def set_bit(self, bit):
+    def set_bit(self, bit, training_stage):
         assert bit in [4, 8, 16, 32]
         self.is4bit, self.is8bit, self.is16bit, self.is32bit = False, False, False, False
         
-        if bit == 4:
-            self.is4bit = True
-        elif bit == 8:
-            self.is8bit = True
-        elif bit == 16:
-            self.is16bit = True
-            raise AssertionError('16bit is not supported yet')
-        else:
+        if training_stage in [1, 2, 3]:
             self.is32bit = True
+            self.load16bit = False
+            LOGGER.info(colorstr('Training stage 1, 2, 3 automatically loads model in 32bit'))
+        else:
+            if bit == 4:
+                self.is4bit = True
+            elif bit == 8:
+                self.is8bit = True
+            elif bit == 16:
+                self.is16bit = True
+                raise AssertionError('16bit is not supported yet')
+            else:
+                self.is32bit = True
 
-        self.load16bit = True if self.is16bit or self.load_unnecessary_half else False
+            self.load16bit = True if self.is16bit or self.load_unnecessary_half else False
 
     
     def mapping_neccessary_32bit(self):
@@ -119,3 +127,37 @@ class Llama3(nn.Module):
             early_stopping=True,
             use_cache=True,
         )
+    
+    def freeze_layers(self, stage):
+        if stage == 1:
+            LOGGER.info(colorstr('Freezing all layers except for word embeddings'))
+            for name, param in self.model.named_parameters():
+                if 'embed' in name:
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
+                
+        elif stage == 2:
+            LOGGER.info(colorstr('Freezing all layers except for the lm_head'))
+            for name, param in self.model.named_parameters():
+                if 'lm_head' in name:
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
+        
+        elif stage == 3:
+            LOGGER.info(colorstr('Freezing all layers except for word embeddings and lm_head'))
+            for name, param in self.model.named_parameters():
+                if 'embed' in name or 'lm_head' in name:
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
+        
+        elif stage == 4:
+            LOGGER.info(colorstr('Unfreezing all layers except for word embeddings and lm_head'))
+            for name, param in self.model.named_parameters():
+                if 'embed' in name or 'lm_head' in name:
+                    param.requires_grad = False
+                else:
+                    param.requires_grad = True
+

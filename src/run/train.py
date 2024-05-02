@@ -26,6 +26,7 @@ def main(args):
     # init config
     config = load_config(args.config)
     config.yaml_file = args.config
+    config.training_stage = args.stage
     
     # init environment
     env_setup()
@@ -79,6 +80,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--mode', type=str, required=True, choices=['train', 'resume'])
     parser.add_argument('-r', '--resume_model_dir', type=str, required=False)
     parser.add_argument('-l', '--load_model_type', type=str, default='metric', required=False, choices=['metric', 'loss', 'last'])
+    parser.add_argument('-s', '--stage', type=int, default=0, required=False)
     parser.add_argument('--use_huggingface_trainer', action='store_true')
     args = parser.parse_args()
 
