@@ -46,14 +46,14 @@ class Llama3(nn.Module):
         assert bit in [4, 8, 16, 32]
         self.is4bit, self.is8bit, self.is16bit, self.is32bit = False, False, False, False
         
-        if training_stage in [1, 2, 3]:
+        if training_stage in [1, 2, 3, 4]:
             if bit == 16:
                 self.is16bit = True
             else:
                 self.is32bit = True
 
             if is_rank_zero:
-                LOGGER.info(colorstr('Training stage 1, 2, 3 automatically loads model in 32bit or 16bit'))
+                LOGGER.info(colorstr('Training stage 1, 2, 3, 4 automatically loads model in 32bit or 16bit'))
 
         else:
             if bit == 4:
@@ -169,8 +169,8 @@ class Llama3(nn.Module):
                 LOGGER.info(colorstr('Unfreezing all layers except for word embeddings and lm_head'))
             for name, param in self.model.named_parameters():
                 if 'embed' in name or 'lm_head' in name:
-                    param.data = param.data.to(torch.float32)
                     param.requires_grad = False
                 else:
+                    param.data = param.data.to(torch.float32)
                     param.requires_grad = True
 
