@@ -14,7 +14,7 @@ class Llama3(nn.Module):
         self.model_path = choose_proper_model(config)
         self.device = device
         self.load_unnecessary_half = config.load_unnecessary_half
-        self.set_bit(config.bit, config.training_stage)
+        self.set_bit(config.bit, config.training_stage, config.is_rank_zero)
 
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path, 
@@ -42,14 +42,15 @@ class Llama3(nn.Module):
             print_mem_consumption(self.model_path)
     
 
-    def set_bit(self, bit, training_stage):
+    def set_bit(self, bit, training_stage, is_rank_zero=False):
         assert bit in [4, 8, 16, 32]
         self.is4bit, self.is8bit, self.is16bit, self.is32bit = False, False, False, False
         
         if training_stage in [1, 2, 3]:
             self.is32bit = True
             self.load16bit = False
-            LOGGER.info(colorstr('Training stage 1, 2, 3 automatically loads model in 32bit'))
+            if is_rank_zero:
+                LOGGER.info(colorstr('Training stage 1, 2, 3 automatically loads model in 32bit'))
         else:
             if bit == 4:
                 self.is4bit = True

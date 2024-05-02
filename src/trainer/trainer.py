@@ -113,11 +113,13 @@ class Trainer:
         # init peft
         if config.peft_config_path:
             if config.training_stage == 0:
-                LOGGER.info(f'PEFT is not applied due to training stage.')
+                if config.is_rank_zero:
+                    LOGGER.info(f'PEFT is not applied due to training stage.')
             else:
                 model = get_peft_model(model, config)
         else:
-            LOGGER.info(f'PEFT is not applied.')
+            if config.is_rank_zero:
+                LOGGER.info(f'PEFT is not applied.')
 
         # resume model
         if mode == 'resume':
