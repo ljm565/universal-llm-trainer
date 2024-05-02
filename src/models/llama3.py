@@ -26,7 +26,7 @@ class Llama3(nn.Module):
         )
 
         # freezing proper layers
-        self.freeze_layers(config.training_stage)
+        self.freeze_layers(config.training_stage, config.is_rank_zero)
 
         # 4, 8bit model automatically loads neccesaries to 32bit
         if self.load16bit:
@@ -47,10 +47,14 @@ class Llama3(nn.Module):
         self.is4bit, self.is8bit, self.is16bit, self.is32bit = False, False, False, False
         
         if training_stage in [1, 2, 3]:
-            self.is32bit = True
-            self.load16bit = False
+            if bit == 16:
+                self.is16bit = True
+            else:
+                self.is32bit = True
+
             if is_rank_zero:
-                LOGGER.info(colorstr('Training stage 1, 2, 3 automatically loads model in 32bit'))
+                LOGGER.info(colorstr('Training stage 1, 2, 3 automatically loads model in 32bit or 16bit'))
+
         else:
             if bit == 4:
                 self.is4bit = True
@@ -62,7 +66,7 @@ class Llama3(nn.Module):
             else:
                 self.is32bit = True
 
-            self.load16bit = True if self.is16bit or self.load_unnecessary_half else False
+        self.load16bit = True if self.is16bit or self.load_unnecessary_half else False
 
     
     def mapping_neccessary_32bit(self):
@@ -129,35 +133,43 @@ class Llama3(nn.Module):
             use_cache=True,
         )
     
-    def freeze_layers(self, stage):
+    def freeze_layers(self, stage, is_rank_zero=False):
         if stage == 1:
-            LOGGER.info(colorstr('Freezing all layers except for word embeddings'))
+            if is_rank_zero:
+                LOGGER.info(colorstr('Freezing all layers except for word embeddings'))
             for name, param in self.model.named_parameters():
                 if 'embed' in name:
+                    param.data = param.data.to(torch.float32)
                     param.requires_grad = True
                 else:
                     param.requires_grad = False
                 
         elif stage == 2:
-            LOGGER.info(colorstr('Freezing all layers except for the lm_head'))
+            if is_rank_zero:
+                LOGGER.info(colorstr('Freezing all layers except for the lm_head'))
             for name, param in self.model.named_parameters():
                 if 'lm_head' in name:
+                    param.data = param.data.to(torch.float32)
                     param.requires_grad = True
                 else:
                     param.requires_grad = False
         
         elif stage == 3:
-            LOGGER.info(colorstr('Freezing all layers except for word embeddings and lm_head'))
+            if is_rank_zero:
+                LOGGER.info(colorstr('Freezing all layers except for word embeddings and lm_head'))
             for name, param in self.model.named_parameters():
                 if 'embed' in name or 'lm_head' in name:
+                    param.data = param.data.to(torch.float32)
                     param.requires_grad = True
                 else:
                     param.requires_grad = False
         
         elif stage == 4:
-            LOGGER.info(colorstr('Unfreezing all layers except for word embeddings and lm_head'))
+            if is_rank_zero:
+                LOGGER.info(colorstr('Unfreezing all layers except for word embeddings and lm_head'))
             for name, param in self.model.named_parameters():
                 if 'embed' in name or 'lm_head' in name:
+                    param.data = param.data.to(torch.float32)
                     param.requires_grad = False
                 else:
                     param.requires_grad = True
