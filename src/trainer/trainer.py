@@ -112,7 +112,7 @@ class Trainer:
 
         # init peft
         if config.peft_config_path:
-            if config.training_stage == 0:
+            if config.training_stage != 0:
                 if config.is_rank_zero:
                     LOGGER.info(f'PEFT is not applied due to training stage.')
             else:
