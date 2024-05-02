@@ -9,7 +9,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/dataset_download.py",
-            "args": ["--dataset", "junelee/sharegpt_deepl_ko", "--download_path", "data"],
+            "args": ["--dataset", "kaist-ai/CoT-Collection", "--download_path", "data"],
             "console": "integratedTerminal",
             "justMyCode": true
         },
@@ -27,7 +27,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/train.py",
-            "args": ["--config", "config/llm.yaml", "--mode", "train"],
+            "args": ["--config", "config/llm.yaml", "--mode", "train", "--stage", "1"],
             "console": "integratedTerminal",
             "justMyCode": true
         },
