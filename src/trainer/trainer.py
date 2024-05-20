@@ -134,6 +134,22 @@ class Trainer:
         return model, tokenizer
     
 
+    def _freeze_model(self):
+        if self.config.training_stage:
+            # Firstly, changing model dtype
+            if self.model.load16bit:
+                self.model.half()
+            else:
+                self.model.float()
+            
+            # Secondly, freezing layer except for that need to be trained 
+            self.model.freeze_layers(self.config.training_stage)
+
+            # Lastly, changing layers dtype those have to be float32
+            if self.model.load16bit:
+                self.model.mapping_neccessary_32bit()
+
+
     def optimizer_step(self):
         """Perform a single step of the training optimizer with gradient clipping and EMA update."""
         if self.amp:
@@ -293,6 +309,9 @@ class Trainer:
                 model = model.half() if self.config.half_inference else model.float()
                 model.eval()
 
+                if self.config.half_inference:
+                    LOGGER.warning(colorstr('yellow', 'Half inference started, yet we recommend using mixed precision.'))
+
                 # validation loop
                 for i, batch in pbar:
                     if self.config.fast_validation_step_interval and i % self.config.fast_validation_step_interval != 0:
@@ -323,6 +342,9 @@ class Trainer:
                 self.training_logger.update_phase_end(phase, printing=True)
                 self.training_logger.save_model(self.wdir, self.model)
                 self.training_logger.save_logs(self.save_dir)
+
+                # re-freezing model for training phase
+                self._freeze_model()
 
                             
     def metric_evaluation(self, loss, response_pred, response_gt):
