@@ -123,9 +123,12 @@ class Trainer:
 
         # resume model
         if mode == 'resume':
-            LOGGER.info(f'Resumed model: {colorstr(self.resume_path)}')
+            if config.is_rank_zero:
+                LOGGER.info(f'Resumed model: {colorstr(self.resume_path)}')
             checkpoints = torch.load(self.resume_path, map_location=self.device)
             model.load_state_dict(checkpoints['model'])
+            del checkpoints
+            torch.cuda.empty_cache()
 
         # init ddp
         if self.is_ddp:
