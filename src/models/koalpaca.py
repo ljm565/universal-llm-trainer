@@ -95,11 +95,11 @@ class KoAlpaca(nn.Module):
 
     def inference(self, src, max_length, num_return_sequences=1, greedy=False):
         if isinstance(src, str):
-            src_tok = torch.tensor(self.tokenizer.encode(src), dtype=torch.long).unsqueeze(0).to(self.device)
+            src_tok = torch.tensor(self.tokenizer.encode(src), dtype=torch.long)[:max_length].unsqueeze(0).to(self.device)
             return self.tokenizer.decode(self.generate(src_tok, max_length, num_return_sequences, greedy)[0][src_tok.size(-1):].tolist())
         elif isinstance(src, list):
             assert all([isinstance(s, str) for s in src]), f'All elements in src should be str type'
-            src_tok = [torch.tensor(self.tokenizer.encode(s), dtype=torch.long).unsqueeze(0).to(self.device) for s in src]
+            src_tok = [torch.tensor(self.tokenizer.encode(s), dtype=torch.long)[:max_length].unsqueeze(0).to(self.device) for s in src]
             return [self.tokenizer.decode(self.generate(tok, max_length, num_return_sequences, greedy)[0][tok.size(-1):].tolist()) for tok in src_tok]
         else:
             raise AssertionError('Inference input should be str or list of str')
