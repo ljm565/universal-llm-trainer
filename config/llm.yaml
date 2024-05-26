@@ -2,15 +2,16 @@
 train_type: llm
 seed: 0
 deterministic: True
-model: kogemma
-model_size: 2b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
+model: llama3
+model_size: 10b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
-data_path: ['data/koalpaca_easy']
+data_path: ['data/koalpaca_easy_v2']
+template_dir: null   # if null, template will be chosen according to the {data_path}/templates
 
 # project config
-project: outputs/kogemma
-name: easy
+project: outputs/llama3_chat
+name: easy_v2
 
 # environment config
 device: [0]
@@ -19,13 +20,13 @@ load_unnecessary_half: False    # recommend to set True if you set bit to 16 (4,
 half_inference: False
 
 # data config
-max_length: 256
-is_multi_turn: True
+max_length: 1024
+is_multi_turn: False
 add_eos_token_when_respose_end: True
 data_verbose: False
 
 # tokenizer config (I recommend to double check the tokenizer's special token map)
-pad_token_id: null     # [add, null, int] if null, tokenizer pad_token_id will not be overrided
+pad_token_id: 128002     # [add, null, int] if null, tokenizer pad_token_id will not be overrided
 bos_token_id: null    # [add, null, int] if null, tokenizer bos_token_id will not be overrided
 eos_token_id: null    # [add, null, int] if null, tokenizer eos_token_id will not be overrided
 cls_token_id: null    # [add, null, int] if null, tokenizer cls_token_id will not be overrided
@@ -33,11 +34,11 @@ sep_token_id: null    # [add, null, int] if null, tokenizer sep_token_id will no
 unk_token_id: null    # [add, null, int] if null, tokenizer unk_token_id will not be overrided
 
 # training config
-batch_size: 1
+batch_size: 100
 epochs: 300
 warmup_epochs: 0
-steps: 15000
-warmup_steps: 300
+steps: 5000
+warmup_steps: 100
 optimizer_step_criterion: 'step'   # ['epoch', 'step']
 lr0: 5e-4
 lrf: 0.001      # last_lr = lr0 * lrf

@@ -5,3 +5,4 @@ from .koalpaca_tokenizer import KoAlpacaTokenizer
 from .t3q_solar_tokenizer import T3QSolarTokenizer
 from .kogemma_tokenizer import KoGemmaTokenizer
 from .llama3_tokenizer import Llama3Tokenizer
+from .phi3_tokenizer import Phi3Tokenizer

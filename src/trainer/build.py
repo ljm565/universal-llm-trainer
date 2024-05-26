@@ -25,7 +25,10 @@ def build_llm_dataset(config, tokenizer, mode):
     dataset_dict = {}
     datasets = [path.split('/')[-1] for path in config.data_path]
     dataset_paths = [os.path.join(p, d + '.pkl') for p, d in zip(config.data_path, datasets)]
-    template_paths = [os.path.join(p, 'templates') for p in config.data_path]
+    if not config.template_dir:
+        template_paths = [os.path.join(p, 'templates') for p in config.data_path]
+    else:
+        template_paths = [config.template_dir] if isinstance(config.template_dir, str) else config.template_dir
     dataset_classes = [choose_proper_dataset(d) for d in datasets]
 
     for i in range(len(datasets)):
@@ -125,6 +128,10 @@ def get_model(config, device):
         elif config.model.lower() == 'llama3':
             from models import Llama3
             model = Llama3(config, device)
+            tokenizer = model.tokenizer
+        elif config.model.lower() == 'phi3':
+            from models import Phi3
+            model = Phi3(config, device)
             tokenizer = model.tokenizer
         else:
             raise NotImplementedError

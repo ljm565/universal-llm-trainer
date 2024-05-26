@@ -69,6 +69,14 @@ def choose_proper_model(config):
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
+    elif config.model.lower() == 'phi3':
+        pattern = r'\b(\d+.\d+|\d+)k\b'
+        model_list = [
+            'microsoft/Phi-3-mini-128k-instruct',
+        ]
+        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
+                            for text in model_list]
+        idx = size_diff.index(min(size_diff))
     else:
         raise NotImplementedError
     
