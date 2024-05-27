@@ -66,13 +66,13 @@ class Chatter:
         description = '\n'.join(instructions[1:]).strip()
 
         if description == '':
-            LOGGER.info(colorstr('No discription case'))
+            LOGGER.info(colorstr('No description case'))
             no_input_template = random.choice(self.template['prompt_no_input'])
             guidance_template = no_input_template.split('### Instruction')[0]
             dialogue_template = '### Instruction' + no_input_template.split('### Instruction')[-1]
             user_prompt = guidance_template + dialogue_template.format(instruction=instruction) if self.context == None else dialogue_template.format(instruction=instruction)
         else:
-            LOGGER.info(colorstr('Discription case'))
+            LOGGER.info(colorstr('Description case'))
             self.context = None
             template = random.choice(self.template['prompt_input'])
             user_prompt = template.format(instruction=instruction, input=description)
@@ -234,7 +234,7 @@ class Chatter:
 
     def do_chat(self, is_greedy):
         LOGGER.info(colorstr('Start chatting...'))
-        LOGGER.info(f"You can {colorstr('ignore discription')} by pressing Enter.")
+        LOGGER.info(f"You can {colorstr('ignore description')} by pressing Enter.")
         LOGGER.info(f"Press {colorstr('Ctrl+C')} to exit.")
         LOGGER.warning(colorstr('red', 'Only alpaca style is supported.\n'))
 
@@ -243,6 +243,6 @@ class Chatter:
             # chat
             while True:
                 instruction = input('Instruction: ')
-                discription = input('Discription: ')
-                message = instruction + '\n' + discription
+                description = input('Description: ')
+                message = instruction + '\n' + description
                 self.generate_demo(message, is_greedy)
