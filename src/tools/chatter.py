@@ -14,7 +14,7 @@ from trainer.build import get_model, get_peft_model
 
 
 class Chatter:
-    def __init__(self, config, model_path, device, save_context=True, efficient_load=False, is_greedy=False):
+    def __init__(self, config, model_path, device, template_path, save_context=True, efficient_load=False, is_greedy=False):
         self.context = None
         self.save_context = save_context
         self.is_greedy = is_greedy
@@ -22,7 +22,7 @@ class Chatter:
         self.device = torch.device(device)
         self.config = config
         self.model, self.tokenizer = self.load_model(model_path, efficient_load)
-        self.template = json_load('data/koalpaca_easy_v2/templates/template1.json')
+        self.template = json_load(template_path)
 
 
     def load_model(self, model_path, efficient_load=False):
