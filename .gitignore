@@ -1,9 +1,15 @@
-data/
-outputs/
-.junk/
 __pycache__/
-*.ipynb
-test.py
+.junk/
 *.whl
 *.DS_store
+*.out
+*.sh
+
+# folders
+data/
 config/
+outputs/
+
+# unnecessary files
+*.ipynb
+test.py

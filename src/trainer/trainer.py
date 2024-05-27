@@ -1,3 +1,4 @@
+import gc
 import time
 import math
 import transformers
@@ -107,7 +108,18 @@ class Trainer:
 
 
     def _init_model(self, config, mode):
+        def _resume_model(resume_path, device, is_rank_zero):
+            checkpoints = torch.load(resume_path, map_location=device)
+            model.load_state_dict(checkpoints['model'])
+            del checkpoints
+            torch.cuda.empty_cache()
+            gc.collect()
+            if is_rank_zero:
+                LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
+            return model
+
         # init model and tokenizer
+        resume_success = False
         model, tokenizer = get_model(config, self.device)
 
         # init peft
@@ -116,19 +128,21 @@ class Trainer:
                 if config.is_rank_zero:
                     LOGGER.info(f'PEFT is not applied due to training stage.')
             else:
+                # resume before applying peft
+                if mode == 'resume':
+                    try:
+                        model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
+                        resume_success = True
+                    except:
+                        pass
                 model = get_peft_model(model, config)
         else:
             if config.is_rank_zero:
                 LOGGER.info(f'PEFT is not applied.')
 
-        # resume model
-        if mode == 'resume':
-            if config.is_rank_zero:
-                LOGGER.info(f'Resumed model: {colorstr(self.resume_path)}')
-            checkpoints = torch.load(self.resume_path, map_location=self.device)
-            model.load_state_dict(checkpoints['model'])
-            del checkpoints
-            torch.cuda.empty_cache()
+        # resume model or resume model after applying peft
+        if mode == 'resume' and not resume_success:
+            model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
 
         # init ddp
         if self.is_ddp:
@@ -204,7 +218,9 @@ class Trainer:
                     if self.is_ddp:
                         dist.barrier()
 
-            torch.cuda.empty_cache()  # clears GPU vRAM at end of epoch, can help with out of memory errors
+            # clears GPU vRAM at end of epoch, can help with out of memory errors
+            torch.cuda.empty_cache()
+            gc.collect()
 
             # Early Stopping
             if self.is_ddp:  # if DDP training
