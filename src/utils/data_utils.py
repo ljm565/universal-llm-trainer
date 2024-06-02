@@ -22,5 +22,7 @@ def choose_proper_dataset(dataset_name):
         return ARCDataset
     elif dataset_name.lower() in ['koalpaca_easy', 'koalpaca_easy_v2']:
         return AlpacaDataset
+    elif dataset_name.lower() in ['mras_en', 'mras_kr']:
+        return AlpacaDataset
     else:
         raise NotImplementedError
