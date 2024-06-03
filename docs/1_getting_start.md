@@ -53,3 +53,8 @@ pip3 install torch torchvision torchaudio --index-url https://download.pytorch.o
 cd docker
 pip3 install -r requirements.txt
 ```
+
+* 만약 `requirements.txt`의 bitsandbytes 설치 오류가 날 경우 wheel 파일로 설치합니다.
+```bash
+pip3 install bitsandbytes-0.42.0-py3-none-any.whl
+```
