@@ -22,7 +22,7 @@ half_inference: False
 # data config
 max_length: 1024
 is_multi_turn: False
-add_eos_token_when_respose_end: True
+add_eos_token_when_response_end: True
 data_verbose: False
 
 # tokenizer config (I recommend to double check the tokenizer's special token map)
