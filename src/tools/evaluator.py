@@ -12,7 +12,9 @@ class Evaluator:
 
 
     def cal_bleu_score(self, pred, gt, n=4):
-        assert (isinstance(pred, str) and isinstance(gt, str)) or (isinstance(pred, list) and isinstance(gt, list))
+        assert (isinstance(pred, str) and isinstance(gt, str)) or (isinstance(pred, list) and isinstance(gt, list))    
+        if isinstance(pred, str):
+            pred, gt = [pred], [gt]
         weights = tuple([1/n] * n)
         pred = [self.tokenizer.tokenize(text) for text in pred]
         gt = [[self.tokenizer.tokenize(text)] for text in gt]
@@ -22,6 +24,10 @@ class Evaluator:
     
 
     def cal_rouge_score(self, pred, gt, n=4):
+        assert (isinstance(pred, str) and isinstance(gt, str)) or (isinstance(pred, list) and isinstance(gt, list))    
+        if isinstance(pred, str):
+            pred, gt = [pred], [gt]
+        
         if not hasattr(self, 'rouge'):
             if n == None:
                 self.rouge = Rouge(['rouge-l'])
@@ -36,6 +42,8 @@ class Evaluator:
 
     def cal_meteor_score(self, pred, gt):
         assert (isinstance(pred, str) and isinstance(gt, str)) or (isinstance(pred, list) and isinstance(gt, list))
+        if isinstance(pred, str):
+            pred, gt = [pred], [gt]
         pred = [self.tokenizer.tokenize(text) for text in pred]
         gt = [[self.tokenizer.tokenize(text)] for text in gt]
         meteor_scores = [meteor_score(g, p) for g, p in zip(gt, pred)]
@@ -43,7 +51,10 @@ class Evaluator:
     
 
     def cal_edit_distance(self, pred, gt):
-        return edit_distance(pred, gt) / max(len(pred), len(gt))
+        assert (isinstance(pred, str) and isinstance(gt, str)) or (isinstance(pred, list) and isinstance(gt, list))
+        if isinstance(pred, str):
+            return edit_distance(pred, gt) / max(len(pred), len(gt))
+        return sum([edit_distance(p, g) / max(len(p), len(g)) for p, g in zip(pred, gt)]) / len(pred)
     
 
     def cal_ppl(self, loss):

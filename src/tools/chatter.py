@@ -18,7 +18,7 @@ class Chatter:
         self.context = None
         self.save_context = save_context
         self.is_greedy = is_greedy
-        self.max_context_len = 256
+        self.max_context_len = 1024
         self.device = torch.device(device)
         self.config = config
         self.model, self.tokenizer = self.load_model(model_path, efficient_load)
@@ -68,9 +68,10 @@ class Chatter:
         if description == '':
             LOGGER.info(colorstr('No description case'))
             no_input_template = random.choice(self.template['prompt_no_input'])
-            guidance_template = no_input_template.split('### Instruction')[0]
-            dialogue_template = '### Instruction' + no_input_template.split('### Instruction')[-1]
-            user_prompt = guidance_template + dialogue_template.format(instruction=instruction) if self.context == None else dialogue_template.format(instruction=instruction)
+            # guidance_template = no_input_template.split('### Instruction')[0]
+            # dialogue_template = '### Instruction' + no_input_template.split('### Instruction')[-1]
+            # user_prompt = guidance_template + dialogue_template.format(instruction=instruction) if self.context == None else dialogue_template.format(instruction=instruction)
+            user_prompt = no_input_template.format(instruction=instruction)
         else:
             LOGGER.info(colorstr('Description case'))
             self.context = None
@@ -89,7 +90,7 @@ class Chatter:
                 'input_ids': src_tok,
                 'attention_mask': attention_mask,
                 'min_length': 10,
-                'max_length': 512,
+                'max_length': 1024,
                 'pad_token_id': self.tokenizer.pad_token_id,
                 'eos_token_id': self.tokenizer.eos_token_id,
                 'do_sample': False,
@@ -109,7 +110,7 @@ class Chatter:
                 'input_ids': src_tok,
                 'attention_mask': attention_mask,
                 'min_length': 10,
-                'max_length': 512,
+                'max_length': 1024,
                 'pad_token_id': self.tokenizer.pad_token_id,
                 'eos_token_id': self.tokenizer.eos_token_id,
                 'do_sample': do_sample,
