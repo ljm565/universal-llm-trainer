@@ -6,8 +6,8 @@ model: llama3
 model_size: 10b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
-data_path: ['data/koalpaca_easy_v2']
-template_dir: null   # list(path) or path, if null, template will be chosen according to the {data_path}/templates
+data_path: ['data/kopolyglot_easy_v2']
+template_dir: null   # list(directory) or directory, if null, template will be chosen according to the {data_path}/templates
 
 # project config
 project: outputs/llama3_chat
@@ -53,7 +53,7 @@ ema_updating: False
 train_verbose: True
 
 # peft
-peft_config_path: False #config/gemma_lora_config.yaml   # if False, training without peft
+peft_config_path: False # config_lora/gemma_lora_config.yaml   # if False, training without peft
 
 # logging data and metrics
 common: ['train_loss', 'validation_loss', 'lr']               # ['train_loss', 'validation_loss', 'lr']

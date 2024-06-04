@@ -45,8 +45,10 @@ class T3QSolar(nn.Module):
         
         if bit == 4:
             self.is4bit = True
+            self.load_unnecessary_half = False
         elif bit == 8:
             self.is8bit = True
+            self.load_unnecessary_half = False
         elif bit == 16:
             self.is16bit = True
             raise AssertionError('16bit is not supported yet')
