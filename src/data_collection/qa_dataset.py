@@ -34,7 +34,8 @@ class QADataset(Dataset):
 
         # params
         self.max_length = config.max_length
-        self.add_eos = config.add_eos_token_when_respose_end
+        self.add_bos = config.add_bos_token_when_response_start
+        self.add_eos = config.add_eos_token_when_response_end
         self.verbose = config.data_verbose
         self.length = len(self.data)
 
@@ -87,8 +88,7 @@ class QADataset(Dataset):
             instruction, input = single_data['instruction'][0], single_data['input'][0]
             user_prompt = template.format(instruction=instruction, input=input)
 
-        user_prompt_tokens = self.tokenizer.encode(user_prompt) if self.tokenizer.sep_token is None \
-            else self.tokenizer.encode(user_prompt + self.tokenizer.sep_token)
+        user_prompt_tokens = self.tokenizer.encode(user_prompt)
         response_tokens = self.tokenizer.encode(response)
         full_prompt_tokens = user_prompt_tokens + response_tokens
         label = [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
@@ -208,12 +208,18 @@ class QADataset(Dataset):
         return full_prompt_tokens, label, final_user_prompt, response
         
 
-    def _pad(self, data, max_length, pad_token_id, add_eos=False, return_data_len=False):
-        if add_eos and data[-1] != pad_token_id and len(data) < max_length:
+    def _pad(self, data, max_length, pad_token_id, bos_token=None, eos_token=None, return_data_len=False, bos_masking=False):
+        # add bos and eos token
+        if bos_token:
+            data = [self.tokenizer.pad_token_id] + data if bos_masking else [self.tokenizer.bos_token_id] + data
+        if eos_token:
             data.append(self.tokenizer.eos_token_id)
         
+        # calculate data length
         data = data if len(data) <= max_length else data[:max_length]
         data_len = len(data)
+
+        # padding
         data = data + [pad_token_id] * (max_length - len(data))
         if return_data_len:
             return data, data_len
@@ -229,8 +235,22 @@ class QADataset(Dataset):
         full_prompt_token, label, user_prompt, response = self.generate_prompt(idx)
         
         # padding
-        full_prompt_token, data_len = self._pad(full_prompt_token, self.max_length,  self.pad_token_id, self.add_eos, True)
-        label = self._pad(label, self.max_length, self.pad_token_id, self.add_eos)
+        full_prompt_token, data_len = self._pad(
+            data=full_prompt_token,
+            max_length=self.max_length,
+            pad_token_id=self.pad_token_id,
+            bos_token=self.tokenizer.bos_token_id if self.add_bos and self.tokenizer.bos_token_id else None,
+            eos_token=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
+            return_data_len=True
+        )
+        label = self._pad(
+            data=label,
+            max_length=self.max_length,
+            pad_token_id=self.pad_token_id,
+            bos_token=self.tokenizer.bos_token_id if self.add_bos and self.tokenizer.bos_token_id else None,
+            eos_token=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
+            bos_masking=True
+        )
         attention_mask = self._pad(self.get_mask(data_len), self.max_length, 0)
         
         assert len(full_prompt_token) == len(attention_mask) == len(label) == self.max_length, \

@@ -63,7 +63,7 @@ class Llama3Tokenizer:
         return self.tokenizer.convert_ids_to_tokens(tok_id)
     
 
-    def convert_tokens_to_id(self, tok_str):
+    def convert_tokens_to_ids(self, tok_str):
         """
         Args:
             tok_str (str): text token.
