@@ -40,7 +40,7 @@ def choose_proper_model(config):
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
-    elif config.model.lower() == 'koalpaca':
+    elif config.model.lower() == 'kopolyglot':
         model_list = [
             'beomi/KoAlpaca-Polyglot-5.8B',
         ]

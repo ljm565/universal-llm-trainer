@@ -1,0 +1,2 @@
+USER: {instruction}{eos_token}
+ASSISTANT: {response}{eos_token}

@@ -7,7 +7,7 @@ model_size: 10b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b 
 
 # data config
 data_path: ['data/koalpaca_easy_v2']
-template_dir: null   # if null, template will be chosen according to the {data_path}/templates
+template_dir: null   # list(path) or path, if null, template will be chosen according to the {data_path}/templates
 
 # project config
 project: outputs/llama3_chat

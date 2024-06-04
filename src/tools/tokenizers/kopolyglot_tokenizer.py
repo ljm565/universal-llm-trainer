@@ -2,7 +2,7 @@ from transformers import AutoTokenizer
 
 
 
-class KoAlpacaTokenizer:
+class KoPolyglotTokenizer:
     def __init__(self, config, path):
         self.tokenizer = AutoTokenizer.from_pretrained(path)
         self.remapping_special_tokens(config)

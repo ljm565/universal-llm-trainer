@@ -5,7 +5,7 @@ import torch
 
 from data_collection import (
     ARCDataset,
-    AlpacaDataset,
+    QADataset,
 )
 
 
@@ -20,9 +20,9 @@ def seed_worker(worker_id):  # noqa
 def choose_proper_dataset(dataset_name):
     if 'arc' in dataset_name.lower():
         return ARCDataset
-    elif dataset_name.lower() in ['koalpaca_easy', 'koalpaca_easy_v2']:
-        return AlpacaDataset
-    elif dataset_name.lower() in ['mras_en', 'mras_kr']:
-        return AlpacaDataset
+    elif dataset_name.lower() in ['kopolyglot_easy', 'kopolyglot_easy_v2']:
+        return QADataset
+    elif dataset_name.lower() in ['mras_en', 'mras_kr', 'mras_en_filtered']:
+        return QADataset
     else:
         raise NotImplementedError

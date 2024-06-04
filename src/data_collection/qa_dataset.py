@@ -11,7 +11,7 @@ from utils.filesys_utils import txt_load, json_load
 
 
 
-class AlpacaDataset(Dataset):
+class QADataset(Dataset):
     def __init__(self,
                  mode,
                  config,
@@ -20,7 +20,7 @@ class AlpacaDataset(Dataset):
                  template_dir=None,
                  name=None):
         # init
-        name = 'Alpaca' if not name else name
+        name = 'QA' if not name else name
         self.data = data
         self.tokenizer = tokenizer
         self.pad_token_id = self.tokenizer.pad_token_id

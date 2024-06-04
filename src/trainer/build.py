@@ -29,6 +29,10 @@ def build_llm_dataset(config, tokenizer, mode):
         template_paths = [os.path.join(p, 'templates') for p in config.data_path]
     else:
         template_paths = [config.template_dir] if isinstance(config.template_dir, str) else config.template_dir
+    
+    if not all([os.path.exists(p) for p in template_paths]) and config.is_rank_zero:
+        raise FileNotFoundError(LOGGER.info(colorstr('red', 'Template directory is not found.')))
+    
     dataset_classes = [choose_proper_dataset(d) for d in datasets]
 
     for i in range(len(datasets)):
@@ -113,9 +117,9 @@ def get_model(config, device):
             from models import Bagel
             model = Bagel(config, device)
             tokenizer = model.tokenizer
-        elif config.model.lower() == 'koalpaca':
-            from models import KoAlpaca
-            model = KoAlpaca(config, device)
+        elif config.model.lower() == 'kopolyglot':
+            from models import KoPolyglot
+            model = KoPolyglot(config, device)
             tokenizer = model.tokenizer
         elif config.model.lower() == 't3q_solar':
             from models import T3QSolar

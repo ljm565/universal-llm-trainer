@@ -1,0 +1,10 @@
+아래 지시를 따라서 올바른 답변을 적어줘
+
+### Instruction:
+{instruction}
+{eos_token}
+
+### Response:
+<<<mask_split>>>
+{response}
+{eos_token}

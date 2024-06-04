@@ -2,15 +2,15 @@ import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM
 
-from tools.tokenizers import KoAlpacaTokenizer
+from tools.tokenizers import KoPolyglotTokenizer
 from utils import LOGGER, print_mem_consumption, colorstr
 from utils.training_utils import choose_proper_model
 
 
 
-class KoAlpaca(nn.Module):
+class KoPolyglot(nn.Module):
     def __init__(self, config, device):
-        super(KoAlpaca, self).__init__()
+        super(KoPolyglot, self).__init__()
         self.model_path = choose_proper_model(config)
         self.device = device
         self.load_unnecessary_half = config.load_unnecessary_half
@@ -32,7 +32,7 @@ class KoAlpaca(nn.Module):
         if self.load16bit:
             self.mapping_neccessary_32bit()
 
-        self.tokenizer = KoAlpacaTokenizer(config, self.model_path)
+        self.tokenizer = KoPolyglotTokenizer(config, self.model_path)
         if hasattr(self.tokenizer, 'resized'):
             self.model.resize_token_embeddings(len(self.tokenizer))
             if config.is_rank_zero:

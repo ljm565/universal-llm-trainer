@@ -15,12 +15,12 @@ from tools import Chatter
 
 app = FastAPI()
 
-model_dir = 'outputs/phi3/mras_en/'
-template_path = '/home/junmin/Documents/Python/llm/data/mras_en/phi3_templates/template1.json'
+model_dir = 'outputs/phi3/mras_en_filtered2/'
+template_path = '/home/junmin/Documents/Python/llm/data/mras_en_filtered/phi3_templates/template1.json'
 config = Config(os.path.join(model_dir, 'args.yaml'))
-model_path = os.path.join(model_dir, 'weights/model_epoch:62_step:94966_metric_best.pt')
+model_path = os.path.join(model_dir, 'weights/model_epoch:13_step:2000_last_best.pt')
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-is_greedy = False
+is_greedy = True
 save_context = False
 efficient_load = False
 chatter = Chatter(config, model_path, device, template_path, save_context, efficient_load, is_greedy)
