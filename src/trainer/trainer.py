@@ -311,18 +311,19 @@ class Trainer:
                        epoch: int,
                        middle_validation=False
         ):
-        def _get_val_pbar(dloader, nb, middle_validation):
-            # if not middle_validation:
+        def _init_headline():
             header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics)
             LOGGER.info(('\n' + '%15s' * (2 + len(self.loss_names) + len(self.metrics))) % header)
+
+        def _get_val_pbar(dloader, nb):
+            _init_headline()
             return TQDM(enumerate(dloader), total=nb)
-            # return enumerate(dloader)
 
         with torch.no_grad():
             if RANK in (-1, 0) and self.is_rank_zero:
                 val_loader = self.dataloaders[phase]
                 nb = len(val_loader)
-                pbar = _get_val_pbar(val_loader, nb, middle_validation)
+                pbar = _get_val_pbar(val_loader, nb)
 
                 model = self.ema.ema or self.model if self.ema else self.model
                 model = model.half() if self.config.half_inference else model.float()
@@ -346,16 +347,25 @@ class Trainer:
                     response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
                     response_pred = self.model.inference(user_prompt, max_length=self.config.max_length, num_return_sequences=1, greedy=True)
 
-                    # evaluation and logging
+                    # evaluation
                     metric_results = self.metric_evaluation(loss, response_pred, response_gt)
                     self.training_logger.update(phase, epoch, self.train_cur_step, inference_batch_size, **{'validation_loss': loss.item()}, **metric_results)
 
                     # logging
-                    # if not middle_validation:
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                     loss_log = [loss.item()]
                     msg = tuple([f'{epoch+1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
+                    if self.config.inference_result_verbose and self.is_rank_zero:
+                        _init_headline()
                     pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
+
+                    if self.config.inference_result_verbose and self.is_rank_zero:
+                        for u, p, g in zip(user_prompt, response_pred, response_gt):
+                            LOGGER.info('\n\n' + '-'*100)
+                            LOGGER.info(colorstr('Prompt    : ') + u)
+                            LOGGER.info(colorstr('Prediction: ') + p)
+                            LOGGER.info(colorstr('GT        : ') + g)
+                            LOGGER.info('-'*100 + '\n')
 
                 # upadate logs and save model
                 self.training_logger.update_phase_end(phase, printing=True)

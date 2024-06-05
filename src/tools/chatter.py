@@ -78,7 +78,7 @@ class Chatter:
             template = random.choice(self.template['prompt_input'])
             user_prompt = template.format(instruction=instruction, input=description)
 
-        user_prompt = user_prompt + self.tokenizer.sep_token if self.tokenizer.sep_token else user_prompt
+        print(user_prompt)
         user_prompt_tokens = torch.tensor(self.tokenizer.encode(user_prompt), dtype=torch.long).to(self.device).unsqueeze(0)
 
         return user_prompt_tokens
@@ -89,16 +89,10 @@ class Chatter:
             return {
                 'input_ids': src_tok,
                 'attention_mask': attention_mask,
-                'min_length': 10,
                 'max_length': 1024,
                 'pad_token_id': self.tokenizer.pad_token_id,
                 'eos_token_id': self.tokenizer.eos_token_id,
-                'do_sample': False,
-                'top_k': 1,
-                'early_stopping': True,
                 'use_cache': True,
-                'no_repeat_ngram_size': 3,
-                'repetition_penalty': 1.5,
                 'streamer': self.streamer,
             }
 

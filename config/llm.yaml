@@ -52,6 +52,7 @@ workers: 0
 amp_training: False
 ema_updating: False
 train_verbose: True
+inference_result_verbose: True
 
 # peft
 peft_config_path: False # config_lora/gemma_lora_config.yaml   # if False, training without peft
