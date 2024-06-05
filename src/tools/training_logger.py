@@ -10,13 +10,14 @@ from utils import LOGGER, colorstr
 
 
 class TrainingLogger:
-    def __init__(self, config):
+    def __init__(self, config, training=True):
+        self.training = training
         self.log_data = {'step': [], 'epoch': []}
         self.log_keys = config.common + config.metrics
         self.log_data.update({k: [] for k in self.log_keys})
         self.train_batch_sizes, self.val_batch_sizes = [], []
         self.st = 0
-        if config.is_rank_zero:
+        if config.is_rank_zero and self.training:
             LOGGER.info(f'{colorstr("Logging data")}: {self.log_keys}')
             self.writer = SummaryWriter(log_dir=config.save_dir)
         self.model_manager = ModelManager()
@@ -57,10 +58,15 @@ class TrainingLogger:
             self.val_batch_sizes.append(batch_size)
             for k in self.log_keys:
                 if k in kwargs:
-                    if isinstance(self.log_data[k][step], list):
-                        self.log_data[k][step].append(kwargs[k])
-                    else:
-                        self.log_data[k][step] = [kwargs[k]]
+                    # train.py case
+                    try:
+                        if isinstance(self.log_data[k][step], list):
+                            self.log_data[k][step].append(kwargs[k])
+                        else:
+                            self.log_data[k][step] = [kwargs[k]]
+                    # validation.py case
+                    except IndexError:
+                        self.log_data[k].append([kwargs[k]])
 
 
     def update_phase_end(self, phase, printing=False):
@@ -76,13 +82,14 @@ class TrainingLogger:
         else:
             self.validation_epoch_result = {}
             for k, v in self.log_data.items():
-                if isinstance(v[-1], list):
+                if len(v) and isinstance(v[-1], list):
                     assert len(self.val_batch_sizes) == len(v[-1])
                     # nan value processing
                     value_sum, reduce_batch_sizes = self.nan_value_filtering(v[-1], self.val_batch_sizes)
                     v[-1] = value_sum / (sum(self.val_batch_sizes) - reduce_batch_sizes)
                     self.validation_epoch_result[k] = v[-1]
-                    self._update_tensorboard(phase, self.log_data['step'][-1], k, v[-1])
+                    if self.training:
+                        self._update_tensorboard(phase, self.log_data['step'][-1], k, v[-1])
             self.val_batch_sizes = []
             
         if printing:
