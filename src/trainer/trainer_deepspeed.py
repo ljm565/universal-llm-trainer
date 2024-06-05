@@ -44,8 +44,16 @@ class TrainerDeepSpeed:
         self.steps = self.config.steps
         self.optimizer_step_criterion = 'step'
         self.metrics = self.config.metrics
-        self.save_dir = make_project_dir(self.config, self.is_rank_zero)
-        self.wdir = self.save_dir / 'weights'
+        if self.is_training_mode:
+            self.save_dir = make_project_dir(self.config, self.is_rank_zero)
+            self.wdir = self.save_dir / 'weights'
+        else:
+            config.is_training_mode = False
+            config.data_verbose = False
+            if self.config.fast_validation_n == 'None': 
+                self.config.fast_validation_n = None
+            if self.config.fast_validation_step_interval == 'None': 
+                self.config.fast_validation_step_interval = None
         self.config.is_rank_zero = self.is_rank_zero
         self.loss_names = ['cross_entropy']
         self.train_verbose = self.config.train_verbose
@@ -68,12 +76,12 @@ class TrainerDeepSpeed:
         self.modes = ['train', 'validation'] if self.is_training_mode else ['validation']
         self.model, self.tokenizer = self._init_model(self.config, self.mode)
         self.evaluator = Evaluator(self.tokenizer)
-        self.training_logger = TrainingLogger(self.config)
+        self.training_logger = TrainingLogger(self.config, self.is_training_mode)
         self.dataloaders = get_data_loader(self.config, self.tokenizer, self.modes, self.is_ddp)
         
         # init criterion and deepspeed's optimizer and model engine
+        self.model._init_criterion()
         if self.is_training_mode:
-            self.model._init_criterion()
             self.scaler = amp.GradScaler(enabled=self.amp) if self.amp else None
             self.start_epoch = 0
             self.stop = False
@@ -85,26 +93,63 @@ class TrainerDeepSpeed:
 
 
     def _init_model(self, config, mode):
+        def _resume_model(resume_path, device, is_rank_zero):
+            checkpoints = torch.load(resume_path, map_location=device)
+            model.load_state_dict(checkpoints['model'])
+            del checkpoints
+            torch.cuda.empty_cache()
+            gc.collect()
+            if is_rank_zero:
+                LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
+            return model
+
         # init model and tokenizer
+        resume_success = False
         model, tokenizer = get_model(config, self.device)
 
         # init peft
         if config.peft_config_path:
-            model = get_peft_model(model, config)
+            if config.training_stage != 0:
+                if config.is_rank_zero:
+                    LOGGER.info(f'PEFT is not applied due to training stage.')
+            else:
+                # resume before applying peft
+                if mode in ['resume', 'validation']:
+                    try:
+                        model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
+                        resume_success = True
+                    except:
+                        pass
+                model = get_peft_model(model, config)
         else:
-            LOGGER.info(f'PEFT is not applied.')
+            if config.is_rank_zero:
+                LOGGER.info(f'PEFT is not applied.')
 
-        # resume model
-        if mode == 'resume':
-            LOGGER.info(f'Resumed model: {colorstr(self.resume_path)}')
-            checkpoints = torch.load(self.resume_path, map_location=self.device)
-            model.load_state_dict(checkpoints['model'])
+        # resume model or resume model after applying peft
+        if mode in ['resume', 'validation'] and not resume_success:
+            model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
 
         # init ddp
         if self.is_ddp:
             torch.nn.parallel.DistributedDataParallel(model, device_ids=[self.device])
         
         return model, tokenizer
+    
+
+    def _freeze_model(self):
+        if self.config.training_stage:
+            # Firstly, changing model dtype
+            if self.model.load16bit:
+                self.model.half()
+            else:
+                self.model.float()
+            
+            # Secondly, freezing layer except for that need to be trained 
+            self.model.freeze_layers(self.config.training_stage)
+
+            # Lastly, changing layers dtype those have to be float32
+            if self.model.load16bit:
+                self.model.mapping_neccessary_32bit()
       
         
     def do_train(self) -> None:
@@ -205,7 +250,7 @@ class TrainerDeepSpeed:
 
             # validataion
             if self.train_cur_step != 0 and self.train_cur_step % validation_step_interval == 0 and self.config.validation_step_interval_prop != 1:
-                self.epoch_validate('validation', epoch, middle_validation=True)
+                self.epoch_validate('validation', epoch)
                 self.model.train()
                 if self.is_ddp:
                     dist.barrier()
@@ -219,20 +264,21 @@ class TrainerDeepSpeed:
     def epoch_validate(self,
                        phase: str,
                        epoch: int,
-                       middle_validation=False
+                       is_training_now=True
         ):
-        def _get_val_pbar(dloader, nb, middle_validation):
-            # if not middle_validation:
+        def _init_headline():
             header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics)
             LOGGER.info(('\n' + '%15s' * (2 + len(self.loss_names) + len(self.metrics))) % header)
+
+        def _get_val_pbar(dloader, nb):
+            _init_headline()
             return TQDM(enumerate(dloader), total=nb)
-            # return enumerate(dloader)
 
         with torch.no_grad():
             if RANK in (-1, 0) and self.is_rank_zero:
                 val_loader = self.dataloaders[phase]
                 nb = len(val_loader)
-                pbar = _get_val_pbar(val_loader, nb, middle_validation)
+                pbar = _get_val_pbar(val_loader, nb)
 
                 model = self.model
                 model = model.half() if self.config.half_inference else model.float()
@@ -255,19 +301,39 @@ class TrainerDeepSpeed:
 
                     # evaluation and logging
                     metric_results = self.metric_evaluation(loss, response_pred, response_gt)
-                    self.training_logger.update(phase, epoch, self.train_cur_step, inference_batch_size, **{'validation_loss': loss.item()}, **metric_results)
+                    self.training_logger.update(
+                        phase, 
+                        epoch, 
+                        self.train_cur_step if is_training_now else 0, 
+                        inference_batch_size, 
+                        **{'validation_loss': loss.item()}, 
+                        **metric_results
+                    )
 
                     # logging
-                    # if not middle_validation:
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                     loss_log = [loss.item()]
                     msg = tuple([f'{epoch+1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
+                    if self.config.inference_result_verbose and self.is_rank_zero:
+                        _init_headline()
                     pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
+
+                    if self.config.inference_result_verbose and self.is_rank_zero:
+                        for u, p, g in zip(user_prompt, response_pred, response_gt):
+                            LOGGER.info('\n\n' + '-'*100)
+                            LOGGER.info(colorstr('Prompt    : ') + u)
+                            LOGGER.info(colorstr('Prediction: ') + p)
+                            LOGGER.info(colorstr('GT        : ') + g)
+                            LOGGER.info('-'*100 + '\n')
 
                 # upadate logs and save model
                 self.training_logger.update_phase_end(phase, printing=True)
-                self.training_logger.save_model(self.wdir, self.model)
-                self.training_logger.save_logs(self.save_dir)
+                if is_training_now:
+                    self.training_logger.save_model(self.wdir, self.model)
+                    self.training_logger.save_logs(self.save_dir)
+
+                    # re-freezing model for training phase
+                    self._freeze_model()
 
                             
     def metric_evaluation(self, loss, response_pred, response_gt):

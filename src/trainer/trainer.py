@@ -55,8 +55,16 @@ class Trainer:
         self.optimizer_step_criterion = self.config.optimizer_step_criterion
         self.scheduler_type = self.config.scheduler_type
         self.metrics = self.config.metrics
-        self.save_dir = make_project_dir(self.config, self.is_rank_zero)
-        self.wdir = self.save_dir / 'weights'
+        if self.is_training_mode:
+            self.save_dir = make_project_dir(self.config, self.is_rank_zero)
+            self.wdir = self.save_dir / 'weights'
+        else:
+            config.is_training_mode = False
+            config.data_verbose = False
+            if self.config.fast_validation_n == 'None': 
+                self.config.fast_validation_n = None
+            if self.config.fast_validation_step_interval == 'None': 
+                self.config.fast_validation_step_interval = None
         self.config.is_rank_zero = self.is_rank_zero
         self.loss_names = ['cross_entropy']
         self.train_verbose = self.config.train_verbose
@@ -80,16 +88,16 @@ class Trainer:
         self.modes = ['train', 'validation'] if self.is_training_mode else ['validation']
         self.model, self.tokenizer = self._init_model(self.config, self.mode)
         self.evaluator = Evaluator(self.tokenizer)
-        self.training_logger = TrainingLogger(self.config)
+        self.training_logger = TrainingLogger(self.config, self.is_training_mode)
         self.dataloaders = get_data_loader(self.config, self.tokenizer, self.modes, self.is_ddp)
         if self.use_huggingface_trainer:
             self.do_train = self.huggingface_trainer
             return 
         
         # init criterion, optimizer, scheduler
+        self.model._init_criterion()
         if self.is_training_mode:
             self.lr0 = self.config.lr0
-            self.model._init_criterion()
             self.scaler = amp.GradScaler(enabled=self.amp) if self.amp else None
             self.ema = ModelEMA(self.model) if self.ema else None
             self.start_epoch = 0
@@ -129,7 +137,7 @@ class Trainer:
                     LOGGER.info(f'PEFT is not applied due to training stage.')
             else:
                 # resume before applying peft
-                if mode == 'resume':
+                if mode in ['resume', 'validation']:
                     try:
                         model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
                         resume_success = True
@@ -141,7 +149,7 @@ class Trainer:
                 LOGGER.info(f'PEFT is not applied.')
 
         # resume model or resume model after applying peft
-        if mode == 'resume' and not resume_success:
+        if mode in ['resume', 'validation'] and not resume_success:
             model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
 
         # init ddp
@@ -292,7 +300,7 @@ class Trainer:
 
             # validataion
             if self.train_cur_step != 0 and self.train_cur_step % validation_step_interval == 0 and self.config.validation_step_interval_prop != 1:
-                self.epoch_validate('validation', epoch, middle_validation=True)
+                self.epoch_validate('validation', epoch)
                 self.model.train()
                 if self.is_ddp:
                     dist.barrier()
@@ -309,7 +317,7 @@ class Trainer:
     def epoch_validate(self,
                        phase: str,
                        epoch: int,
-                       middle_validation=False
+                       is_training_now=True
         ):
         def _init_headline():
             header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics)
@@ -349,7 +357,14 @@ class Trainer:
 
                     # evaluation
                     metric_results = self.metric_evaluation(loss, response_pred, response_gt)
-                    self.training_logger.update(phase, epoch, self.train_cur_step, inference_batch_size, **{'validation_loss': loss.item()}, **metric_results)
+                    self.training_logger.update(
+                        phase, 
+                        epoch, 
+                        self.train_cur_step if is_training_now else 0, 
+                        inference_batch_size, 
+                        **{'validation_loss': loss.item()}, 
+                        **metric_results
+                    )
 
                     # logging
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
@@ -369,11 +384,12 @@ class Trainer:
 
                 # upadate logs and save model
                 self.training_logger.update_phase_end(phase, printing=True)
-                self.training_logger.save_model(self.wdir, self.model)
-                self.training_logger.save_logs(self.save_dir)
+                if is_training_now:
+                    self.training_logger.save_model(self.wdir, self.model)
+                    self.training_logger.save_logs(self.save_dir)
 
-                # re-freezing model for training phase
-                self._freeze_model()
+                    # re-freezing model for training phase
+                    self._freeze_model()
 
                             
     def metric_evaluation(self, loss, response_pred, response_gt):
