@@ -128,6 +128,7 @@ class Trainer:
 
         # init model and tokenizer
         resume_success = False
+        do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path)
         model, tokenizer = get_model(config, self.device)
 
         # init peft
@@ -137,7 +138,7 @@ class Trainer:
                     LOGGER.info(f'PEFT is not applied due to training stage.')
             else:
                 # resume before applying peft
-                if mode in ['resume', 'validation']:
+                if do_resume:
                     try:
                         model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
                         resume_success = True
@@ -149,7 +150,7 @@ class Trainer:
                 LOGGER.info(f'PEFT is not applied.')
 
         # resume model or resume model after applying peft
-        if mode in ['resume', 'validation'] and not resume_success:
+        if do_resume and not resume_success:
             model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
 
         # init ddp

@@ -31,10 +31,12 @@ class Chatter:
         if efficient_load:
             model = model.to('cpu')
         
-        checkpoints = torch.load(model_path, map_location=self.device)
-        model.load_state_dict(checkpoints['model'])
+        if model_path:
+            checkpoints = torch.load(model_path, map_location=self.device)
+            model.load_state_dict(checkpoints['model'])
+            del checkpoints
+            
         model.eval()
-        del checkpoints
         torch.cuda.empty_cache()
 
         if efficient_load:

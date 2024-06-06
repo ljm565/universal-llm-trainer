@@ -66,6 +66,15 @@
             "args": ["deepspeed src/run/train_deepspeed.py --config config/llm.yaml -m train --local_rank 0 --deepspeed_config config/deepspeed_config.json"],
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "validation",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/run/validation.py",
+            "args": ["-r", "outputs/phi3/mras_en_filtered_simplified", "-l", "last"],
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
     ]
 }
