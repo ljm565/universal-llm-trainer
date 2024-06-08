@@ -32,7 +32,7 @@ def main(args):
     env_setup()
     
     # training (cpu/single_gpu or multi_gpu)
-    if len(config.device) <= 1:
+    if len(config.device) <= 1 or config.device == 'cpu':
         single_gpu_train(args, config)
     else:
         os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, config.device))
@@ -41,7 +41,7 @@ def main(args):
 
     
 def single_gpu_train(args, config):
-    device = torch.device('cpu') if config.device == False else torch.device(f'cuda:{config.device[0]}')
+    device = torch.device('cpu') if config.device == 'cpu' else torch.device(f'cuda:{config.device[0]}')
     trainer = Trainer(
         config, 
         args.mode, 
