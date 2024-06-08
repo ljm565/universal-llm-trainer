@@ -35,7 +35,7 @@ def main(args):
 
     
 def validation(args, config):
-    device = torch.device('cpus') if config.device == False else torch.device(f'cuda:{config.device[0]}')
+    device = torch.device('cpu') if config.device == False else torch.device(f'cuda:{config.device[0]}')
     trainer = Trainer(
         config, 
         'validation', 

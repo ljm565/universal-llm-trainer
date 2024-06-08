@@ -41,7 +41,7 @@ def main(args):
 
     
 def single_gpu_train(args, config):
-    device = torch.device('cpus') if config.device == False else torch.device(f'cuda:{config.device[0]}')
+    device = torch.device('cpu') if config.device == False else torch.device(f'cuda:{config.device[0]}')
     trainer = TrainerDeepSpeed(
         config, 
         args, 
