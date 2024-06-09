@@ -30,7 +30,7 @@ def main(args):
     # init environment
     env_setup()
     
-    # training (cpu/single_gpu or multi_gpu)
+    # validation
     validation(args, config)
 
     
