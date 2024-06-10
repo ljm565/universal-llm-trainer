@@ -72,7 +72,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/validation.py",
-            "args": ["-r", "outputs/phi3/mras_en_filtered_simplified", "-l", "last"],
+            "args": ["--config", "config/llm_llama3.yaml"],
             "console": "integratedTerminal",
             "justMyCode": true
         }

@@ -252,10 +252,15 @@ class QADataset(Dataset):
             bos_masking=True
         )
         attention_mask = self._pad(self.get_mask(data_len), self.max_length, 0)
+
+        if self.add_bos:
+            user_prompt = self.tokenizer.bos_token + user_prompt
+        if self.add_eos:
+            response = response + self.tokenizer.eos_token
         
         assert len(full_prompt_token) == len(attention_mask) == len(label) == self.max_length, \
             f'Length of template, attention_mask, label are not same: {len(full_prompt_token)}, {len(attention_mask)}, {len(label)}'
-        
+
         return {'src': torch.tensor(full_prompt_token, dtype=torch.long), 'src_attention_mask': torch.tensor(attention_mask, dtype=torch.long),
                 'label': torch.tensor(label, dtype=torch.long),
                 'user_prompt': user_prompt, 'response': response}
