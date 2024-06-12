@@ -64,7 +64,7 @@ class Llama3(nn.Module):
                 self.load_unnecessary_half = False
             elif bit == 16:
                 self.is16bit = True
-                raise AssertionError('16bit is not supported yet')
+                # raise AssertionError('16bit is not supported yet')
             else:
                 self.is32bit = True
 
