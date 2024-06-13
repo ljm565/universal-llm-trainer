@@ -59,14 +59,17 @@ class KoGemma(nn.Module):
             if bit == 4:
                 self.is4bit = True
                 self.load_unnecessary_half = False
+                LOGGER.info(colorstr('Model is loaded in 4bit'))
             elif bit == 8:
                 self.is8bit = True
                 self.load_unnecessary_half = False
+                LOGGER.info(colorstr('Model is loaded in 8bit'))
             elif bit == 16:
                 self.is16bit = True
-                raise AssertionError('16bit is not supported yet')
+                LOGGER.info(colorstr('Model is loaded in 16bit'))
             else:
                 self.is32bit = True
+                LOGGER.info(colorstr('Model is loaded in 32bit'))
 
         self.load16bit = True if self.is16bit or self.load_unnecessary_half else False
 
