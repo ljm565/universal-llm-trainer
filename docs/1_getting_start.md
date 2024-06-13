@@ -30,6 +30,10 @@ docker load < {$IMAGE_NAME}.tar
 docker run -it -d --name {$CONTAINER_NAME} --gpus all --shm-size=2g -v {$PATH_TO_BE_MOUNTED}:{$MOUNT_PATH} {$IMAGE_NAME}
 docker exec -it {$CONTAINER_NAME} /bin/bash
 ```
+```bash
+docker run -it -d --name llm_server_junmin --gpus all --shm-size=16g -v /home/junminkim/Python/llm/:/workspace/llm -v /data1/dataset/jmlee/.cache/:/root/.cache/ -v /data1/dataset/jmlee/nltk_data/:/root/nltk_data -v /data1/dataset/:/data1/dataset  llm_server:0.2.0
+```
+
 
 
 ## Anaconda
