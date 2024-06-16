@@ -1,6 +1,5 @@
 # Getting Start
-
-VELKOZ에서는 conda 혹은 docker container를 이용하여 환경을 구축할 수 있습니다.
+본 프로젝트에서는 anaconda 혹은 docker container를 이용하여 환경을 구축할 수 있습니다.
 
 ## Docker
 
