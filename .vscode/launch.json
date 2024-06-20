@@ -54,7 +54,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/chat.py",
-            "args": ["-s", "/home/junmin/nas/members/junmin/Documents/model/llm_easy/llm_test3", "-d", "0"],
+            "args": ["-s", "model/llm_easy/llm_test3", "-d", "0"],
             "console": "integratedTerminal",
             "justMyCode": true
         },

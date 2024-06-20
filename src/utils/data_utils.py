@@ -20,7 +20,7 @@ def seed_worker(worker_id):  # noqa
 def choose_proper_dataset(dataset_name):
     if 'arc' in dataset_name.lower():
         return ARCDataset
-    elif dataset_name.lower() in ['kopolyglot_easy', 'kopolyglot_easy_v2', 'mras_en', 'mras_kr', 'mras_en_filtered', 'mras_en_filtered_simplified']:
+    elif dataset_name.lower() in ['kopolyglot_easy', 'kopolyglot_easy_v2']:
         return QADataset
     else:
         raise NotImplementedError

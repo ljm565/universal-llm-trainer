@@ -68,7 +68,7 @@ class En2KoNMT(nn.Module):
 
 if __name__ == '__main__':
     import sys
-    sys.path.append('/home/junmin/Documents/Python/llm/src/')
+    sys.path.append('~/Documents/Python/llm/src/')
     from tools.tokenizers import M2M100Tokenizer
 
     
