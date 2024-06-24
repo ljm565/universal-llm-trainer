@@ -129,6 +129,10 @@ def get_model(config, device):
             from models import KoGemma
             model = KoGemma(config, device)
             tokenizer = model.tokenizer
+        elif config.model.lower() == 'gemma':
+            from models import Gemma
+            model = Gemma(config, device)
+            tokenizer = model.tokenizer
         elif config.model.lower() == 'llama3':
             from models import Llama3
             model = Llama3(config, device)

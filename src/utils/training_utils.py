@@ -69,6 +69,14 @@ def choose_proper_model(config):
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
+    elif config.model.lower() == 'gemma':
+        model_list = [
+            'google/gemma-2b',
+            'google/gemma-7b',
+        ]
+        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
+                            for text in model_list]
+        idx = size_diff.index(min(size_diff))
     elif config.model.lower() == 'phi3':
         pattern = r'\b(\d+.\d+|\d+)k\b'
         model_list = [

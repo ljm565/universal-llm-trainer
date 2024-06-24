@@ -1,0 +1,10 @@
+{
+    "description": "gemma template",
+    "prompt_input": [
+        "<start_of_turn>user\n{input}\nFind the appropriate answer according to the following instructions below in the above text.\n{instruction}<end_of_turn>\n<start_of_turn>model\n"
+    ],
+    "prompt_no_input": [
+        "<start_of_turn>user\nFind the appropriate answer according to the following instructions.\n{instruction}<end_of_turn>\n<start_of_turn>model\n"
+    ],
+    "response_split": "<start_of_turn>model"
+}
