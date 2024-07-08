@@ -1,5 +1,6 @@
 import os
 from sconf import Config
+from peft import prepare_model_for_kbit_training
 
 import torch
 from torch.utils.data import distributed, DataLoader, ConcatDataset
@@ -145,6 +146,12 @@ def get_model(config, device):
             raise NotImplementedError
     else:
         raise AssertionError(f'Invalid train_type: {config.train_type}')
+    
+    try:
+        model = prepare_model_for_kbit_training(model)
+    except:
+        LOGGER.warning(colorstr('yellow', 'Quantized model preparation is failed. It will not be a problem.'))
+
     return model, tokenizer
 
 
