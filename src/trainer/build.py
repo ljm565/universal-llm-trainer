@@ -147,10 +147,12 @@ def get_model(config, device):
     else:
         raise AssertionError(f'Invalid train_type: {config.train_type}')
     
-    try:
-        model = prepare_model_for_kbit_training(model)
-    except:
-        LOGGER.warning(colorstr('yellow', 'Quantized model preparation is failed. It will not be a problem.'))
+    # preparing for bits training
+    if model.is4bit or model.is8bit:
+        try:
+            model = prepare_model_for_kbit_training(model)
+        except:
+            LOGGER.warning(colorstr('yellow', 'Quantized model preparation is failed. It will not be a problem.'))
 
     return model, tokenizer
 
