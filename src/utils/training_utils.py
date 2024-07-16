@@ -4,8 +4,8 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-import torch
 import torch.nn as nn
+import torch.distributed as dist
 
 from utils import LOGGER, colorstr, TQDM
 
@@ -141,3 +141,22 @@ def init_train_progress_bar(dloader, is_rank_zero, loss_names, nb):
     else:
         pbar = enumerate(dloader)
     return pbar
+
+
+def gather_objects(objs, is_rank_zero, world_size):
+    gather_list = [None for _ in range(world_size)] if is_rank_zero else None
+    dist.gather_object(objs, gather_list, dst=0)
+    return gather_list
+
+
+def calculate_gathered_results(objs):
+    # assert whether all sublists have the same keys
+    first_keys = list(objs[0]['results'].keys())
+    assert all([list(obj['results'].keys()) == first_keys for obj in objs])
+
+    gathered_results = {}
+    total_n = sum([obj['length'] for obj in objs])
+    for key in first_keys:
+        gathered_results[key] = sum(obj['results'][key] * obj['length'] for obj in objs) / total_n
+    
+    return gathered_results

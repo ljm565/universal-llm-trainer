@@ -20,7 +20,7 @@ from utils import (
     colorstr, init_seeds,
     TQDM
 )
-from utils.training_utils import one_cycle, draw_training_lr_curve, lr_warmup, init_train_progress_bar
+from utils.training_utils import *
 from utils.filesys_utils import yaml_save, make_project_dir
 
 
@@ -324,58 +324,60 @@ class Trainer:
             header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics)
             LOGGER.info(('\n' + '%15s' * (2 + len(self.loss_names) + len(self.metrics))) % header)
 
-        def _get_val_pbar(dloader, nb):
-            _init_headline()
-            return TQDM(enumerate(dloader), total=nb)
+        def _get_val_pbar(dloader, nb, is_rank_zero):
+            if is_rank_zero:
+                _init_headline()
+                return TQDM(enumerate(dloader), total=nb)
+            return enumerate(dloader)
 
         with torch.no_grad():
-            if RANK in (-1, 0) and self.is_rank_zero:
-                val_loader = self.dataloaders[phase]
-                nb = len(val_loader)
-                pbar = _get_val_pbar(val_loader, nb)
+            val_loader = self.dataloaders[phase]
+            nb = len(val_loader)
+            pbar = _get_val_pbar(val_loader, nb, self.is_rank_zero)
 
-                model = self.ema.ema or self.model if self.ema else self.model
-                model = model.half() if self.config.half_inference else model.float()
-                model.eval()
+            model = self.ema.ema or self.model if self.ema else self.model
+            model = model.half() if self.config.half_inference else model.float()
+            model.eval()
 
-                if self.config.half_inference:
-                    LOGGER.warning(colorstr('yellow', 'Half inference started, yet we recommend using mixed precision.'))
+            if self.config.half_inference and self.is_rank_zero:
+                LOGGER.warning(colorstr('yellow', 'Half inference started, yet we recommend using mixed precision.'))
 
-                # validation loop
-                for i, batch in pbar:
-                    if self.config.fast_validation_step_interval and i % self.config.fast_validation_step_interval != 0:
-                        continue                    
+            # validation loop
+            for i, batch in pbar:
+                if self.config.fast_validation_step_interval and i % self.config.fast_validation_step_interval != 0:
+                    continue                    
 
-                    batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
-                    batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
-                    _, loss = self.model(batch, return_loss=True)
+                batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+                batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
+                _, loss = self.model(batch, return_loss=True)
 
-                    # preparing for model evaluation
-                    inference_batch_size = min(batch_size, self.config.fast_validation_n) if self.config.fast_validation_n else batch_size
-                    user_prompt = batch['user_prompt'][:inference_batch_size] if 'user_prompt' in batch else batch['src'][:inference_batch_size]
-                    response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
-                    response_pred = self.model.inference(user_prompt, max_length=self.config.max_length, num_return_sequences=1, greedy=True)
+                # preparing for model evaluation
+                inference_batch_size = min(batch_size, self.config.fast_validation_n) if self.config.fast_validation_n else batch_size
+                user_prompt = batch['user_prompt'][:inference_batch_size] if 'user_prompt' in batch else batch['src'][:inference_batch_size]
+                response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
+                response_pred = self.model.inference(user_prompt, max_length=self.config.max_length, num_return_sequences=1, greedy=True)
 
-                    # evaluation
-                    metric_results = self.metric_evaluation(loss, response_pred, response_gt)
-                    self.training_logger.update(
-                        phase, 
-                        epoch, 
-                        self.train_cur_step if is_training_now else 0, 
-                        inference_batch_size, 
-                        **{'validation_loss': loss.item()}, 
-                        **metric_results
-                    )
+                # evaluation
+                metric_results = self.metric_evaluation(loss, response_pred, response_gt)
+                self.training_logger.update(
+                    phase, 
+                    epoch, 
+                    self.train_cur_step if is_training_now else 0, 
+                    inference_batch_size, 
+                    **{'validation_loss': loss.item()}, 
+                    **metric_results
+                )
 
-                    # logging
+                # logging
+                if self.is_rank_zero:
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                     loss_log = [loss.item()]
                     msg = tuple([f'{epoch+1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
-                    if self.config.inference_result_verbose and self.is_rank_zero:
+                    if self.config.inference_result_verbose:
                         _init_headline()
                     pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
 
-                    if self.config.inference_result_verbose and self.is_rank_zero:
+                    if self.config.inference_result_verbose:
                         for u, p, g in zip(user_prompt, response_pred, response_gt):
                             LOGGER.info('\n\n' + '-'*100)
                             LOGGER.info(colorstr('Prompt    : ') + u)
@@ -383,14 +385,24 @@ class Trainer:
                             LOGGER.info(colorstr('GT        : ') + g)
                             LOGGER.info('-'*100 + '\n')
 
-                # upadate logs and save model
-                self.training_logger.update_phase_end(phase, printing=True)
-                if is_training_now:
+            # upadate logs and save model
+            self.training_logger.update_phase_end(phase, printing=True)
+
+            # gather the results of all ranks
+            if self.is_ddp:
+                obj = {'results': self.training_logger.validation_epoch_result, 'length': len(val_loader.dataset)}
+                gathered_list = gather_objects(obj, self.is_rank_zero, self.world_size)
+                if self.is_rank_zero:
+                    gathered_results = calculate_gathered_results(gathered_list)
+                    self.training_logger.validation_epoch_result = gathered_results
+
+            if is_training_now:
+                if self.is_rank_zero:
                     self.training_logger.save_model(self.wdir, self.model)
                     self.training_logger.save_logs(self.save_dir)
 
-                    # re-freezing model for training phase
-                    self._freeze_model()
+                # re-freezing model for training phase
+                self._freeze_model()
 
                             
     def metric_evaluation(self, loss, response_pred, response_gt):
