@@ -245,6 +245,12 @@ def print_mem_consumption(path):
     LOGGER.info(f'{colorstr(path)} accounts for {colorstr(mem)} of GPU memory.')
 
 
+def log_if_rank_zero(func):
+    def wrapper(self, *args, **kwargs):
+        if self.is_rank_zero:
+            return func(self, *args, **kwargs)
+    return wrapper
+
 ########################## MSG ##########################
 DATASET_HELP_MSG = 'If you are looking for LLM benchmark datasets, you can choose from the following list: [gsm8k, ai2_arc, Rowan/hellaswag, winogrande, lukaemon/mmlu, truthful_qa]'
 OPTIM_CRITERION_MSG = 'optimizer_step_criterion must be belonged to' + f' [{colorstr("epoch")}, {colorstr("step")}] '
