@@ -3,7 +3,7 @@ import torch.nn as nn
 from transformers import AutoModelForCausalLM
 
 from tools.tokenizers import GemmaTokenizer
-from utils import LOGGER, print_mem_consumption, colorstr, log_if_rank_zero
+from utils import print_mem_consumption, logger
 from utils.training_utils import choose_proper_model
 
 
@@ -36,16 +36,10 @@ class Gemma(nn.Module):
         self.tokenizer = GemmaTokenizer(config, self.model_path)
         if hasattr(self.tokenizer, 'resized'):
             self.model.resize_token_embeddings(len(self.tokenizer))
-            self.log_info('Model word embedding is resized to match the tokenizer')
+            logger(self, 'Model word embedding is resized to match the tokenizer')
 
-        if config.is_rank_zero:
-            print_mem_consumption(self.model_path)
+        print_mem_consumption(self, self.model_path)
     
-
-    @log_if_rank_zero
-    def log_info(self, message):
-        LOGGER.info(colorstr(message))
-
 
     def set_bit(self, bit, training_stage):
         assert bit in [4, 8, 16, 32]
@@ -57,23 +51,23 @@ class Gemma(nn.Module):
             else:
                 self.is32bit = True
 
-            self.log_info('Training stage 1, 2, 3, 4 automatically loads model in 32bit or 16bit')
+            logger(self, 'Training stage 1, 2, 3, 4 automatically loads model in 32bit or 16bit')
 
         else:
             if bit == 4:
                 self.is4bit = True
                 self.load_unnecessary_half = False
-                self.log_info('Model is loaded in 4bit')
+                logger(self, 'Model is loaded in 4bit')
             elif bit == 8:
                 self.is8bit = True
                 self.load_unnecessary_half = False
-                self.log_info('Model is loaded in 8bit')
+                logger(self, 'Model is loaded in 8bit')
             elif bit == 16:
                 self.is16bit = True
-                self.log_info('Model is loaded in 16bit')
+                logger(self, 'Model is loaded in 16bit')
             else:
                 self.is32bit = True
-                self.log_info('Model is loaded in 32bit')
+                logger(self, 'Model is loaded in 32bit')
 
         self.load16bit = True if self.is16bit or self.load_unnecessary_half else False
 
@@ -146,7 +140,7 @@ class Gemma(nn.Module):
     
     def freeze_layers(self, stage, is_rank_zero=False):
         if stage == 1:
-            self.log_info('Freezing all layers except for word embeddings')
+            logger(self, 'Freezing all layers except for word embeddings')
 
             for name, param in self.model.named_parameters():
                 if 'embed_tokens' in name:
@@ -156,7 +150,7 @@ class Gemma(nn.Module):
                     param.requires_grad = False
                 
         elif stage == 2:
-            self.log_info('Freezing all layers except for the lm_head')
+            logger(self, 'Freezing all layers except for the lm_head')
 
             for name, param in self.model.named_parameters():
                 param.requires_grad = False
@@ -167,7 +161,7 @@ class Gemma(nn.Module):
 
         
         elif stage == 3:
-            self.log_info('Freezing all layers except for word embeddings and lm_head')
+            logger(self, 'Freezing all layers except for word embeddings and lm_head')
 
             for name, param in self.model.named_parameters():
                 if 'embed_tokens' in name:
@@ -181,7 +175,7 @@ class Gemma(nn.Module):
                 param.requires_grad = True
         
         elif stage == 4:
-            self.log_info('Unfreezing all layers except for word embeddings and lm_head')
+            logger(self, 'Unfreezing all layers except for word embeddings and lm_head')
             
             for name, param in self.model.named_parameters():
                 if 'embed_tokens' in name:

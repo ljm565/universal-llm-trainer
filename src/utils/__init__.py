@@ -239,17 +239,23 @@ class TQDM(tqdm_original):
         super().__init__(*args, **kwargs)
 
 
-
-def print_mem_consumption(path):
-    mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-    LOGGER.info(f'{colorstr(path)} accounts for {colorstr(mem)} of GPU memory.')
-
-
 def log_if_rank_zero(func):
     def wrapper(self, *args, **kwargs):
         if self.is_rank_zero:
             return func(self, *args, **kwargs)
     return wrapper
+
+
+@log_if_rank_zero
+def print_mem_consumption(self, path):
+    mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
+    LOGGER.info(f'{colorstr(path)} accounts for {colorstr(mem)} of GPU memory.')
+
+
+@log_if_rank_zero
+def logger(self, message):
+    LOGGER.info(colorstr(message))
+
 
 ########################## MSG ##########################
 DATASET_HELP_MSG = 'If you are looking for LLM benchmark datasets, you can choose from the following list: [gsm8k, ai2_arc, Rowan/hellaswag, winogrande, lukaemon/mmlu, truthful_qa]'
