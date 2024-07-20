@@ -80,10 +80,13 @@ class Chatter:
             template = random.choice(self.template['prompt_input'])
             user_prompt = template.format(instruction=instruction, input=description)
 
+        if self.config.add_bos_token_when_response_start:
+            user_prompt = self.tokenizer.bos_token + user_prompt
+        
         print(user_prompt)
         user_prompt_tokens = torch.tensor(self.tokenizer.encode(user_prompt), dtype=torch.long).to(self.device).unsqueeze(0)
 
-        return user_prompt_tokens
+        return user_prompt_tokens, user_prompt
     
 
     def _init_generate_kwargs(self, message, src_tok, attention_mask, is_greedy=False):
@@ -127,7 +130,7 @@ class Chatter:
     async def generate(self, websocket):
         async for message in websocket.iter_text():
             self.streamer = TextIteratorStreamer(self.tokenizer)
-            src_tok = self.preprocess(message)
+            src_tok, user_prompt = self.preprocess(message)
             src_tok = src_tok if self.context == None else torch.cat((self.context, src_tok), dim=1)
             attention_mask = torch.ones_like(src_tok).to(self.device)
             response = []
@@ -138,22 +141,30 @@ class Chatter:
             t.start()
 
             print('Response: ')
+            continuing = True
             for i, char in enumerate(self.streamer):
-                # when i == 0, prompt will be printed
-                if i > 0:
-                    response.append(char)
+                response.append(char)
 
+                if not continuing:
+                    do_print = True
+
+                if continuing:
+                    if self.template['response_split'] in char:
+                        continuing = False
+                    continue
+                
+                if do_print:
                     if self.tokenizer.sep_token and self.tokenizer.sep_token in char:
                         continue
-                    
+                
                     fin_char = self.pp(char)
                     await self.print_one_by_one(fin_char)
                     await websocket.send_text(fin_char)
 
-                    if self.tokenizer.eos_token in char:
-                        break
+                    # if self.tokenizer.eos_token in char:
+                    #     break
 
-            response = ' '.join(''.join(response).split())
+            response = ''.join(''.join(response).split(self.template['response_split'])[1:])
             if not self.tokenizer.eos_token in response:
                 response += self.tokenizer.eos_token
 
@@ -169,7 +180,7 @@ class Chatter:
     ########################### Below codes are used to terminal chatting ###########################
     def generate_demo(self, message, is_greedy):
         self.streamer = TextIteratorStreamer(self.tokenizer)
-        src_tok = self.preprocess(message)
+        src_tok, user_prompt = self.preprocess(message)
         src_tok = src_tok if self.context == None else torch.cat((self.context, src_tok), dim=1)
         attention_mask = torch.ones_like(src_tok).to(self.device)
         response = []
@@ -180,21 +191,29 @@ class Chatter:
         t.start()
 
         print('Response: ')
+        continuing = True
         for i, char in enumerate(self.streamer):
-            # when i == 0, prompt will be printed
-            if i > 0:
-                response.append(char)
-                
+            response.append(char)
+
+            if not continuing:
+                do_print = True
+
+            if continuing:
+                if self.template['response_split'] in char:
+                    continuing = False
+                continue
+            
+            if do_print:
                 if self.tokenizer.sep_token and self.tokenizer.sep_token in char:
                     continue
 
                 fin_char = self.pp(char)
                 asyncio.run(self.print_one_by_one(fin_char))
 
-                if self.tokenizer.eos_token in char:
-                    break
+                # if self.tokenizer.eos_token in char:
+                #     break
 
-        response = ' '.join(''.join(response).split())
+        response = ''.join(''.join(response).split(self.template['response_split'])[1:])
         if not self.tokenizer.eos_token in response:
             response += self.tokenizer.eos_token
 

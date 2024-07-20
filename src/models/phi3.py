@@ -3,7 +3,7 @@ import torch.nn as nn
 from transformers import AutoModelForCausalLM
 
 from tools.tokenizers import Phi3Tokenizer
-from utils import LOGGER, print_mem_consumption, colorstr
+from utils import print_mem_consumption, logger
 from utils.training_utils import choose_proper_model
 
 
@@ -14,7 +14,8 @@ class Phi3(nn.Module):
         self.model_path = choose_proper_model(config)
         self.device = device
         self.load_unnecessary_half = config.load_unnecessary_half
-        self.set_bit(config.bit, config.training_stage, config.is_rank_zero)
+        self.is_rank_zero = config.is_rank_zero
+        self.set_bit(config.bit, config.training_stage)
 
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path, 
@@ -27,7 +28,7 @@ class Phi3(nn.Module):
         )
 
         # freezing proper layers
-        self.freeze_layers(config.training_stage, config.is_rank_zero)
+        self.freeze_layers(config.training_stage)
 
         # 4, 8bit model automatically loads neccesaries to 32bit
         if self.load16bit:
@@ -36,14 +37,12 @@ class Phi3(nn.Module):
         self.tokenizer = Phi3Tokenizer(config, self.model_path)
         if hasattr(self.tokenizer, 'resized'):
             self.model.resize_token_embeddings(len(self.tokenizer))
-            if config.is_rank_zero:
-                LOGGER.info(colorstr('Model word embedding is resized to match the tokenizer'))
+            logger(self, 'Model word embedding is resized to match the tokenizer')
 
-        if config.is_rank_zero:
-            print_mem_consumption(self.model_path)
+        print_mem_consumption(self, self.model_path)
     
 
-    def set_bit(self, bit, training_stage, is_rank_zero=False):
+    def set_bit(self, bit, training_stage):
         assert bit in [4, 8, 16, 32]
         self.is4bit, self.is8bit, self.is16bit, self.is32bit = False, False, False, False
         
@@ -53,24 +52,23 @@ class Phi3(nn.Module):
             else:
                 self.is32bit = True
 
-            if is_rank_zero:
-                LOGGER.info(colorstr('Training stage 1, 2, 3, 4 automatically loads model in 32bit or 16bit'))
+            logger('Training stage 1, 2, 3, 4 automatically loads model in 32bit or 16bit')
 
         else:
             if bit == 4:
                 self.is4bit = True
                 self.load_unnecessary_half = False
-                LOGGER.info(colorstr('Model is loaded in 4bit'))
+                logger(self, 'Model is loaded in 4bit')
             elif bit == 8:
                 self.is8bit = True
                 self.load_unnecessary_half = False
-                LOGGER.info(colorstr('Model is loaded in 8bit'))
+                logger(self, 'Model is loaded in 8bit')
             elif bit == 16:
                 self.is16bit = True
-                LOGGER.info(colorstr('Model is loaded in 16bit'))
+                logger(self, 'Model is loaded in 16bit')
             else:
                 self.is32bit = True
-                LOGGER.info(colorstr('Model is loaded in 32bit'))
+                logger(self, 'Model is loaded in 32bit')
 
         self.load16bit = True if self.is16bit or self.load_unnecessary_half else False
 
@@ -141,10 +139,10 @@ class Phi3(nn.Module):
             use_cache=True,
         )
     
-    def freeze_layers(self, stage, is_rank_zero=False):
+    def freeze_layers(self, stage):
         if stage == 1:
-            if is_rank_zero:
-                LOGGER.info(colorstr('Freezing all layers except for word embeddings'))
+            logger(self, 'Freezing all layers except for word embeddings')
+            
             for name, param in self.model.named_parameters():
                 if 'embed' in name:
                     param.data = param.data.to(torch.float32)
@@ -153,8 +151,8 @@ class Phi3(nn.Module):
                     param.requires_grad = False
                 
         elif stage == 2:
-            if is_rank_zero:
-                LOGGER.info(colorstr('Freezing all layers except for the lm_head'))
+            logger(self, 'Freezing all layers except for the lm_head')
+            
             for name, param in self.model.named_parameters():
                 if 'lm_head' in name:
                     param.data = param.data.to(torch.float32)
@@ -163,8 +161,8 @@ class Phi3(nn.Module):
                     param.requires_grad = False
         
         elif stage == 3:
-            if is_rank_zero:
-                LOGGER.info(colorstr('Freezing all layers except for word embeddings and lm_head'))
+            logger(self, 'Freezing all layers except for word embeddings and lm_head')
+            
             for name, param in self.model.named_parameters():
                 if 'embed' in name or 'lm_head' in name:
                     param.data = param.data.to(torch.float32)
@@ -173,8 +171,8 @@ class Phi3(nn.Module):
                     param.requires_grad = False
         
         elif stage == 4:
-            if is_rank_zero:
-                LOGGER.info(colorstr('Unfreezing all layers except for word embeddings and lm_head'))
+            logger(self, 'Unfreezing all layers except for word embeddings and lm_head')
+            
             for name, param in self.model.named_parameters():
                 if 'embed' in name or 'lm_head' in name:
                     param.requires_grad = False

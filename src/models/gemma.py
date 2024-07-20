@@ -27,7 +27,7 @@ class Gemma(nn.Module):
         )
 
         # freezing proper layers
-        self.freeze_layers(config.training_stage, config.is_rank_zero)
+        self.freeze_layers(config.training_stage)
 
         # 4, 8bit model automatically loads neccesaries to 32bit
         if self.load16bit:
@@ -39,7 +39,7 @@ class Gemma(nn.Module):
             logger(self, 'Model word embedding is resized to match the tokenizer')
 
         print_mem_consumption(self, self.model_path)
-    
+        
 
     def set_bit(self, bit, training_stage):
         assert bit in [4, 8, 16, 32]
@@ -138,7 +138,7 @@ class Gemma(nn.Module):
             use_cache=True,
         )
     
-    def freeze_layers(self, stage, is_rank_zero=False):
+    def freeze_layers(self, stage):
         if stage == 1:
             logger(self, 'Freezing all layers except for word embeddings')
 
