@@ -288,8 +288,8 @@ class Trainer:
                 self.scheduler.step()
 
             # logging if update criterion is step
+            self.training_logger.update(phase, epoch+1, self.train_cur_step, batch_size, **{'train_loss': loss.item(), 'lr': cur_lr})
             if RANK in (-1, 0) and self.is_rank_zero:
-                self.training_logger.update(phase, epoch+1, self.train_cur_step, batch_size, **{'train_loss': loss.item(), 'lr': cur_lr})
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                 loss_log = [loss.item()]
                 msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log)
@@ -386,7 +386,7 @@ class Trainer:
                             LOGGER.info('-'*100 + '\n')
 
             # upadate logs and save model
-            self.training_logger.update_phase_end(phase, printing=True)
+            self.training_logger.update_phase_end(phase, printing=self.is_rank_zero)
 
             # gather the results of all ranks
             if self.is_ddp:

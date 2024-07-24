@@ -16,8 +16,9 @@ class TrainingLogger:
         self.log_keys = config.common + config.metrics
         self.log_data.update({k: [] for k in self.log_keys})
         self.train_batch_sizes, self.val_batch_sizes = [], []
+        self.is_rank_zero = config.is_rank_zero
         self.st = 0
-        if config.is_rank_zero and self.training:
+        if self.is_rank_zero and self.training:
             LOGGER.info(f'{colorstr("Logging data")}: {self.log_keys}')
             self.writer = SummaryWriter(log_dir=config.save_dir)
         self.model_manager = ModelManager()
@@ -45,11 +46,13 @@ class TrainingLogger:
             self.log_data['step'].append(step)
             self.log_data['epoch'].append(epoch)
             self.train_batch_sizes.append(batch_size)
-            self._update_tensorboard(phase, step, 'epoch', epoch)
+            if self.is_rank_zero:
+                self._update_tensorboard(phase, step, 'epoch', epoch)
             for k in self.log_keys:
                 if k in kwargs:
                     self.log_data[k].append(kwargs[k])
-                    self._update_tensorboard(phase, step, k, kwargs[k])
+                    if self.is_rank_zero:
+                        self._update_tensorboard(phase, step, k, kwargs[k])
                 # validation log data
                 else:
                     self.log_data[k].append(None)
@@ -88,7 +91,7 @@ class TrainingLogger:
                     value_sum, reduce_batch_sizes = self.nan_value_filtering(v[-1], self.val_batch_sizes)
                     v[-1] = value_sum / (sum(self.val_batch_sizes) - reduce_batch_sizes)
                     self.validation_epoch_result[k] = v[-1]
-                    if self.training:
+                    if self.training and self.is_rank_zero:
                         self._update_tensorboard(phase, self.log_data['step'][-1], k, v[-1])
             self.val_batch_sizes = []
             
