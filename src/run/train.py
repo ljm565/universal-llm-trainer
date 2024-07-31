@@ -1,5 +1,6 @@
 import os
 import sys
+import datetime
 from sconf import Config
 from argparse import ArgumentParser
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -56,7 +57,7 @@ def single_gpu_train(args, config):
 
 def multi_gpu_train(gpu, ngpus_per_node, config, args):
     # init distribution
-    torch.distributed.init_process_group(backend='nccl', init_method=f'tcp://127.0.0.1:{args.port}', world_size=ngpus_per_node, rank=gpu)
+    torch.distributed.init_process_group(backend='nccl', init_method=f'tcp://127.0.0.1:{args.port}', world_size=ngpus_per_node, rank=gpu, timeout=datetime.timedelta(seconds=args.ddp_timeout))
     torch.cuda.set_device(gpu)
     torch.distributed.barrier()
     trainer = Trainer(
@@ -82,6 +83,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--load_model_type', type=str, default='metric', required=False, choices=['metric', 'loss', 'last'])
     parser.add_argument('-s', '--stage', type=int, default=0, required=False)
     parser.add_argument('-p', '--port', type=str, default='10001', required=False)
+    parser.add_argument('--ddp_timeout', type=int, default=86400, required=False)           # 24 hours
     parser.add_argument('--use_huggingface_trainer', action='store_true')
     args = parser.parse_args()
 

@@ -1,5 +1,6 @@
 import os
 import sys
+import datetime
 import deepspeed
 from sconf import Config
 from argparse import ArgumentParser
@@ -27,6 +28,7 @@ def main(args):
     # init config
     config = load_config(args.config)
     config.yaml_file = args.config
+    config.training_stage = args.stage
     
     # init environment
     env_setup()
@@ -55,7 +57,7 @@ def single_gpu_train(args, config):
 
 def multi_gpu_train(gpu, ngpus_per_node, config, args):
     # init distribution
-    deepspeed.init_distributed(backend='nccl', init_method='tcp://127.0.0.1:10001', world_size=ngpus_per_node, rank=gpu)
+    deepspeed.init_distributed(backend='nccl', init_method='tcp://127.0.0.1:10001', world_size=ngpus_per_node, rank=gpu, timeout=datetime.timedelta(seconds=args.ddp_timeout))
     torch.cuda.set_device(gpu)
     trainer = TrainerDeepSpeed(
         config,
@@ -76,9 +78,11 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-c', '--config', type=str, required=False)
     parser.add_argument('-m', '--mode', type=str, required=True, choices=['train', 'resume'])
-    parser.add_argument('--local_rank', type=int, required=True)
     parser.add_argument('-r', '--resume_model_dir', type=str, required=False)
     parser.add_argument('-l', '--load_model_type', type=str, default='metric', required=False, choices=['metric', 'loss', 'last'])
+    parser.add_argument('-s', '--stage', type=int, default=0, required=False)
+    parser.add_argument('-p', '--port', type=str, default='10001', required=False)
+    parser.add_argument('--ddp_timeout', type=int, default=86400, required=False)       # 24 hours               
     parser.add_argument('--use_huggingface_trainer', action='store_true')
     parser = deepspeed.add_config_arguments(parser)
     args = parser.parse_args()

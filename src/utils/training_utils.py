@@ -81,10 +81,12 @@ def choose_proper_model(config):
         pattern = r'\b(\d+.\d+|\d+)k\b'
         model_list = [
             'microsoft/Phi-3-mini-128k-instruct',
+            'microsoft/Phi-3-medium-4k-instruct'
         ]
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
-                            for text in model_list]
-        idx = size_diff.index(min(size_diff))
+        if target_size >= 10:
+            idx = 1
+        else:
+            idx = 0
     else:
         raise NotImplementedError
     
