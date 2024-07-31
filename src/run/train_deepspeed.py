@@ -57,7 +57,8 @@ def single_gpu_train(args, config):
 
 def multi_gpu_train(gpu, ngpus_per_node, config, args):
     # init distribution
-    deepspeed.init_distributed(backend='nccl', init_method='tcp://127.0.0.1:10001', world_size=ngpus_per_node, rank=gpu, timeout=datetime.timedelta(seconds=args.ddp_timeout))
+    torch.distributed.init_process_group(backend='nccl', init_method=f'tcp://127.0.0.1:{args.port}', world_size=ngpus_per_node, rank=gpu, timeout=datetime.timedelta(seconds=args.ddp_timeout))
+    os.environ['LOCAL_RANK'] = str(gpu)
     torch.cuda.set_device(gpu)
     trainer = TrainerDeepSpeed(
         config,
@@ -83,7 +84,6 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--stage', type=int, default=0, required=False)
     parser.add_argument('-p', '--port', type=str, default='10001', required=False)
     parser.add_argument('--ddp_timeout', type=int, default=86400, required=False)       # 24 hours               
-    parser.add_argument('--use_huggingface_trainer', action='store_true')
     parser = deepspeed.add_config_arguments(parser)
     args = parser.parse_args()
     

@@ -59,11 +59,11 @@
             "justMyCode": true
         },
         {
-            "name": "deepspeed",
+            "name": "deepspeed train",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/train_deepspeed.py",
-            "args": ["deepspeed src/run/train_deepspeed.py --config config/llm.yaml -m train --local_rank 0 --deepspeed_config config/deepspeed_config.json"],
+            "args": ["--config", "config/llm_phi3.yaml", "--mode", "train", "--deepspeed_config", "config/deepspeed_config.json"],
             "console": "integratedTerminal",
             "justMyCode": true
         },
