@@ -1,12 +1,10 @@
 # Training
 This document provides a guide for instruction-tuning (or fine-tuning) LLMs.
 
-## Instruction & Fine-tuning
-### 1. Data Preparation
-Before training the model, please refer to [Data Preparation](./2_data_preparation.md) to prepare the data.
-
-### 2. Configuration Preparation
+## Configuration Preparation
 To train an LLM model, you need to create a configuration. Detailed explanations and examples of the options for the configuration are as follows.
+<details>
+<summary>Configuration example</summary>
 
 ```yaml
 # base
@@ -76,9 +74,30 @@ fast_validation_step_interval: null                           # [null, 1, 2, ...
 validation_step_interval_prop: 0.3                            # setting between 0 and 1 values
 tensorboard_logging_interval: 1                               # tensorboard logging step
 ```
+</details>
 
 
-### 3. Training
+## Training Strategy
+### 1. Distributed Data Paralle (DDP)
+This repository supports DDP training. You can simply set up multiple devices at the "device" part as shown in the above  of `config` example.
+```yaml
+device: [0,1,2]  # This will be use Rank 0, 1 GPUs
+```
+```yaml
+# In this case, CUDA_VISIBLE_DEVICES are automatically set to 0, 1, 2.
+device: [3,4,5]  
+```
+
+### 2. Fully Sharded DataParallel (FSDP)
+TBA
+<br><br><br>
+
+
+## Instruction & Fine-tuning
+### 1. Data Preparation
+Before training the model, please refer to [Data Preparation](./2_data_preparation.md) to prepare the data.
+
+### 2. Training
 #### Examples of training commands:
 ```bash
 # For more option, please refer to train.py
