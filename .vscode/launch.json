@@ -27,7 +27,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/train.py",
-            "args": ["--config", "config/llm_phi3.yaml", "--mode", "train"],
+            "args": ["--config", "config/llm_llama3.yaml", "--mode", "train"],
             "console": "integratedTerminal",
             "justMyCode": true
         },

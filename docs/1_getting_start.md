@@ -1,4 +1,4 @@
-# Getting Start
+# Getting Started
 In this project, you can build a Docker image or Ananconda environment for an LLM training.
 
 ## Docker

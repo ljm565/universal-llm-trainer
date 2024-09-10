@@ -75,7 +75,7 @@ validation_step_interval_prop: 0.3                            # setting between 
 tensorboard_logging_interval: 1                               # tensorboard logging step
 ```
 </details>
-
+<br><br>
 
 ## Training Strategy
 ### 1. Distributed Data Paralle (DDP)
