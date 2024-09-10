@@ -57,7 +57,13 @@ def single_gpu_train(args, config):
 
 def multi_gpu_train(gpu, ngpus_per_node, config, args):
     # init distribution
-    torch.distributed.init_process_group(backend='nccl', init_method=f'tcp://127.0.0.1:{args.port}', world_size=ngpus_per_node, rank=gpu, timeout=datetime.timedelta(seconds=args.ddp_timeout))
+    torch.distributed.init_process_group(
+        backend='nccl', 
+        init_method=f'tcp://127.0.0.1:{args.port}', 
+        world_size=ngpus_per_node, 
+        rank=gpu, 
+        timeout=datetime.timedelta(seconds=args.ddp_timeout)
+    )
     os.environ['LOCAL_RANK'] = str(gpu)
     torch.cuda.set_device(gpu)
     trainer = TrainerDeepSpeed(

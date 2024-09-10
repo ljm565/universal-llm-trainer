@@ -8,6 +8,7 @@ import torch.nn as nn
 from torch.cuda import amp
 import torch.optim as optim
 from torch import distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from tools import ModelEMA, Evaluator, TrainingLogger
 from trainer.build import get_data_loader, get_model, get_peft_model
@@ -155,7 +156,7 @@ class Trainer:
 
         # init ddp
         if self.is_ddp:
-            torch.nn.parallel.DistributedDataParallel(model, device_ids=[self.device])
+            DDP(model, device_ids=[self.device])
         
         return model, tokenizer
     

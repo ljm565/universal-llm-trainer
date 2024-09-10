@@ -6,6 +6,7 @@ import deepspeed
 import torch
 from torch.cuda import amp
 from torch import distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from tools import Evaluator, TrainingLogger
 from trainer.build import get_data_loader, get_model, get_peft_model
@@ -132,7 +133,7 @@ class TrainerDeepSpeed:
 
         # init ddp
         if self.is_ddp:
-            torch.nn.parallel.DistributedDataParallel(model, device_ids=[self.device])
+            DDP(model, device_ids=[self.device])
         
         return model, tokenizer
     
