@@ -19,6 +19,16 @@ bit: 8
 load_unnecessary_half: False    # recommend to set True if you set bit to 16 (4, 8bit model automatically loads neccesaries to 32bit)
 half_inference: False
 
+# SFDP training configs
+sfdp_train: False
+sfdp_hyperparameters:
+    cpu_offload: True
+    wrap_policy: size_based     # [size_based, transformer_based]
+    size_based:
+        min_num_params: auto    # auto or integer value
+    transformer_based:
+        sfdp_layer_cls: null    # List of modules to apply SFDP
+
 # data config
 max_length: 1024
 is_multi_turn: False

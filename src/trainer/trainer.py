@@ -9,6 +9,15 @@ from torch.cuda import amp
 import torch.optim as optim
 from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp.wrap import (
+    transformer_auto_wrap_policy,
+    size_based_auto_wrap_policy,
+)
+from torch.distributed.fsdp.fully_sharded_data_parallel import (
+    CPUOffload,
+    BackwardPrefetch,
+)
 
 from tools import ModelEMA, Evaluator, TrainingLogger
 from trainer.build import get_data_loader, get_model, get_peft_model
