@@ -7,10 +7,8 @@ from torch.utils.data import distributed, DataLoader, ConcatDataset
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
     CPUOffload,
-    BackwardPrefetch,
     ShardingStrategy,
 )
-from torch.distributed.fsdp.wrap import wrap, enable_wrap
 
 from data_collection import NMTDataset
 from utils import RANK, LOGGER, colorstr
@@ -195,5 +193,5 @@ def get_wrapped_model(config, model, device):
                 )
     # Quantized case
     else:
-        model = custom_wrap_policy(model, device)
+        model = custom_wrap_policy(config, model, device)
     return model

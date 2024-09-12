@@ -12,7 +12,10 @@ from torch.distributed.fsdp.wrap import (
     transformer_auto_wrap_policy,
     size_based_auto_wrap_policy,
 )
-from torch.distributed.fsdp.wrap import wrap, enable_wrap
+from torch.distributed.fsdp.fully_sharded_data_parallel import (
+    CPUOffload,
+    ShardingStrategy,
+)
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from utils import LOGGER, colorstr, TQDM
@@ -177,14 +180,13 @@ def get_wrap_policy(config):
     wrap_policy = params.wrap_policy
     if wrap_policy.lower() == 'size_based':
         return functools.partial(size_based_auto_wrap_policy, min_num_params=params.size_based.min_num_params)
-        # return functools.partial(custom_auto_wrap_policy, is_rank_zero=config.is_rank_zero)
     elif wrap_policy.lower() == 'transformer_based':
         return functools.partial(transformer_auto_wrap_policy, transformer_layer_cls={wrap_modules(params)})
     else:
         raise NotImplementedError
     
 
-def custom_wrap_policy(model, device):
+def custom_wrap_policy(config, model, device):
     def _get_leaf_modules(model):
         leaf_modules = []
         for name, module in model.named_modules():
@@ -203,36 +205,18 @@ def custom_wrap_policy(model, device):
     for name, module in leaf_modules:
         for param in module.parameters():
             if param.dtype == torch.float32 and param.requires_grad:
-                print(f"Wrapping module: {name} of type {module} (dtype: {param.dtype})")
                 parent, last_name = _get_parent_module(model, name)
-                setattr(parent, last_name, FSDP(module, device_id=device))
+                setattr(parent, 
+                        last_name, 
+                        FSDP(module, 
+                             device_id=device, 
+                             sharding_strategy=ShardingStrategy.FULL_SHARD,
+                             cpu_offload=CPUOffload(offload_params=True) if config.fsdp_hyperparameters.cpu_offload else None
+                        )
+                )
                 break       # due to leaf modules
     
+    if config.is_rank_zero:
+        LOGGER.info(colorstr('Custom Wrapping Process is applied because the quantization model is used'))
+    
     return model
-    
-
-
-
-
-# def custom_auto_wrap_policy(module, is_rank_zero, recurse, nonwrapped_numel, min_num_params=1e6):
-#     # LOGGER.info(colorstr('Custom wrap policy is applied to FSDP training'))
-#     # 양자화된 int8 파라미터는 래핑하지 않음
-    
-#     # print(is_rank_zero)
-#     # if any(param.dtype in [torch.int8] for param in module.parameters(recurse=False)):
-#     #     return False  # int8 파라미터를 가진 모듈은 FSDP로 감싸지 않음
-    
-    
-    
-#     # # 모듈이 파라미터를 가지고 있는지 먼저 확인
-#     # if not len(list(module.parameters(recurse=False))):
-#     #     return False  # 파라미터가 없는 모듈은 래핑하지 않음
-
-#     # int8 타입의 파라미터가 있는지 확인하여 해당 모듈 제외
-#     # int8 타입의 파라미터가 있는 모듈은 완전히 제외
-#     for param in module.parameters(recurse=False):
-#         if param.dtype != torch.float32:
-#             return False  # int8 파라미터가 있으면 래핑하지 않음
-    
-#     print(f'{is_rank_zero}: {module}\n ------------------------')
-#     return True
