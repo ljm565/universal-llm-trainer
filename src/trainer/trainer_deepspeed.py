@@ -81,7 +81,6 @@ class TrainerDeepSpeed:
         self.dataloaders = get_data_loader(self.config, self.tokenizer, self.modes, self.is_ddp)
         
         # init criterion and deepspeed's optimizer and model engine
-        self.model._init_criterion()
         if self.is_training_mode:
             self.scaler = amp.GradScaler(enabled=self.amp) if self.amp else None
             self.start_epoch = 0
@@ -104,10 +103,11 @@ class TrainerDeepSpeed:
                 LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
             return model
 
-        # init model and tokenizer
+        # init model, loss function, and tokenizer
         resume_success = False
         do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path)
         model, tokenizer = get_model(config, self.device)
+        model._init_criterion()
 
         # init peft
         if config.peft_config_path:
