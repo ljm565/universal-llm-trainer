@@ -14,8 +14,8 @@ project: outputs/phi3
 name: test
 
 # environment config
-device: [0,1,2]
-bit: 32
+device: [0,1,2,3]
+bit: 8
 load_unnecessary_half: False    # recommend to set True if you set bit to 16 (4, 8bit model automatically loads neccesaries to 32bit)
 half_inference: False
 
@@ -25,12 +25,12 @@ fsdp_hyperparameters:
     cpu_offload: True
     wrap_policy: size_based     # [size_based, transformer_based]
     size_based:
-        min_num_params: 100     # integer value
+        min_num_params: 1000000     # integer value
     transformer_based:
         fsdp_layer_cls: null    # List of modules to apply FSDP
 
 # data config
-max_length: 512
+max_length: 1024
 is_multi_turn: False
 add_bos_token_when_response_start: True
 add_eos_token_when_response_end: True
@@ -65,7 +65,7 @@ train_verbose: True
 inference_result_verbose: True
 
 # peft
-peft_config_path: null # config_lora/llm_phi3_lora_config.yaml   # if False, training without peft
+peft_config_path: config_lora/llm_phi3_lora_config.yaml   # if False, training without peft
 
 # logging data and metrics
 common: ['train_loss', 'validation_loss', 'lr']               # ['train_loss', 'validation_loss', 'lr']
