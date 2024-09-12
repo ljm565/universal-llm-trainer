@@ -87,6 +87,7 @@ class Trainer:
         # init model, dataset, dataloader, etc.
         self.modes = ['train', 'validation'] if self.is_training_mode else ['validation']
         self.model, self.tokenizer = self._init_model(self.config, self.mode)
+        self.model_module = self.model.module if self.is_ddp else self.model
         self.evaluator = Evaluator(self.tokenizer)
         self.training_logger = TrainingLogger(self.config, self.is_training_mode)
         self.dataloaders = get_data_loader(self.config, self.tokenizer, self.modes, self.is_ddp)
@@ -94,8 +95,7 @@ class Trainer:
             self.do_train = self.huggingface_trainer
             return 
         
-        # init criterion, optimizer, scheduler
-        self.model._init_criterion()
+        # init optimizer, scheduler
         if self.is_training_mode:
             self.lr0 = self.config.lr0
             self.scaler = amp.GradScaler(enabled=self.amp) if self.amp else None
@@ -126,10 +126,11 @@ class Trainer:
                 LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
             return model
 
-        # init model and tokenizer
+        # init model, loss function, and tokenizer
         resume_success = False
         do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path)
         model, tokenizer = get_model(config, self.device)
+        model._init_criterion()
 
         # init peft
         if config.peft_config_path:
@@ -155,7 +156,7 @@ class Trainer:
 
         # init ddp
         if self.is_ddp:
-            torch.nn.parallel.DistributedDataParallel(model, device_ids=[self.device])
+            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[self.device])
         
         return model, tokenizer
     
@@ -163,17 +164,17 @@ class Trainer:
     def _freeze_model(self):
         if self.config.training_stage:
             # Firstly, changing model dtype
-            if self.model.load16bit:
+            if self.model_module.load16bit:
                 self.model.half()
             else:
                 self.model.float()
             
             # Secondly, freezing layer except for that need to be trained 
-            self.model.freeze_layers(self.config.training_stage)
+            self.model_module.freeze_layers(self.config.training_stage)
 
             # Lastly, changing layers dtype those have to be float32
-            if self.model.load16bit:
-                self.model.mapping_neccessary_32bit()
+            if self.model_module.load16bit:
+                self.model_module.mapping_neccessary_32bit()
 
 
     def optimizer_step(self):
@@ -355,7 +356,7 @@ class Trainer:
                 inference_batch_size = min(batch_size, self.config.fast_validation_n) if self.config.fast_validation_n else batch_size
                 user_prompt = batch['user_prompt'][:inference_batch_size] if 'user_prompt' in batch else batch['src'][:inference_batch_size]
                 response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
-                response_pred = self.model.inference(user_prompt, max_length=self.config.max_length, num_return_sequences=1, greedy=True)
+                response_pred = self.model_module.inference(user_prompt, max_length=self.config.max_length, num_return_sequences=1, greedy=True)
 
                 # evaluation
                 metric_results = self.metric_evaluation(loss, response_pred, response_gt)
@@ -398,7 +399,7 @@ class Trainer:
 
             if is_training_now:
                 if self.is_rank_zero:
-                    self.training_logger.save_model(self.wdir, self.model)
+                    self.training_logger.save_model(self.wdir, self.model_module)
                     self.training_logger.save_logs(self.save_dir)
 
                 # re-freezing model for training phase
@@ -439,7 +440,7 @@ class Trainer:
         datasets = {k: v.shuffle().map(huggingface_arc_generator, batched=False, fn_kwargs=fn_kwargs) if k == 'train' else v.map(huggingface_arc_generator, batched=False, fn_kwargs=fn_kwargs) for k, v in datasets.items()}
         
         trainer = transformers.Trainer(
-            model=self.model.model,
+            model=self.model_module.model,
             train_dataset=datasets['train'],
             eval_dataset=datasets['validation'] if 'validation' in datasets else None,
             args=TrainingArguments(
