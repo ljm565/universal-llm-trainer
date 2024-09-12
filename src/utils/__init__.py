@@ -261,8 +261,10 @@ def logger(self, message):
 DATASET_HELP_MSG = 'If you are looking for LLM benchmark datasets, you can choose from the following list: [gsm8k, ai2_arc, Rowan/hellaswag, winogrande, lukaemon/mmlu, truthful_qa]'
 OPTIM_CRITERION_MSG = 'optimizer_step_criterion must be belonged to' + f' [{colorstr("epoch")}, {colorstr("step")}] '
 SCHEDULER_MSG = 'scheduler_type must be belonged to' + f' [{colorstr("linear")}, {colorstr("cosine")}] '
+FSDP_WRAP_MSG = 'wrap_policy must be belonged to' + f' [{colorstr("size_based")}, {colorstr("transformer_based")}] '
 
 
 ##################### Assertion List #####################
 OPTIM_CRITERION = ['epoch', 'step']
 SCHEDULER_TYPE = ['linear', 'cosine']
+FSDP_WRAP_TYPE = ['size_based', 'transformer_based']

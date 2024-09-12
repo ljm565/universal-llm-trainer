@@ -9,29 +9,13 @@ from torch.cuda import amp
 import torch.optim as optim
 from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp.wrap import (
-    transformer_auto_wrap_policy,
-    size_based_auto_wrap_policy,
-)
-from torch.distributed.fsdp.fully_sharded_data_parallel import (
-    CPUOffload,
-    BackwardPrefetch,
-)
 
 from tools import ModelEMA, Evaluator, TrainingLogger
-from trainer.build import get_data_loader, get_model, get_peft_model
-from utils import (
-    OPTIM_CRITERION, 
-    OPTIM_CRITERION_MSG,
-    SCHEDULER_TYPE,
-    SCHEDULER_MSG, 
-    RANK, LOGGER,
-    colorstr, init_seeds,
-    TQDM
-)
+from utils import RANK, LOGGER, colorstr, init_seeds, TQDM
+from utils.func_utils import *
 from utils.training_utils import *
 from utils.filesys_utils import yaml_save, make_project_dir
+from trainer.build import get_data_loader, get_model, get_peft_model, get_wrapped_model
 
 
 __version__ = '0.0.1'
@@ -44,20 +28,20 @@ class Trainer:
             config,
             mode: str,
             device,
-            is_ddp=False,
+            multi_gpu_train_type=False,
             use_huggingface_trainer=False,
             resume_path=None,
         ):
+        self.is_ddp, self.is_fsdp = select_training_type(multi_gpu_train_type)
         init_seeds(config.seed + 1 + RANK, config.deterministic)
 
         # init
         self.mode = mode
         self.is_training_mode = self.mode in ['train', 'resume']
         self.device = torch.device(device)
-        self.is_ddp = is_ddp
-        self.is_rank_zero = True if not self.is_ddp or (self.is_ddp and device == 0) else False
+        self.is_rank_zero = True if not multi_gpu_train_type or (multi_gpu_train_type and device == 0) else False
         self.config = config
-        self.world_size = len(self.config.device) if self.is_ddp else 1
+        self.world_size = len(self.config.device) if multi_gpu_train_type else 1
         self.amp = True if self.config.amp_training or self.config.load_unnecessary_half else False
         self.ema = self.config.ema_updating
         self.epochs = self.config.epochs
@@ -82,10 +66,7 @@ class Trainer:
         self.resume_path = resume_path
 
         # sanity check
-        assert self.optimizer_step_criterion in OPTIM_CRITERION, \
-            OPTIM_CRITERION_MSG + f' but got {colorstr(self.optimizer_step_criterion)}'
-        assert self.scheduler_type in SCHEDULER_TYPE, \
-            SCHEDULER_MSG + f' but got {colorstr(self.scheduler_type)}'
+        sanity_check(self)
         self.is_update_per_epoch = True if self.optimizer_step_criterion == 'epoch' else False
 
         # save the yaml config
@@ -99,13 +80,12 @@ class Trainer:
         self.model, self.tokenizer = self._init_model(self.config, self.mode)
         self.evaluator = Evaluator(self.tokenizer)
         self.training_logger = TrainingLogger(self.config, self.is_training_mode)
-        self.dataloaders = get_data_loader(self.config, self.tokenizer, self.modes, self.is_ddp)
+        self.dataloaders = get_data_loader(self.config, self.tokenizer, self.modes, self.is_ddp or self.is_fsdp)
         if self.use_huggingface_trainer:
             self.do_train = self.huggingface_trainer
             return 
         
-        # init criterion, optimizer, scheduler
-        self.model._init_criterion()
+        # init optimizer, scheduler
         if self.is_training_mode:
             self.lr0 = self.config.lr0
             self.scaler = amp.GradScaler(enabled=self.amp) if self.amp else None
@@ -121,7 +101,7 @@ class Trainer:
             self.scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lf)
             self.scheduler.last_epoch = self.start_epoch - 1  # do not move
             if self.is_rank_zero and self.train_verbose:
-                draw_training_lr_curve(self.config, self.lf, all_steps_n, self.warmup_steps_n, self.is_ddp, self.world_size)
+                draw_training_lr_curve(self.config, self.lf, all_steps_n, self.warmup_steps_n, self.is_ddp or self.is_fsdp, self.world_size)
             self.stop = False
 
 
@@ -136,10 +116,11 @@ class Trainer:
                 LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
             return model
 
-        # init model and tokenizer
+        # init model, loss fuction, and tokenizer
         resume_success = False
         do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path)
         model, tokenizer = get_model(config, self.device)
+        model._init_criterion()
 
         # init peft
         if config.peft_config_path:
@@ -166,9 +147,10 @@ class Trainer:
         # init ddp
         if self.is_ddp:
             DDP(model, device_ids=[self.device])
-        
-        return model, tokenizer
-    
+        elif self.is_fsdp:
+            model = get_wrapped_model(config, model, self.device)
+
+        return model, tokenizer    
 
     def _freeze_model(self):
         if self.config.training_stage:
@@ -214,7 +196,7 @@ class Trainer:
                         f"Logging results to {colorstr('bold', self.save_dir)}\n"
                         f'Starting training for {self.epochs} epochs...\n')
 
-        if self.is_ddp:
+        if self.is_ddp or self.is_fsdp:
             dist.barrier()
 
         for epoch in range(self.epochs):

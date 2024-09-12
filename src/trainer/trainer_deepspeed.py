@@ -133,7 +133,7 @@ class TrainerDeepSpeed:
 
         # init ddp
         if self.is_ddp:
-            DDP(model, device_ids=[self.device])
+            model = DDP(model, device_ids=[self.device])
         
         return model, tokenizer
     
