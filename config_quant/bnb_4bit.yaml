@@ -1,0 +1,5 @@
+load_in_4bit: True
+bnb_4bit_compute_dtype: bfloat16     # [float32, float16, bfloat16], if you set to null, default value (float32) will be applied.
+bnb_4bit_quant_type: nf4            # [fp4, nf4], if you set to null, default value (fp4) will be applied.
+bnb_4bit_use_double_quant: True     # if you set to null, default value (False) will be applied.
+bnb_4bit_quant_storage: null        # if you set to null, default value (torch.uint8) will be applied

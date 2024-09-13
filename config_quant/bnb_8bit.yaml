@@ -1,0 +1,4 @@
+load_in_8bit: True        
+llm_int8_enable_fp32_cpu_offload: False   # if you set True, GPU memory will be saved (default: False).
+llm_int8_threshold: null                   # if you set null, default value 6 will be applied.
+llm_int8_skip_mdules: null                # if null, default value (None) will be applied.
