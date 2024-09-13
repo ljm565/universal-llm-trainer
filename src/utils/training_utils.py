@@ -20,6 +20,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from utils import LOGGER, colorstr, TQDM
 from utils.func_utils import wrap_modules
+from utils.quant_utils import init_quant_config
 
 
 def one_cycle(y1=0.0, y2=1.0, steps=100):
@@ -173,6 +174,32 @@ def calculate_gathered_results(objs):
         gathered_results[key] = sum(obj['results'][key] * obj['length'] for obj in objs) / total_n
     
     return gathered_results
+
+
+def init_model_config(config, load16bit):
+    if config.bit in [4, 8]:
+        assert config.peft_config_path, colorstr('red', 'If you quantize the model, you need LoRA etc. due to gradients upating...')
+    
+    # Basic
+    quant_config = init_quant_config(config)
+    kwargs = {
+        'torch_dtype': torch.float16 if load16bit else torch.float32,
+        'quantization_config': quant_config,
+        'use_cache': False if config.gradient_checkpointing else True
+    }
+
+    # Determine attention mechanism
+    if config.attn_implementation:
+        kwargs['attn_implementation'] = config.attn_implementation
+        if quant_config and 'bnb_4bit_quant_storage' in quant_config:
+            kwargs['torch_dtype'] = quant_config['bnb_4bit_quant_storage']
+        else:
+            kwargs['torch_dtype'] = torch.bfloat16
+
+        if config.is_rank_zero:
+            LOGGER.info(f"{colorstr(config.attn_implementation)} attention will be used and {colorstr(kwargs['torch_dtype'])} tensors will be loaded.")
+    
+    return kwargs
 
 
 def get_wrap_policy(config):

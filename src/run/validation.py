@@ -6,6 +6,7 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 import torch
 
+from utils.func_utils import replace_none_value
 from utils.training_utils import choose_proper_resume_model
 from trainer import Trainer
 
@@ -18,6 +19,7 @@ def env_setup():
 
 def load_config(config_path):
     config = Config(config_path)
+    config = replace_none_value(config)
     return config
 
 

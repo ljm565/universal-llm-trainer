@@ -1,3 +1,5 @@
+from sconf import Config
+
 from utils import (
     OPTIM_CRITERION, 
     OPTIM_CRITERION_MSG,
@@ -37,4 +39,16 @@ def select_training_type(train_type):
     
 
 def wrap_modules(params):
+    # TODO: transformer FSDP wrapping function 
     pass    
+
+
+def replace_none_value(config):
+    if isinstance(config, Config):
+        return {k: replace_none_value(v) for k, v in config.items()}
+    elif isinstance(config, list):
+        return [replace_none_value(item) for item in config]
+    elif config == 'None':
+        return None
+    else:
+        return config

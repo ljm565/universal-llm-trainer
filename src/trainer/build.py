@@ -183,8 +183,8 @@ def get_peft_model(model, config):
 
 
 def get_wrapped_model(config, model, device):
-    # Not quantized case
-    if model.is32bit:
+    # Neither quantized nor PEFT case
+    if model.is32bit and not config.peft_config_path:
         model = FSDP(model, 
                      auto_wrap_policy=get_wrap_policy(config), 
                      device_id=device, 

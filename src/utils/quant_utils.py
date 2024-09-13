@@ -15,10 +15,10 @@ def init_quant_config(config):
 
         if config.bit == 4:
             assert 'load_in_4bit' in quant_config and quant_config.load_in_4bit, \
-                            f'You have to set {colorstr("load_in_4bit")} to {colorstr("True")}'
+                            f'You have to set {colorstr("red", "load_in_4bit")} to {colorstr("red", "True")}'
         else:
             assert 'load_in_8bit' in quant_config and quant_config.load_in_8bit, \
-                            f'You have to set {colorstr("load_in_8bit")} to {colorstr("True")}'
+                            f'You have to set {colorstr("red", "load_in_8bit")} to {colorstr("red", "True")}'
         
         kwargs = preprocess({k: v for k, v in quant_config.items() if v})
 
