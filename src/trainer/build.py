@@ -4,12 +4,18 @@ from peft import prepare_model_for_kbit_training
 
 import torch
 from torch.utils.data import distributed, DataLoader, ConcatDataset
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp.fully_sharded_data_parallel import (
+    CPUOffload,
+    ShardingStrategy,
+)
 
 from data_collection import NMTDataset
 from utils import RANK, LOGGER, colorstr
 from utils.data_utils import seed_worker, choose_proper_dataset
 from utils.peft_utils import init_lora_config, apply_peft, print_trainable_parameters
 from utils.filesys_utils import pickle_load
+from utils.training_utils import get_wrap_policy, custom_wrap_policy
 
 PIN_MEMORY = str(os.getenv('PIN_MEMORY', True)).lower() == 'true'  # global pin_memory for dataloaders
 
@@ -172,4 +178,20 @@ def get_peft_model(model, config):
     if config.is_rank_zero:
         print_trainable_parameters(model)
         LOGGER.info(f'Applied {colorstr(peft_type)} to the model.')
+    return model
+
+
+
+def get_wrapped_model(config, model, device):
+    # Not quantized case
+    if model.is32bit:
+        model = FSDP(model, 
+                     auto_wrap_policy=get_wrap_policy(config), 
+                     device_id=device, 
+                     sharding_strategy=ShardingStrategy.FULL_SHARD,
+                     cpu_offload=CPUOffload(offload_params=True) if config.fsdp_hyperparameters.cpu_offload else None
+                )
+    # Quantized case
+    else:
+        model = custom_wrap_policy(config, model, device)
     return model

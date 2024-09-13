@@ -4,4 +4,4 @@ lora_alpha: 16
 lora_dropout: 0.05
 bias: none                  # ['none', 'all', 'lora_only']
 task_type: CAUSAL_LM     # ['SEQ_CLS', 'SEQ_2_SEQ_LM', 'CAUSAL_LM', 'TOKEN_CLS', 'QUESTION_ANS', 'FEATURE_EXTRACTION']
-target_modules: null        # if null, modules will be chosen according to the model architecture (e.g. ['q_proj', 'v_proj'])
+target_modules: ['q_proj', 'v_proj']        # if null, modules will be chosen according to the model architecture (e.g. ['q_proj', 'v_proj'])

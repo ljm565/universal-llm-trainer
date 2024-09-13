@@ -1,14 +1,25 @@
 import os
 import re
 import math
+import functools
 import numpy as np
 import matplotlib.pyplot as plt
 
+import torch
 import torch.nn as nn
 import torch.distributed as dist
+from torch.distributed.fsdp.wrap import (
+    transformer_auto_wrap_policy,
+    size_based_auto_wrap_policy,
+)
+from torch.distributed.fsdp.fully_sharded_data_parallel import (
+    CPUOffload,
+    ShardingStrategy,
+)
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from utils import LOGGER, colorstr, TQDM
-
+from utils.func_utils import wrap_modules
 
 
 def one_cycle(y1=0.0, y2=1.0, steps=100):
@@ -162,3 +173,50 @@ def calculate_gathered_results(objs):
         gathered_results[key] = sum(obj['results'][key] * obj['length'] for obj in objs) / total_n
     
     return gathered_results
+
+
+def get_wrap_policy(config):
+    params = config.fsdp_hyperparameters
+    wrap_policy = params.wrap_policy
+    if wrap_policy.lower() == 'size_based':
+        return functools.partial(size_based_auto_wrap_policy, min_num_params=params.size_based.min_num_params)
+    elif wrap_policy.lower() == 'transformer_based':
+        return functools.partial(transformer_auto_wrap_policy, transformer_layer_cls={wrap_modules(params)})
+    else:
+        raise NotImplementedError
+    
+
+def custom_wrap_policy(config, model, device):
+    def _get_leaf_modules(model):
+        leaf_modules = []
+        for name, module in model.named_modules():
+            if len(list(module.children())) == 0:
+                leaf_modules.append((name, module))
+        return leaf_modules
+    
+    def _get_parent_module(model, path):
+        parts = path.split('.')
+        parent = model
+        for part in parts[:-1]:
+            parent = getattr(parent, part)
+        return parent, parts[-1]
+  
+    leaf_modules = _get_leaf_modules(model)
+    for name, module in leaf_modules:
+        for param in module.parameters():
+            if param.dtype == torch.float32 and param.requires_grad:
+                parent, last_name = _get_parent_module(model, name)
+                setattr(parent, 
+                        last_name, 
+                        FSDP(module, 
+                             device_id=device, 
+                             sharding_strategy=ShardingStrategy.FULL_SHARD,
+                             cpu_offload=CPUOffload(offload_params=True) if config.fsdp_hyperparameters.cpu_offload else None
+                        )
+                )
+                break       # due to leaf modules
+    
+    if config.is_rank_zero:
+        LOGGER.info(colorstr('Custom Wrapping Process is applied because the quantization model is used'))
+    
+    return model
