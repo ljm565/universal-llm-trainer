@@ -15,6 +15,7 @@ from utils import (
     colorstr, init_seeds,
     TQDM
 )
+from utils.func_utils import *
 from utils.training_utils import *
 from utils.filesys_utils import yaml_save, make_project_dir, json_load, json_save
 
@@ -29,19 +30,19 @@ class TrainerDeepSpeed:
             config,
             args,
             device,
-            is_ddp=False,
+            multi_gpu_train_type=False,
             resume_path=None,
         ):
+        self.is_ddp, self.is_fsdp = select_training_type(multi_gpu_train_type)
         init_seeds(config.seed + 1 + RANK, config.deterministic)
 
         # init
         self.mode = args.mode
         self.is_training_mode = self.mode in ['train', 'resume']
         self.device = torch.device(device)
-        self.is_ddp = is_ddp
-        self.is_rank_zero = True if not self.is_ddp or (self.is_ddp and device == 0) else False
+        self.is_rank_zero = True if not multi_gpu_train_type or (multi_gpu_train_type and device == 0) else False
         self.config = config
-        self.world_size = len(self.config.device) if self.is_ddp else 1
+        self.world_size = len(self.config.device) if multi_gpu_train_type else 1
         self.steps = self.config.steps
         self.optimizer_step_criterion = 'step'
         self.metrics = self.config.metrics
@@ -164,7 +165,7 @@ class TrainerDeepSpeed:
                         f"Logging results to {colorstr('bold', self.save_dir)}\n"
                         f'Starting training for {self.epochs} epochs...\n')
 
-        if self.is_ddp:
+        if self.is_ddp or self.is_fsdp:
             dist.barrier()
 
         for epoch in range(self.epochs):
@@ -180,11 +181,11 @@ class TrainerDeepSpeed:
 
                 if phase == 'train':
                     self.epoch_train(phase, epoch)
-                    if self.is_ddp:
+                    if self.is_ddp or self.is_fsdp:
                         dist.barrier()
                 else:
                     self.epoch_validate(phase, epoch)
-                    if self.is_ddp:
+                    if self.is_ddp or self.is_fsdp:
                         dist.barrier()
 
             # clears GPU vRAM at end of epoch, can help with out of memory errors
@@ -256,7 +257,7 @@ class TrainerDeepSpeed:
             if self.train_cur_step != 0 and self.train_cur_step % validation_step_interval == 0 and self.config.validation_step_interval_prop != 1:
                 self.epoch_validate('validation', epoch)
                 self.model_engine.train()
-                if self.is_ddp:
+                if self.is_ddp or self.is_fsdp:
                     dist.barrier()
         
         # upadate logs

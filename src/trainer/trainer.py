@@ -214,11 +214,11 @@ class Trainer:
 
                 if phase == 'train':
                     self.epoch_train(phase, epoch)
-                    if self.is_ddp:
+                    if self.is_ddp or self.is_fsdp:
                         dist.barrier()
                 else:
                     self.epoch_validate(phase, epoch)
-                    if self.is_ddp:
+                    if self.is_ddp or self.is_fsdp:
                         dist.barrier()
 
             # clears GPU vRAM at end of epoch, can help with out of memory errors
@@ -297,7 +297,7 @@ class Trainer:
             if self.train_cur_step != 0 and self.train_cur_step % validation_step_interval == 0 and self.config.validation_step_interval_prop != 1:
                 self.epoch_validate('validation', epoch)
                 self.model.train()
-                if self.is_ddp:
+                if self.is_ddp or self.is_fsdp:
                     dist.barrier()
         
         # upadate logs

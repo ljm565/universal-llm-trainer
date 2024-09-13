@@ -70,7 +70,7 @@ def multi_gpu_train(gpu, ngpus_per_node, config, args):
         config,
         args,
         gpu,
-        is_ddp=True,
+        multi_gpu_train_type='fsdp' if config.fsdp_train else 'ddp',
         resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.mode == 'resume' else None
     )
 
