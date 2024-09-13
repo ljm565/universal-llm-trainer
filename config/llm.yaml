@@ -15,12 +15,12 @@ name: test
 
 # environment config
 device: [0,1,2,3]
-bit: 4
+bit: 8
 load_unnecessary_half: False    # recommend to set True if you set bit to 16 (4, 8bit model automatically loads neccesaries to 32bit)
 half_inference: False
 
 # FSDP training configs
-fsdp_train: True
+fsdp_train: False
 fsdp_hyperparameters:
     cpu_offload: True
     wrap_policy: size_based     # [size_based, transformer_based]
@@ -30,7 +30,7 @@ fsdp_hyperparameters:
         fsdp_layer_cls: null    # List of modules to apply FSDP
 
 # data config
-max_length: 2048
+max_length: 1024
 is_multi_turn: False
 add_bos_token_when_response_start: True
 add_eos_token_when_response_end: True
