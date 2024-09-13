@@ -15,12 +15,12 @@ name: test
 
 # environment config
 device: [0,1,2,3]
-bit: 8
+bit: 4
 load_unnecessary_half: False    # recommend to set True if you set bit to 16 (4, 8bit model automatically loads neccesaries to 32bit)
 half_inference: False
 
 # FSDP training configs
-fsdp_train: False
+fsdp_train: True
 fsdp_hyperparameters:
     cpu_offload: True
     wrap_policy: size_based     # [size_based, transformer_based]
@@ -59,7 +59,7 @@ weight_decay: 0.0
 warmup_momentum: 0.8
 early_stop_criterion: 50
 workers: 0
-amp_training: True
+amp_training: False
 ema_updating: False
 train_verbose: True
 inference_result_verbose: True
