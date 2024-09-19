@@ -4,6 +4,7 @@ from transformers import AutoModelForCausalLM
 
 from tools.tokenizers import GemmaTokenizer
 from utils import print_mem_consumption, logger
+from utils.quant_utils import init_quant_config
 from utils.training_utils import choose_proper_model
 
 
@@ -19,8 +20,7 @@ class Gemma(nn.Module):
 
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path, 
-            load_in_4bit=self.is4bit,
-            load_in_8bit=self.is8bit,
+            quantization_config=init_quant_config(config),
             torch_dtype=torch.float16 if self.load16bit else torch.float32,
             device_map=self.device,
             low_cpu_mem_usage=True,

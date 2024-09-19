@@ -191,13 +191,8 @@ def init_model_config(config, load16bit):
     # Determine attention mechanism
     if config.attn_implementation:
         kwargs['attn_implementation'] = config.attn_implementation
-        if quant_config and 'bnb_4bit_quant_storage' in quant_config:
-            kwargs['torch_dtype'] = quant_config['bnb_4bit_quant_storage']
-        else:
-            kwargs['torch_dtype'] = torch.bfloat16
-
         if config.is_rank_zero:
-            LOGGER.info(f"{colorstr(config.attn_implementation)} attention will be used and {colorstr(kwargs['torch_dtype'])} tensors will be loaded.")
+            LOGGER.info(f"{colorstr(config.attn_implementation)} attention will be used.")
     
     return kwargs
 

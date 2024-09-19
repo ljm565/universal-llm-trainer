@@ -4,7 +4,7 @@ from transformers import AutoModelForCausalLM
 
 from tools.tokenizers import Phi3Tokenizer
 from utils import print_mem_consumption, logger
-from utils.training_utils import choose_proper_model
+from utils.training_utils import init_model_config, choose_proper_model
 
 
 
@@ -20,12 +20,15 @@ class Phi3(nn.Module):
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path, 
             trust_remote_code=True,
-            load_in_4bit=self.is4bit,
-            load_in_8bit=self.is8bit,
-            torch_dtype=torch.float16 if self.load16bit else torch.float32,
             device_map=self.device,
             low_cpu_mem_usage=True,
+            **init_model_config(config, self.load16bit)
         )
+
+        if config.gradient_checkpointing:
+            logger(self, 'Gradient checkpointing will be applied')
+            self.model.enable_input_require_grads()
+            self.model.gradient_checkpointing_enable()
 
         # freezing proper layers
         self.freeze_layers(config.training_stage)

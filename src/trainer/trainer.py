@@ -90,7 +90,7 @@ class Trainer:
         if self.is_training_mode:
             self.lr0 = self.config.lr0
             self.scaler = amp.GradScaler(enabled=self.amp) if self.amp else None
-            self.ema = ModelEMA(self.model) if self.ema else None
+            self.ema = ModelEMA(self.model_module) if self.ema else None
             self.start_epoch = 0
             self.optimizer = optim.AdamW(self.model.parameters(), lr=self.lr0, betas=(self.config.momentum, 0.999), weight_decay=self.config.weight_decay)
             all_steps_n = self.epochs if self.is_update_per_epoch else self.steps
@@ -184,7 +184,7 @@ class Trainer:
         self.optimizer.zero_grad()
 
         if self.ema:
-            self.ema.update(self.model)
+            self.ema.update(self.model_module)
             
         
     def do_train(self) -> None:
@@ -340,16 +340,17 @@ class Trainer:
             for i, batch in pbar:
                 if self.config.fast_validation_step_interval and i % self.config.fast_validation_step_interval != 0:
                     continue                    
+                
+                with torch.cuda.amp.autocast(self.amp):
+                    batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+                    batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
+                    _, loss = self.model(batch, return_loss=True)
 
-                batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
-                batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
-                _, loss = self.model(batch, return_loss=True)
-
-                # preparing for model evaluation
-                inference_batch_size = min(batch_size, self.config.fast_validation_n) if self.config.fast_validation_n else batch_size
-                user_prompt = batch['user_prompt'][:inference_batch_size] if 'user_prompt' in batch else batch['src'][:inference_batch_size]
-                response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
-                response_pred = self.model_module.inference(user_prompt, max_length=self.config.max_length, num_return_sequences=1, greedy=True)
+                    # preparing for model evaluation
+                    inference_batch_size = min(batch_size, self.config.fast_validation_n) if self.config.fast_validation_n else batch_size
+                    user_prompt = batch['user_prompt'][:inference_batch_size] if 'user_prompt' in batch else batch['src'][:inference_batch_size]
+                    response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
+                    response_pred = self.model_module.inference(user_prompt, max_length=self.config.max_length, num_return_sequences=1, greedy=True)
 
                 # evaluation
                 metric_results = self.metric_evaluation(loss, response_pred, response_gt)
@@ -407,7 +408,10 @@ class Trainer:
             elif m == 'bleu':
                 metric_results[m] = self.evaluator.cal_bleu_score(response_pred, response_gt)
             elif m == 'rouge':
-                metric_results[m] = self.evaluator.cal_rouge_score(response_pred, response_gt, n=None)
+                try:
+                    metric_results[m] = self.evaluator.cal_rouge_score(response_pred, response_gt, n=None)
+                except RecursionError:
+                    metric_results[m] = 0.0
             elif m == 'meteor':
                 metric_results[m] = self.evaluator.cal_meteor_score(response_pred, response_gt)
             elif m == 'edit_distance':
