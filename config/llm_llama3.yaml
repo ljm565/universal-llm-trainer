@@ -6,8 +6,8 @@ model: llama3
 model_size: 8b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
-data_path: ['data/mras/mras_ko_rpr_level1']
-template_dir: data/koalpaca_easy_v2/phi3_templates   # if null, template will be chosen according to the {data_path}/templates
+data_path: ['data/kopolyglot_easy_v2']
+template_dir: ['templates/llama3_templates']   # list(path) or path, if null, template will be chosen according to the {data_path}/templates
 
 # project config
 project: outputs/llama3_chat

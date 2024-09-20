@@ -15,12 +15,12 @@ model: gemma
 model_size: 2b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
-data_path: ['data/mras/mras_en_otc_v4', 'data/mras/mras_ko_rpr_v4']
+data_path: ['data/data1', 'data/data2']
 template_dir: ['templates/gemma_templates', 'templates/gemma_templates_ko']   # list(path) or path, if null, template will be chosen according to the ${data_path}/templates
 
 # project config
 project: outputs/gemma
-name: mras_v4
+name: model_name
 
 # environment config
 device: [0,1]
