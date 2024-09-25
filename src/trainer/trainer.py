@@ -384,7 +384,8 @@ class Trainer:
             self.training_logger.update_phase_end(phase, printing=self.is_rank_zero)
 
             # gather the results of all ranks
-            if self.is_ddp:
+            if self.is_ddp or self.is_fsdp:
+                dist.barrier()
                 obj = {'results': self.training_logger.validation_epoch_result, 'length': len(val_loader.dataset)}
                 gathered_list = gather_objects(obj, self.is_rank_zero, self.world_size)
                 if self.is_rank_zero:
