@@ -43,6 +43,8 @@ def main(args):
     
 def single_gpu_train(args, config):
     device = torch.device('cpu') if config.device == 'cpu' else torch.device(f'cuda:{config.device[0]}')
+    if device.type == 'cuda':
+        torch.cuda.set_device(config.device[0])
     trainer = Trainer(
         config, 
         args.mode, 
