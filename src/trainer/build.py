@@ -140,7 +140,7 @@ def get_model(config, device):
             from models import Gemma
             model = Gemma(config, device)
             tokenizer = model.tokenizer
-        elif config.model.lower() == 'llama3':
+        elif config.model.lower() in ['llama3', 'llama3.1']:
             from models import Llama3
             model = Llama3(config, device)
             tokenizer = model.tokenizer

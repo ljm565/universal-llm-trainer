@@ -61,6 +61,7 @@ weight_decay: 0.0
 warmup_momentum: 0.8
 early_stop_criterion: 50
 workers: 0
+total_cpu_use: 32
 amp_training: False
 ema_updating: False
 train_verbose: True

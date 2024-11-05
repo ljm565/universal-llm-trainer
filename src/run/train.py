@@ -42,6 +42,7 @@ def main(args):
 
     
 def single_gpu_train(args, config):
+    torch.set_num_threads(config.total_cpu_use)
     device = torch.device('cpu') if config.device == 'cpu' else torch.device(f'cuda:{config.device[0]}')
     if device.type == 'cuda':
         torch.cuda.set_device(config.device[0])
@@ -58,6 +59,8 @@ def single_gpu_train(args, config):
 
 
 def multi_gpu_train(gpu, ngpus_per_node, config, args):
+    torch.set_num_threads(config.total_cpu_use // ngpus_per_node)
+
     # init distribution
     torch.distributed.init_process_group(
         backend='nccl',

@@ -2,27 +2,27 @@
 train_type: llm
 seed: 0
 deterministic: True
-model: kogemma
-model_size: 2b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
+model: llama3.1
+model_size: 8b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
-data_path: ['data/data1', 'data/data2']
-template_dir: ['templates/gemma_templates', 'templates/gemma_templates_ko']   # list(path) or path, if null, template will be chosen according to the {data_path}/templates
+data_path: ['data/kopolyglot_easy_v2']
+template_dir: [templates/llama3_templates]   # list(directory) or directory, if null, template will be chosen according to the {data_path}/templates.
 
 # project config
-project: outputs/kogemma
-name: test
+project: outputs/llama3_gpu_test
+name: test_01
 
 # environment config
-device: [0]
+device: [0, 1]
 bit: 32
-quant_config: null    # str, if you set bit as 4 or 8, you have to insert appropriate quantization config, or assertion error will occur. It only activate when you set bit to 4 or 8.
+quant_config: False    # str, if you set bit as 4 or 8, you have to insert appropriate quantization config, or assertion error will occur. It only activate when you set bit to 4 or 8.
 attn_implementation: null      # [flash_attention_2, sdpa], if null, None default value will be applied.
 load_unnecessary_half: False    # recommend to set True if you set bit to 16 (4, 8bit model automatically loads neccesaries to 32bit)
 half_inference: False
 
 # FSDP training configs
-fsdp_train: False
+fsdp_train: True
 fsdp_hyperparameters:
     cpu_offload: True
     wrap_policy: size_based     # [size_based, transformer_based]
@@ -32,14 +32,14 @@ fsdp_hyperparameters:
         fsdp_layer_cls: null    # List of modules to apply FSDP
 
 # data config
-max_length: 1500
+max_length: 4096
 is_multi_turn: False
 add_bos_token_when_response_start: True
 add_eos_token_when_response_end: True
-data_verbose: True
+data_verbose: False
 
 # tokenizer config (I recommend to double check the tokenizer's special token map)
-pad_token_id: null    # [add, null, int] if null, tokenizer pad_token_id will not be overrided
+pad_token_id: 128002     # [add, null, int] if null, tokenizer pad_token_id will not be overrided
 bos_token_id: null    # [add, null, int] if null, tokenizer bos_token_id will not be overrided
 eos_token_id: null    # [add, null, int] if null, tokenizer eos_token_id will not be overrided
 cls_token_id: null    # [add, null, int] if null, tokenizer cls_token_id will not be overrided
@@ -53,7 +53,7 @@ warmup_epochs: 0
 steps: 5000
 warmup_steps: 100
 optimizer_step_criterion: 'step'   # ['epoch', 'step']
-lr0: 1e-4
+lr0: 5e-4
 lrf: 0.001      # last_lr = lr0 * lrf
 scheduler_type: 'cosine'   # ['linear', 'cosine']
 momentum: 0.9
@@ -66,10 +66,10 @@ amp_training: False
 ema_updating: False
 train_verbose: True
 inference_result_verbose: True
-gradient_checkpointing: False   # if True, gradient checkpointing strategy will be used to save GPU memeory consuption.
+gradient_checkpointing: False    # if True, gradient checkpointing strategy will be used to save GPU memeory consumption.
 
 # peft
-peft_config_path: False # config/gemma_lora_config.yaml       # if False, training without peft
+peft_config_path: False     # if False, training without peft
 
 # logging data and metrics
 common: ['train_loss', 'validation_loss', 'lr']               # ['train_loss', 'validation_loss', 'lr']
