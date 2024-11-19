@@ -75,15 +75,15 @@ def build_llm_dataset(config, tokenizer, mode):
 
 def build_dataloader(dataset, batch, workers, shuffle=True, is_ddp=False):
     batch = min(batch, len(dataset))
-    nd = torch.cuda.device_count()  # number of CUDA devices
-    nw = min([os.cpu_count() // max(nd, 1), batch if batch > 1 else 0, workers])  # number of workers
+    # nd = torch.cuda.device_count()  # number of CUDA devices
+    # nw = min([os.cpu_count() // max(nd, 1), batch if batch > 1 else 0, workers])  # number of workers
     sampler = None if not is_ddp else distributed.DistributedSampler(dataset, shuffle=shuffle)
     generator = torch.Generator()
     generator.manual_seed(6148914691236517205 + RANK)
     return DataLoader(dataset=dataset,
                               batch_size=batch,
                               shuffle=shuffle and sampler is None,
-                              num_workers=nw,
+                              num_workers=workers,
                               sampler=sampler,
                               pin_memory=PIN_MEMORY,
                               collate_fn=getattr(dataset, 'collate_fn', None),
@@ -100,14 +100,14 @@ def get_data_loader(config, tokenizer, mode, is_ddp=False):
                                          tokenizer) for m in mode}
         dataloaders = {m: build_dataloader(datasets[m], 
                                            config.batch_size, 
-                                           config.workers, 
+                                           min([config.workers, config.total_cpu_use]),
                                            shuffle=(m == 'train' or config.fast_validation_n is not None or config.fast_validation_step_interval is not None), 
                                            is_ddp=is_ddp) for m in mode}
     elif config.train_type == 'llm':
         datasets = build_llm_dataset(config, tokenizer, mode)
         dataloaders = {m: build_dataloader(datasets[m], 
                                            config.batch_size, 
-                                           config.workers, 
+                                           min([config.workers, config.total_cpu_use]),
                                            shuffle=(m == 'train' or config.fast_validation_n is not None or config.fast_validation_step_interval is not None), 
                                            is_ddp=is_ddp) for m in mode}
     return dataloaders
