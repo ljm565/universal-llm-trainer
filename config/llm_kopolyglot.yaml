@@ -61,11 +61,13 @@ weight_decay: 0.0
 warmup_momentum: 0.8
 early_stop_criterion: 50
 workers: 0
+total_cpu_use: 32
 amp_training: False
 ema_updating: False
 train_verbose: True
 inference_result_verbose: True
 gradient_checkpointing: False    # if True, gradient checkpointing strategy will be used to save GPU memeory consuption.
+gradient_accumuate_step: 1
 
 # peft
 peft_config_path: config/llm_lora_config.yaml   # if False, training without peft

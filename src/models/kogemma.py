@@ -4,8 +4,7 @@ from transformers import AutoModelForCausalLM
 
 from tools.tokenizers import KoGemmaTokenizer
 from utils import print_mem_consumption, logger
-from utils.quant_utils import init_quant_config
-from utils.training_utils import choose_proper_model
+from utils.training_utils import init_model_config, choose_proper_model
 
 
 
@@ -19,11 +18,10 @@ class KoGemma(nn.Module):
         self.set_bit(config.bit, config.training_stage)
 
         self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_path, 
-            quantization_config=init_quant_config(config),
-            torch_dtype=torch.float16 if self.load16bit else torch.float32,
+            self.model_path,
             device_map=self.device,
             low_cpu_mem_usage=True,
+            **init_model_config(config, self.load16bit)
         )
 
         # freezing proper layers

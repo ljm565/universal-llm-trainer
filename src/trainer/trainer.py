@@ -170,21 +170,22 @@ class Trainer:
                 self.model_module.mapping_neccessary_32bit()
 
 
-    def optimizer_step(self):
+    def optimizer_step(self, step):
         """Perform a single step of the training optimizer with gradient clipping and EMA update."""
-        if self.amp:
-            self.scaler.unscale_(self.optimizer)  # unscale gradients
-            nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)  # clip gradients
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-        else:
-            nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)  # clip gradients
-            self.optimizer.step()
+        if (step + 1) % self.config.gradient_accumuate_step == 0:
+            if self.amp:
+                self.scaler.unscale_(self.optimizer)  # unscale gradients
+                nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)  # clip gradients
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)  # clip gradients
+                self.optimizer.step()
 
-        self.optimizer.zero_grad()
+            self.optimizer.zero_grad()
 
-        if self.ema:
-            self.ema.update(self.model_module)
+            if self.ema:
+                self.ema.update(self.model_module)
             
         
     def do_train(self) -> None:
@@ -274,18 +275,25 @@ class Trainer:
                 batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                 batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
                 _, loss = self.model(batch, return_loss=True)
+                loss = loss / self.config.gradient_accumuate_step
             
             # backward and optimizer step
             self.scaler.scale(loss).backward() if self.amp else loss.backward()
-            self.optimizer_step()
+            self.optimizer_step(i)
             if not self.is_update_per_epoch:
                 self.scheduler.step()
 
             # logging if update criterion is step
-            self.training_logger.update(phase, epoch+1, self.train_cur_step, batch_size, **{'train_loss': loss.item(), 'lr': cur_lr})
+            self.training_logger.update(
+                phase, 
+                epoch+1, 
+                self.train_cur_step, 
+                batch_size, 
+                **{'train_loss': loss.item() * self.config.gradient_accumuate_step, 'lr': cur_lr}
+            )
             if RANK in (-1, 0) and self.is_rank_zero:
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-                loss_log = [loss.item()]
+                loss_log = [loss.item() * self.config.gradient_accumuate_step]
                 msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log)
                 pbar.set_description(('%15s' * 2 + '%15.4g' * len(loss_log)) % msg)
                 

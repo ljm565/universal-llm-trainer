@@ -52,6 +52,7 @@ def choose_proper_model(config):
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
+    
     elif config.model.lower() == 'kopolyglot':
         model_list = [
             'beomi/KoAlpaca-Polyglot-5.8B',
@@ -59,6 +60,7 @@ def choose_proper_model(config):
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
+    
     elif config.model.lower() == 't3q_solar':
         model_list = [
             'chihoonlee10/T3Q-ko-solar-dpo-v3.0-10.7B',
@@ -67,13 +69,22 @@ def choose_proper_model(config):
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
         model_list[idx] = '-'.join(model_list[idx].split('-')[:-1])
-    elif config.model.lower() == 'llama3':
-        model_list = [
+    
+    elif config.model.lower() in ['llama3', 'llama3.1']:
+        model_list_3 = [
             'meta-llama/Meta-Llama-3-8B-Instruct',
         ]
+        model_list_3_1 = [
+            'meta-llama/Llama-3.1-8B-Instruct'
+        ]
+        if config.model.lower() == 'llama3':
+            model_list = model_list_3 
+        elif config.model.lower() == 'llama3.1':
+            model_list = model_list_3_1
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
+    
     elif config.model.lower() == 'kogemma':
         model_list = [
             'gemmathon/gemma-2b-ko-dev-pbmt192',
@@ -81,6 +92,7 @@ def choose_proper_model(config):
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
+    
     elif config.model.lower() == 'gemma':
         model_list = [
             'google/gemma-2b',
@@ -89,6 +101,7 @@ def choose_proper_model(config):
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
+    
     elif config.model.lower() == 'phi3':
         pattern = r'\b(\d+.\d+|\d+)k\b'
         model_list = [
@@ -99,6 +112,7 @@ def choose_proper_model(config):
             idx = 1
         else:
             idx = 0
+    
     else:
         raise NotImplementedError
     

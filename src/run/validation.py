@@ -37,6 +37,7 @@ def main(args):
 
     
 def validation(args, config):
+    torch.set_num_threads(config.total_cpu_use)
     device = torch.device('cpu') if config.device == 'cpu' else torch.device(f'cuda:{config.device[0]}')
     trainer = Trainer(
         config, 
