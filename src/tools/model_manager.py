@@ -18,10 +18,11 @@ class ModelManager:
         }
 
 
-    def save(self, model, model_path, log_data):
+    def save(self, model, model_path, log_data, is_rank_zero):
         model_state_dict = model.state_dict()
-        checkpoint = {'model': model_state_dict, 'log_data': log_data}
-        torch.save(checkpoint, model_path)
+        if is_rank_zero:
+            checkpoint = {'model': model_state_dict, 'log_data': log_data}
+            torch.save(checkpoint, model_path)
 
 
     def update_best(self, epoch_log_data):
