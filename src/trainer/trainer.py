@@ -254,7 +254,7 @@ class Trainer:
         nb = len(train_loader)
         validation_step_interval = int(self.config.validation_step_interval_prop * nb)
         
-        if self.is_ddp:
+        if self.is_ddp or self.is_fsdp:
             train_loader.sampler.set_epoch(epoch)
 
         # init progress bar
@@ -337,6 +337,9 @@ class Trainer:
             nb = len(val_loader)
             pbar = _get_val_pbar(val_loader, nb, self.is_rank_zero)
 
+            if (self.config.fast_validation_step_interval or self.config.fast_validation_n) and is_training_now:
+                val_loader.sampler.set_epoch(epoch)
+
             model = self.ema.ema or self.model if self.ema else self.model
             model = model.half() if self.config.half_inference else model.float()
             model.eval()
@@ -358,7 +361,7 @@ class Trainer:
                     inference_batch_size = min(batch_size, self.config.fast_validation_n) if self.config.fast_validation_n else batch_size
                     user_prompt = batch['user_prompt'][:inference_batch_size] if 'user_prompt' in batch else batch['src'][:inference_batch_size]
                     response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
-                    response_pred = self.model_module.inference(user_prompt, max_length=self.config.max_length, num_return_sequences=1, greedy=True)
+                    response_pred = self.model_module.inference(user_prompt, max_length=self.config.max_length, num_return_sequences=1, greedy=True) if response_gt else None                    
 
                 # evaluation
                 metric_results = self.metric_evaluation(loss, response_pred, response_gt)
@@ -376,11 +379,11 @@ class Trainer:
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                     loss_log = [loss.item()]
                     msg = tuple([f'{epoch+1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
-                    if self.config.inference_result_verbose:
+                    if self.config.inference_result_verbose and response_gt != None:
                         _init_headline()
                     pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
 
-                    if self.config.inference_result_verbose:
+                    if self.config.inference_result_verbose and response_gt != None:
                         for u, p, g in zip(user_prompt, response_pred, response_gt):
                             LOGGER.info('\n\n' + '-'*100)
                             LOGGER.info(colorstr('Prompt    : ') + u)
@@ -391,24 +394,39 @@ class Trainer:
             # upadate logs and save model
             self.training_logger.update_phase_end(phase, printing=self.is_rank_zero)
 
-            # gather the results of all ranks
-            if self.is_ddp or self.is_fsdp:
-                dist.barrier()
-                obj = {'results': self.training_logger.validation_epoch_result, 'length': len(val_loader.dataset)}
-                gathered_list = gather_objects(obj, self.is_rank_zero, self.world_size)
-                if self.is_rank_zero:
-                    gathered_results = calculate_gathered_results(gathered_list)
-                    self.training_logger.validation_epoch_result = gathered_results
+            # gather and broadcast the results of all ranks. It works only at DDP and FSDP.
+            self.collect_all_ranks(nb)
 
-            if is_training_now:
-                if self.is_rank_zero:
-                    self.training_logger.save_model(self.wdir, self.model_module)
-                    self.training_logger.save_logs(self.save_dir)
+            # save checkpoint
+            self.save_model(is_training_now)
 
-                # re-freezing model for training phase
-                self._freeze_model()
+    
+    def collect_all_ranks(self, nb):
+        if self.is_ddp or self.is_fsdp:
+            dist.barrier()
+            gathered_results = None
+            obj = {'results': self.training_logger.validation_epoch_result, 'length': nb}
+            gathered_list = gather_objects(obj, self.is_rank_zero, self.world_size)
+            
+            if self.is_rank_zero:
+                for i, tmp in enumerate(gathered_list):
+                    LOGGER.info(colorstr('green', f'Rank{i}: {tmp}'))
+                gathered_results = calculate_gathered_results(gathered_list)
+            
+            dist.barrier()
+            gathered_results = broadcast_objects(gathered_results, self.is_rank_zero)
+            self.training_logger.validation_epoch_result = gathered_results
 
-                            
+    
+    def save_model(self, is_training_now):
+        if is_training_now:
+            self.training_logger.save_model(self.wdir, self.model_module, self.is_rank_zero, self.is_fsdp)
+            self.training_logger.save_logs(self.save_dir, self.is_rank_zero)
+
+            # re-freezing model for training phase
+            self._freeze_model()
+
+
     def metric_evaluation(self, loss, response_pred, response_gt):
         metric_results = {k: 0 for k in self.metrics}
         for m in self.metrics:
