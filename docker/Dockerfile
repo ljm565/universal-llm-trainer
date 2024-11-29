@@ -1,12 +1,14 @@
-# Use the official PyTorch 1.10 base image
-FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
+# Use the official PyTorch 2.2.2 base image
+FROM pytorch/pytorch:2.2.2-cuda11.8-cudnn8-devel
 
 # Set the working directory
 WORKDIR /workspace/llm
 
-# Install C extensions
+# Install C extensions, git, etc.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+    git \
+    vim \
     build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*

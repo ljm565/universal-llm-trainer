@@ -177,6 +177,12 @@ def gather_objects(objs, is_rank_zero, world_size):
     return gather_list
 
 
+def broadcast_objects(obj, is_rank_zero):
+    broadcast_list = [obj] if is_rank_zero else [None]
+    dist.broadcast_object_list(broadcast_list, src=0)
+    return broadcast_list[0]
+
+
 def calculate_gathered_results(objs):
     # assert whether all sublists have the same keys
     first_keys = list(objs[0]['results'].keys())

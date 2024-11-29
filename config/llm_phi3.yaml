@@ -25,6 +25,7 @@ half_inference: False
 fsdp_train: True
 fsdp_hyperparameters:
     cpu_offload: True
+    amp_training: True
     wrap_policy: size_based     # [size_based, transformer_based]
     size_based:
         min_num_params: 1000000     # integer value

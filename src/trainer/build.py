@@ -5,6 +5,7 @@ from peft import prepare_model_for_kbit_training
 import torch
 from torch.utils.data import distributed, DataLoader, ConcatDataset
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import MixedPrecision
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
     CPUOffload,
     ShardingStrategy,
@@ -189,7 +190,8 @@ def get_wrapped_model(config, model, device):
                      auto_wrap_policy=get_wrap_policy(config), 
                      device_id=device, 
                      sharding_strategy=ShardingStrategy.FULL_SHARD,
-                     cpu_offload=CPUOffload(offload_params=True) if config.fsdp_hyperparameters.cpu_offload else None
+                     cpu_offload=CPUOffload(offload_params=True) if config.fsdp_hyperparameters.cpu_offload else None,
+                     mixed_precision=MixedPrecision(param_dtype=torch.float16, cast_forward_inputs=True) if config.fsdp_hyperparameters.amp_training else None,
                 )
     # Quantized case
     else:

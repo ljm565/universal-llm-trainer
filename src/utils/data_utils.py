@@ -4,6 +4,7 @@ import numpy as np
 import torch
 
 from data_collection import (
+    AutoregressiveDataset,
     ARCDataset,
     QADataset,
 )
@@ -23,4 +24,4 @@ def choose_proper_dataset(dataset_name):
     elif dataset_name.lower() in ['kopolyglot_easy', 'kopolyglot_easy_v2']:
         return QADataset
     else:
-        raise NotImplementedError
+        return AutoregressiveDataset
