@@ -170,9 +170,9 @@ class Trainer:
                 self.model_module.mapping_neccessary_32bit()
 
 
-    def optimizer_step(self, step):
+    def optimizer_step(self, step, is_last_step=False):
         """Perform a single step of the training optimizer with gradient clipping and EMA update."""
-        if (step + 1) % self.config.gradient_accumuate_step == 0:
+        if (step + 1) % self.config.gradient_accumuate_step == 0 or is_last_step:
             if self.amp:
                 self.scaler.unscale_(self.optimizer)  # unscale gradients
                 nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)  # clip gradients
@@ -279,7 +279,7 @@ class Trainer:
             
             # backward and optimizer step
             self.scaler.scale(loss).backward() if self.amp else loss.backward()
-            self.optimizer_step(i)
+            self.optimizer_step(i, is_last_step=i-1 == nb)
             if not self.is_update_per_epoch:
                 self.scheduler.step()
 
