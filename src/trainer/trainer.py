@@ -362,7 +362,7 @@ class Trainer:
                     user_prompt = batch['user_prompt'][:inference_batch_size] if 'user_prompt' in batch else batch['src'][:inference_batch_size]
                     response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
                     response_pred = self.model_module.inference(
-                        src_tok=user_prompt,
+                        src=user_prompt,
                         max_length=self.config.max_length,
                         num_return_sequences=1,
                         greedy=True,
