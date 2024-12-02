@@ -93,11 +93,18 @@ def choose_proper_model(config):
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
     
-    elif config.model.lower() == 'gemma':
-        model_list = [
+    elif config.model.lower() in ['gemma', 'gemma1', 'gemma2']:
+        model_list_1 = [
             'google/gemma-2b',
             'google/gemma-7b',
         ]
+        model_list_2 = [
+            'google/gemma-2-9b-it',
+        ]
+        if config.model.lower() in ['gemma', 'gemma1']:
+            model_list = model_list_1
+        elif config.model.lower() == 'gemma2':
+            model_list = model_list_2
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))

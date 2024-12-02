@@ -137,7 +137,7 @@ def get_model(config, device):
             from models import KoGemma
             model = KoGemma(config, device)
             tokenizer = model.tokenizer
-        elif config.model.lower() == 'gemma':
+        elif config.model.lower() in ['gemma', 'gemma1', 'gemma2']:
             from models import Gemma
             model = Gemma(config, device)
             tokenizer = model.tokenizer
