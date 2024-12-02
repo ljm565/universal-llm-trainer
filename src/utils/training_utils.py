@@ -105,7 +105,7 @@ def choose_proper_model(config):
             model_list = model_list_1
         elif config.model.lower() == 'gemma2':
             model_list = model_list_2
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
+        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
     
