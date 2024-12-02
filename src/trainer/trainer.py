@@ -361,7 +361,14 @@ class Trainer:
                     inference_batch_size = min(batch_size, self.config.fast_validation_n) if self.config.fast_validation_n else batch_size
                     user_prompt = batch['user_prompt'][:inference_batch_size] if 'user_prompt' in batch else batch['src'][:inference_batch_size]
                     response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
-                    response_pred = self.model_module.inference(user_prompt, max_length=self.config.max_length, num_return_sequences=1, greedy=True) if response_gt else None                    
+                    response_pred = self.model_module.inference(
+                        src=user_prompt,
+                        max_length=self.config.max_length,
+                        num_return_sequences=1,
+                        greedy=True,
+                        max_time=self.config.generation_max_time,
+                        synced_gpus=self.is_fsdp,
+                    ) if response_gt else None                    
 
                 # evaluation
                 metric_results = self.metric_evaluation(loss, response_pred, response_gt)

@@ -100,21 +100,21 @@ class Phi3(nn.Module):
         return output
     
 
-    def inference(self, src, max_length, num_return_sequences=1, greedy=False):
+    def inference(self, src, max_length, num_return_sequences=1, greedy=False, max_time=None, synced_gpus=False):
         if isinstance(src, str):
             src_tok = torch.tensor(self.tokenizer.encode(src), dtype=torch.long).unsqueeze(0).to(self.device)
             if src_tok.size(1) >= max_length:
                 return src
-            return self.tokenizer.decode(self.generate(src_tok, max_length, num_return_sequences, greedy)[0][src_tok.size(-1):].tolist())
+            return self.tokenizer.decode(self.generate(src_tok, max_length, num_return_sequences, greedy, max_time, synced_gpus)[0][src_tok.size(-1):].tolist())
         elif isinstance(src, list):
             assert all([isinstance(s, str) for s in src]), f'All elements in src should be str type'
             src_tok = [torch.tensor(self.tokenizer.encode(s), dtype=torch.long).unsqueeze(0).to(self.device) for s in src]
-            return [self.tokenizer.decode(self.generate(tok, max_length, num_return_sequences, greedy)[0][tok.size(-1):].tolist()) if tok.size(1) < max_length else src[i] for i, tok in enumerate(src_tok)]
+            return [self.tokenizer.decode(self.generate(tok, max_length, num_return_sequences, greedy, max_time, synced_gpus)[0][tok.size(-1):].tolist()) if tok.size(1) < max_length else src[i] for i, tok in enumerate(src_tok)]
         else:
             raise AssertionError('Inference input should be str or list of str')
 
 
-    def generate(self, src_tok, max_length, num_return_sequences=1, greedy=False):
+    def generate(self, src_tok, max_length, num_return_sequences=1, greedy=False, max_time=None, synced_gpus=False):
         attention_mask = torch.ones_like(src_tok).to(self.device)
         if greedy:
             return self.model.generate(
@@ -124,6 +124,8 @@ class Phi3(nn.Module):
                 use_cache=True,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
+                max_time=max_time,
+                synced_gpus=synced_gpus,
             )
         return self.model.generate(
             input_ids=src_tok,
@@ -140,6 +142,8 @@ class Phi3(nn.Module):
             num_beams=2,
             early_stopping=True,
             use_cache=True,
+            max_time=max_time,
+            synced_gpus=synced_gpus,
         )
     
     def freeze_layers(self, stage):

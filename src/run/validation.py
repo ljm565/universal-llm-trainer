@@ -20,6 +20,7 @@ def env_setup():
 def load_config(config_path):
     config = Config(config_path)
     config = replace_none_value(config)
+    config = Config(config)     # remapping config
     return config
 
 
