@@ -429,8 +429,8 @@ class Trainer:
     
     def save_model(self, is_training_now):
         if is_training_now:
-            self.training_logger.save_model(self.wdir, self.model_module, self.is_rank_zero, self.is_fsdp)
-            self.training_logger.save_logs(self.save_dir, self.is_rank_zero)
+            self.training_logger.save_model(self.wdir, self.model_module, self.is_fsdp)
+            self.training_logger.save_logs(self.save_dir)
 
             # re-freezing model for training phase
             self._freeze_model()
