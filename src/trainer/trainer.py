@@ -403,8 +403,6 @@ class Trainer:
             if is_training_now:
                 self.save_model()
                 self.stop = self.early_stopper_step(epoch+1, self.train_cur_step)
-            else:
-                self.stop = False
 
     
     def collect_all_ranks(self, nb):
