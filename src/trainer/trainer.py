@@ -342,7 +342,7 @@ class Trainer:
             model = self.ema.ema or self.model if self.ema else self.model
             model.eval()
 
-            # validation loop
+            # Validation loop
             for i, batch in pbar:
                 if self.config.fast_validation_step_interval and i % self.config.fast_validation_step_interval != 0:
                     continue                    
@@ -352,7 +352,7 @@ class Trainer:
                     batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
                     _, loss = self.model(batch, return_loss=True)
 
-                    # preparing for model evaluation
+                    # Preparing for model evaluation
                     inference_batch_size = min(batch_size, self.config.fast_validation_n) if self.config.fast_validation_n else batch_size
                     user_prompt = batch['user_prompt'][:inference_batch_size] if 'user_prompt' in batch else batch['src'][:inference_batch_size]
                     response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
@@ -365,7 +365,7 @@ class Trainer:
                         synced_gpus=self.is_fsdp,
                     ) if response_gt else None
 
-                # evaluation
+                # Evaluation
                 metric_results = self.metric_evaluation(loss, response_pred, response_gt)
                 self.training_logger.update(
                     phase, 
@@ -376,7 +376,7 @@ class Trainer:
                     **metric_results
                 )
 
-                # logging
+                # Logging
                 if self.is_rank_zero:
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                     loss_log = [loss.item()]
@@ -393,17 +393,18 @@ class Trainer:
                             LOGGER.info(colorstr('GT        : ') + g)
                             LOGGER.info('-'*100 + '\n')
 
-            # upadate logs and save model
+            # Upadate logs and save model
             self.training_logger.update_phase_end(phase, printing=self.is_rank_zero)
 
-            # gather and broadcast the results of all ranks. It works only at DDP and FSDP.
+            # Gather and broadcast the results of all ranks. It works only at DDP and FSDP.
             self.collect_all_ranks(nb)
 
-            # save checkpoint
-            self.save_model(is_training_now)
-            
-            # save checkpoint
-            self.stop = self.early_stopper_step(epoch+1, self.train_cur_step, is_training_now)
+            # Save checkpoint and update early stopper
+            if is_training_now:
+                self.save_model()
+                self.stop = self.early_stopper_step(epoch+1, self.train_cur_step)
+            else:
+                self.stop = False
 
     
     def collect_all_ranks(self, nb):
@@ -423,33 +424,29 @@ class Trainer:
             self.training_logger.validation_epoch_result = gathered_results
 
     
-    def save_model(self, is_training_now):
-        if is_training_now:
-            self.training_logger.save_model(self.wdir, self.model_module, self.is_fsdp)
-            self.training_logger.save_logs(self.save_dir)
+    def save_model(self):
+        self.training_logger.save_model(self.wdir, self.model_module, self.is_fsdp)
+        self.training_logger.save_logs(self.save_dir)
 
-            # re-freezing model for training phase
-            self._freeze_model()
+        # re-freezing model for training phase
+        self._freeze_model()
 
-            # barrier
-            dist.barrier()
+        # barrier
+        dist.barrier()
 
         
-    def early_stopper_step(self, epoch, step, is_training_now):
-        if is_training_now:
-            high_fitness = self.training_logger.model_manager.best_higher
-            low_fitness = self.training_logger.model_manager.best_lower
-            stop = self.stopper(epoch, step, high=high_fitness, low=low_fitness)
+    def early_stopper_step(self, epoch, step):
+        high_fitness = self.training_logger.model_manager.best_higher
+        low_fitness = self.training_logger.model_manager.best_lower
+        stop = self.stopper(epoch, step, high=high_fitness, low=low_fitness)
 
-            if self.is_ddp or self.is_fsdp:  # if DDP and FSDP training
-                broadcast_list = [stop if self.is_rank_zero else None]
-                dist.broadcast_object_list(broadcast_list, 0)  # broadcast 'stop' to all ranks
-                if not self.is_rank_zero:
-                    stop = broadcast_list[0]
-            
-            return stop
+        if self.is_ddp or self.is_fsdp:  # if DDP and FSDP training
+            broadcast_list = [stop if self.is_rank_zero else None]
+            dist.broadcast_object_list(broadcast_list, 0)  # broadcast 'stop' to all ranks
+            if not self.is_rank_zero:
+                stop = broadcast_list[0]
         
-        return False
+        return stop
 
 
     def metric_evaluation(self, loss, response_pred, response_gt):
