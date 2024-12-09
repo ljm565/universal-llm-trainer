@@ -21,7 +21,8 @@ def sanity_check(clazz):
         assert clazz.config.fsdp_hyperparameters.wrap_policy in FSDP_WRAP_TYPE, \
             FSDP_WRAP_MSG + f' but got {colorstr(clazz.config.fsdp_hyperparameters.wrap_policy)}.'
     if clazz.config.attn_implementation:
-        assert clazz.config.amp_training, colorstr('You must set amp_training option to True if you use attn_implementation option.')
+        assert clazz.config.amp_training or (clazz.config.fsdp_train and clazz.config.fsdp_hyperparameters.amp_training), \
+            colorstr('You must set amp_training option to True if you use attn_implementation option.')
         
     
 def select_training_type(train_type):

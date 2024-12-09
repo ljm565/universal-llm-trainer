@@ -10,7 +10,7 @@ import torch.optim as optim
 from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from tools import ModelEMA, Evaluator, TrainingLogger
+from tools import ModelEMA, Evaluator, TrainingLogger, EarlyStopper
 from utils import RANK, LOGGER, colorstr, init_seeds, TQDM
 from utils.func_utils import *
 from utils.training_utils import *
@@ -81,6 +81,7 @@ class Trainer:
         self.model_module = self.model.module if self.is_ddp else self.model
         self.evaluator = Evaluator(self.tokenizer)
         self.training_logger = TrainingLogger(self.config, self.is_training_mode)
+        self.stopper, self.stop = EarlyStopper(self.config.early_stop_criterion), False
         self.dataloaders = get_data_loader(self.config, self.tokenizer, self.modes, self.is_ddp or self.is_fsdp)
         if self.use_huggingface_trainer:
             self.do_train = self.huggingface_trainer
@@ -103,7 +104,6 @@ class Trainer:
             self.scheduler.last_epoch = self.start_epoch - 1  # do not move
             if self.is_rank_zero and self.train_verbose:
                 draw_training_lr_curve(self.config, self.lf, all_steps_n, self.warmup_steps_n, self.is_ddp or self.is_fsdp, self.world_size)
-            self.stop = False
 
 
     def _init_model(self, config, mode):
@@ -227,12 +227,6 @@ class Trainer:
             gc.collect()
 
             # Early Stopping
-            if self.is_ddp:  # if DDP training
-                broadcast_list = [self.stop if self.is_rank_zero else None]
-                dist.broadcast_object_list(broadcast_list, 0)  # broadcast 'stop' to all ranks
-                if not self.is_rank_zero:
-                    self.stop = broadcast_list[0]
-            
             if self.stop:
                 break  # must break all DDP ranks
             
@@ -304,6 +298,11 @@ class Trainer:
             # validataion
             if self.train_cur_step != 0 and self.train_cur_step % validation_step_interval == 0 and self.config.validation_step_interval_prop != 1:
                 self.epoch_validate('validation', epoch)
+                
+                # early stop
+                if self.stop:
+                    break
+
                 self.model.train()
                 if self.is_ddp or self.is_fsdp:
                     dist.barrier()
@@ -341,18 +340,14 @@ class Trainer:
                 val_loader.sampler.set_epoch(epoch)
 
             model = self.ema.ema or self.model if self.ema else self.model
-            model = model.half() if self.config.half_inference else model.float()
             model.eval()
-
-            if self.config.half_inference and self.is_rank_zero:
-                LOGGER.warning(colorstr('yellow', 'Half inference started, yet we recommend using mixed precision.'))
 
             # validation loop
             for i, batch in pbar:
                 if self.config.fast_validation_step_interval and i % self.config.fast_validation_step_interval != 0:
                     continue                    
                 
-                with torch.cuda.amp.autocast(self.amp):
+                with torch.cuda.amp.autocast(self.amp or self.config.half_inference):
                     batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                     batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
                     _, loss = self.model(batch, return_loss=True)
@@ -368,7 +363,7 @@ class Trainer:
                         greedy=True,
                         max_time=self.config.generation_max_time,
                         synced_gpus=self.is_fsdp,
-                    ) if response_gt else None                    
+                    ) if response_gt else None
 
                 # evaluation
                 metric_results = self.metric_evaluation(loss, response_pred, response_gt)
@@ -406,6 +401,9 @@ class Trainer:
 
             # save checkpoint
             self.save_model(is_training_now)
+            
+            # save checkpoint
+            self.stop = self.early_stopper_step(epoch+1, self.train_cur_step, is_training_now)
 
     
     def collect_all_ranks(self, nb):
@@ -427,11 +425,31 @@ class Trainer:
     
     def save_model(self, is_training_now):
         if is_training_now:
-            self.training_logger.save_model(self.wdir, self.model_module, self.is_rank_zero, self.is_fsdp)
-            self.training_logger.save_logs(self.save_dir, self.is_rank_zero)
+            self.training_logger.save_model(self.wdir, self.model_module, self.is_fsdp)
+            self.training_logger.save_logs(self.save_dir)
 
             # re-freezing model for training phase
             self._freeze_model()
+
+            # barrier
+            dist.barrier()
+
+        
+    def early_stopper_step(self, epoch, step, is_training_now):
+        if is_training_now:
+            high_fitness = self.training_logger.model_manager.best_higher
+            low_fitness = self.training_logger.model_manager.best_lower
+            stop = self.stopper(epoch, step, high=high_fitness, low=low_fitness)
+
+            if self.is_ddp or self.is_fsdp:  # if DDP and FSDP training
+                broadcast_list = [stop if self.is_rank_zero else None]
+                dist.broadcast_object_list(broadcast_list, 0)  # broadcast 'stop' to all ranks
+                if not self.is_rank_zero:
+                    stop = broadcast_list[0]
+            
+            return stop
+        
+        return False
 
 
     def metric_evaluation(self, loss, response_pred, response_gt):

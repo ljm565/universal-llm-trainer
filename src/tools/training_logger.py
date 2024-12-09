@@ -5,7 +5,7 @@ import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 
 from .model_manager import ModelManager
-from utils import LOGGER, colorstr
+from utils import LOGGER, colorstr, logger
 
 
 
@@ -101,15 +101,15 @@ class TrainingLogger:
             LOGGER.info(f"{colorstr('green', 'bold', ', '.join(msg))}\n")
 
     
-    def delete_file(self, save_dir, flag, is_rank_zero):
-        if is_rank_zero:
+    def delete_file(self, save_dir, flag):
+        if self.is_rank_zero:
             file = list(filter(lambda x: flag in x, os.listdir(save_dir)))
             if len(file) > 0:
                 os.remove(os.path.join(save_dir, file[0]))
 
 
-    def save_model(self, save_dir, model, is_rank_zero, is_fsdp=False):
-        if is_rank_zero or is_fsdp:
+    def save_model(self, save_dir, model, is_fsdp=False):
+        if self.is_rank_zero or is_fsdp:
             if not hasattr(self, 'validation_epoch_result') or len(self.validation_epoch_result) == 0:
                 LOGGER.warning(f'{colorstr("red", "No log data to save")}')
                 return
@@ -118,22 +118,25 @@ class TrainingLogger:
             lower_flag, higher_flag = self.model_manager.update_best(self.validation_epoch_result)
 
             if lower_flag:
-                self.delete_file(save_dir, 'loss', is_rank_zero)
+                logger(self, 'The model achieving the lowest loss has been saved..')
+                self.delete_file(save_dir, 'loss')
                 model_path = os.path.join(save_dir, f'model_epoch:{epoch}_step:{step}_loss_best.pt')
-                self.model_manager.save(model, model_path, self.validation_epoch_result, is_rank_zero)
+                self.model_manager.save(model, model_path, self.validation_epoch_result, self.is_rank_zero)
 
             if higher_flag:
-                self.delete_file(save_dir, 'metric', is_rank_zero)
+                logger(self, 'The model achieving the highest metric has been saved..')
+                self.delete_file(save_dir, 'metric')
                 model_path = os.path.join(save_dir, f'model_epoch:{epoch}_step:{step}_metric_best.pt')
-                self.model_manager.save(model, model_path, self.validation_epoch_result, is_rank_zero)
+                self.model_manager.save(model, model_path, self.validation_epoch_result, self.is_rank_zero)
             
-            self.delete_file(save_dir, 'last', is_rank_zero)
+            logger(self, 'The last validated model has been saved..')
+            self.delete_file(save_dir, 'last')
             model_path = os.path.join(save_dir, f'model_epoch:{epoch}_step:{step}_last_best.pt')
-            self.model_manager.save(model, model_path, self.validation_epoch_result, is_rank_zero)
+            self.model_manager.save(model, model_path, self.validation_epoch_result, self.is_rank_zero)
 
     
-    def save_logs(self, save_dir, is_rank_zero):
-            self.delete_file(save_dir, 'log_data', is_rank_zero)
-            if is_rank_zero:
-                with open(os.path.join(save_dir, 'log_data.pkl'), 'wb') as f:
-                    pickle.dump(self.log_data, f)
+    def save_logs(self, save_dir):
+        if self.is_rank_zero:
+            self.delete_file(save_dir, 'log_data')
+            with open(os.path.join(save_dir, 'log_data.pkl'), 'wb') as f:
+                pickle.dump(self.log_data, f)
