@@ -340,18 +340,14 @@ class Trainer:
                 val_loader.sampler.set_epoch(epoch)
 
             model = self.ema.ema or self.model if self.ema else self.model
-            model = model.half() if self.config.half_inference else model.float()
             model.eval()
-
-            if self.config.half_inference and self.is_rank_zero:
-                LOGGER.warning(colorstr('yellow', 'Half inference started, yet we recommend using mixed precision.'))
 
             # validation loop
             for i, batch in pbar:
                 if self.config.fast_validation_step_interval and i % self.config.fast_validation_step_interval != 0:
                     continue                    
                 
-                with torch.cuda.amp.autocast(self.amp):
+                with torch.cuda.amp.autocast(self.amp or self.config.half_inference):
                     batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                     batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
                     _, loss = self.model(batch, return_loss=True)
@@ -367,7 +363,7 @@ class Trainer:
                         greedy=True,
                         max_time=self.config.generation_max_time,
                         synced_gpus=self.is_fsdp,
-                    ) if response_gt else None                    
+                    ) if response_gt else None
 
                 # evaluation
                 metric_results = self.metric_evaluation(loss, response_pred, response_gt)
