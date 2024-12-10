@@ -39,7 +39,7 @@ def main(args):
     
 def validation(args, config):
     torch.set_num_threads(config.total_cpu_use)
-    if args.device:
+    if not args.device == None:
         device = torch.device('cpu') if args.device == 'cpu' else torch.device(f'cuda:{args.device}')
     else:
         device = torch.device('cpu') if config.device == 'cpu' else torch.device(f'cuda:{config.device[0]}')
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--resume_model_dir', type=str, required=False)
     parser.add_argument('-l', '--load_model_type', type=str, default='metric', required=False, choices=['metric', 'loss', 'last'])
     parser.add_argument('-c', '--config', type=str, required=False)
-    parser.add_argument('-d', '--device', type=int, required=False)
+    parser.add_argument('-d', '--device', default=None, required=False)
     args = parser.parse_args()
 
     if not args.resume_model_dir:
