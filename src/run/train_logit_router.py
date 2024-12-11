@@ -46,7 +46,7 @@ def single_gpu_train(args, config):
     torch.set_num_threads(config.total_cpu_use)
 
     # Init model to be resumed
-    resume_path = {'base_model': choose_proper_resume_model(args.resume_model_dir, args.load_model_type),
+    resume_path = {'base_model': choose_proper_resume_model(args.resume_base_model_dir, args.load_model_type),
                    'model': choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.mode == 'resume' else None}
 
     device = torch.device('cpu') if config.device == 'cpu' else torch.device(f'cuda:{config.device[0]}')
@@ -67,7 +67,7 @@ def multi_gpu_train(gpu, ngpus_per_node, config, args):
     torch.set_num_threads(config.total_cpu_use // ngpus_per_node)
 
     # Init model to be resumed
-    resume_path = {'base_model': choose_proper_resume_model(args.resume_model_dir, args.load_model_type),
+    resume_path = {'base_model': choose_proper_resume_model(args.resume_base_model_dir, args.load_model_type),
                    'model': choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.mode == 'resume' else None}
 
     # Init distribution
