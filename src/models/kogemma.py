@@ -94,8 +94,7 @@ class KoGemma(nn.Module):
             output_hidden_states=output_hidden_states,
         )
         if return_loss:
-            output = output.logits
-            loss = self.criterion(output[:, :-1, :].reshape(-1, output.size(-1)), label[:, 1:].reshape(-1))
+            loss = self.criterion(output.logits[:, :-1, :].reshape(-1, output.logits.size(-1)), label[:, 1:].reshape(-1))
             return output, loss
         return output
     
