@@ -24,6 +24,11 @@ class KoGemma(nn.Module):
             **init_model_config(config, self.load16bit)
         )
 
+        if config.gradient_checkpointing:
+            logger(self, 'Gradient checkpointing will be applied')
+            self.model.enable_input_require_grads()
+            self.model.gradient_checkpointing_enable()
+
         # freezing proper layers
         self.freeze_layers(config.training_stage)
 

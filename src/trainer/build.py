@@ -121,17 +121,9 @@ def get_model(config, device):
         model = En2KoNMT(config, device)
         tokenizer = model.tokenizer
     elif config.train_type == 'llm':
-        if config.model.lower() == 'bagel':
-            from models import Bagel
-            model = Bagel(config, device)
-            tokenizer = model.tokenizer
-        elif config.model.lower() == 'kopolyglot':
+        if config.model.lower() == 'kopolyglot':
             from models import KoPolyglot
             model = KoPolyglot(config, device)
-            tokenizer = model.tokenizer
-        elif config.model.lower() == 't3q_solar':
-            from models import T3QSolar
-            model = T3QSolar(config, device)
             tokenizer = model.tokenizer
         elif config.model.lower() == 'kogemma':
             from models import KoGemma
