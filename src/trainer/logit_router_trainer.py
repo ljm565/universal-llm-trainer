@@ -109,7 +109,7 @@ class LoRoTrainer:
             torch.cuda.empty_cache()
             gc.collect()
             if is_rank_zero:
-                LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
+                LOGGER.info(f'Resumed base model: {colorstr(resume_path)}')
             return model
 
         # Init base model, loss function, and tokenizer

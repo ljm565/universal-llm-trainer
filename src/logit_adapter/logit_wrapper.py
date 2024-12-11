@@ -10,7 +10,12 @@ class LogitWrapper(nn.Module):
     def __init__(self, config, base_model, router):
         super(LogitWrapper, self).__init__()
         self.base_model = base_model
-        self.router = router(config.r, config.dropout, hidden_dim, config.router_size)
+        self.router = router(
+            r=config.r,
+            dropout=config.dropout,
+            in_features=self.base_model.model.config.hidden_size,
+            out_features=config.router_size
+        )
         self.lm_heads = nn.ModuleList([nn.Linear(hidden_dim, vocab_size, bias=False) for _ in range(router_size-1)])   # Remove one lm_head because of the original model's lm_head
 
         # Freeze pre-trained base model
