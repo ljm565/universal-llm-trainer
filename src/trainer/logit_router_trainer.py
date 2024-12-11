@@ -113,8 +113,8 @@ class LoRoTrainer:
             return model
 
         # Init base model, loss function, and tokenizer
-        resume_success = False
-        do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path is not None)
+        resume_success, base_model_resume_success = False, False
+        do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path['model'] is not None)
         model, tokenizer = get_model(config, self.device)
         model._init_criterion()
 
@@ -124,20 +124,19 @@ class LoRoTrainer:
                 if config.is_rank_zero:
                     LOGGER.info(f'PEFT is not applied due to training stage.')
             else:
-                # Resume before applying peft
-                if do_resume:
-                    try:
-                        model = _resume_model(self.resume_path['base_model'], self.device, config.is_rank_zero)
-                        resume_success = True
-                    except:
-                        pass
+                # Resume the base model before applying peft
+                try:
+                    model = _resume_model(self.resume_path['base_model'], self.device, config.is_rank_zero)
+                    base_model_resume_success = True
+                except:
+                    pass
                 model = get_peft_model(model, config)
         else:
             if config.is_rank_zero:
                 LOGGER.info(f'PEFT is not applied.')
 
         # Reesume base model or resume base model after applying peft
-        if do_resume and not resume_success:
+        if not base_model_resume_success:
             model = _resume_model(self.resume_path['base_model'], self.device, config.is_rank_zero)
 
         # Apply and resume LoRo model
