@@ -68,15 +68,15 @@ class LogitWrapper(nn.Module):
             return_loss (bool, optional): Whether return loss value or not. Defaults to False.
         """
         # Forward base_model
-        output = self.base_model(batch, return_loss, output_hidden_states=True)
+        output, orig_loss = self.base_model(batch, return_loss=True, output_hidden_states=True)
 
         # Router weight calculation
-        last_hidden_state = self.masking(last_hidden_state, router_attention_mask)
+        last_hidden_state = self.masking(output.hidden_states[-1], router_attention_mask)
         router_wts = self.router(last_hidden_state)      # (batch x sequence_len x router_size)
         router_wts = self.pooling(router_wts, pooling, router_attention_mask)       # (batch x 1 x router_size) or (batch x seq_len x router_size)
         
         # Weighted sum
-        logits = [original_logits] + [lm_head(last_hidden_state) for lm_head in self.lm_heads]
+        logits = [output.logits] + [lm_head(last_hidden_state) for lm_head in self.lm_heads]
         logits = sum(router_wts[..., i:i+1] * logits[i] for i in range(len(logits)))
 
         return logits, router_wts
