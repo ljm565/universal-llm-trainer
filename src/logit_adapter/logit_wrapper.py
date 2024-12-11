@@ -68,11 +68,7 @@ class LogitWrapper(nn.Module):
             return_loss (bool, optional): Whether return loss value or not. Defaults to False.
         """
         # Forward base_model
-        src_tok, enc_mask, label = batch['src'], batch['src_attention_mask'], batch['label']
-        output = self.base_model(
-            input_ids=src_tok,
-            attention_mask=enc_mask,
-        )
+        output = self.base_model(batch)
 
         # Router weight calculation
         last_hidden_state = self.masking(last_hidden_state, router_attention_mask)
