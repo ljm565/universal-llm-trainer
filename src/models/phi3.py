@@ -87,11 +87,12 @@ class Phi3(nn.Module):
         self.criterion = nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
     
 
-    def forward(self, batch, return_loss=False):
+    def forward(self, batch, return_loss=False, output_hidden_states=False):
         src_tok, enc_mask, label = batch['src'], batch['src_attention_mask'], batch['label']
         output = self.model(
             input_ids=src_tok,
             attention_mask=enc_mask,
+            output_hidden_states=output_hidden_states,
         )
         if return_loss:
             output = output.logits
