@@ -1,3 +1,4 @@
 type: lora
 r: 8
-lora_dropout: 0.05
+dropout: 0.05
+router_size: 2
