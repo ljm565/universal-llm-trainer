@@ -140,7 +140,7 @@ class LoRoTrainer:
             model = _resume_model(model, self.resume_path['base_model'], self.device, config.is_rank_zero)
 
         # Apply and resume LoRo model
-        model = get_loro_model(model, config)
+        model = get_loro_model(model, config, self.device)
         if do_resume:
             model = _resume_model(model, self.resume_path['model'], self.device, self.is_rank_zero)
 
