@@ -102,7 +102,7 @@ class LoRoTrainer:
 
 
     def _init_model(self, config, mode):
-        def _resume_model(resume_path, device, is_rank_zero):
+        def _resume_model(model, resume_path, device, is_rank_zero):
             checkpoints = torch.load(resume_path, map_location=device)
             model.load_state_dict(checkpoints['model'])
             del checkpoints
@@ -113,7 +113,7 @@ class LoRoTrainer:
             return model
 
         # Init base model, loss function, and tokenizer
-        resume_success, base_model_resume_success = False, False
+        base_model_resume_success = False, False
         do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path['model'] is not None)
         model, tokenizer = get_model(config, self.device)
         model._init_criterion()
@@ -126,7 +126,7 @@ class LoRoTrainer:
             else:
                 # Resume the base model before applying peft
                 try:
-                    model = _resume_model(self.resume_path['base_model'], self.device, config.is_rank_zero)
+                    model = _resume_model(model, self.resume_path['base_model'], self.device, config.is_rank_zero)
                     base_model_resume_success = True
                 except:
                     pass
@@ -137,10 +137,12 @@ class LoRoTrainer:
 
         # Reesume base model or resume base model after applying peft
         if not base_model_resume_success:
-            model = _resume_model(self.resume_path['base_model'], self.device, config.is_rank_zero)
+            model = _resume_model(model, self.resume_path['base_model'], self.device, config.is_rank_zero)
 
         # Apply and resume LoRo model
         model = get_loro_model(model, config)
+        if do_resume:
+            model = _resume_model(model, self.resume_path['model'], self.device, self.is_rank_zero)
 
         # Init ddp
         if self.is_ddp:

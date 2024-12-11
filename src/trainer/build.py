@@ -177,6 +177,7 @@ def get_peft_model(model, config):
 def get_loro_model(base_model, config):
     from logit_adapter import LogitWrapper
     loro_config = Config(config.loro_config_path)
+    loro_config.vocab_size = len(base_model.tokenizer)
     loro_type = loro_config.type
 
     if loro_type == 'lora':

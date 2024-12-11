@@ -11,13 +11,15 @@ class LogitWrapper(nn.Module):
         super(LogitWrapper, self).__init__()
         self.base_model = base_model
         self.router_size = config.router_size
+        self.hidden_dim = self.base_model.model.config.hidden_size
+        self.vocab_size = config.vocab_size
         self.router = router(
             r=config.r,
             dropout=config.dropout,
-            in_features=self.base_model.model.config.hidden_size,
+            in_features=self.hidden_dim,
             out_features=self.router_size
         )
-        self.lm_heads = nn.ModuleList([nn.Linear(hidden_dim, vocab_size, bias=False) for _ in range(self.router_size-1)])   # Remove one lm_head because of the original model's lm_head
+        self.lm_heads = nn.ModuleList([nn.Linear(self.hidden_dim, self.vocab_size, bias=False) for _ in range(self.router_size-1)])   # Remove one lm_head because of the original model's lm_head
 
         # Freeze pre-trained base model
         self._freeze_base_model()
