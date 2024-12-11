@@ -57,14 +57,15 @@ class LogitWrapper(nn.Module):
                 batch,
                 router_attention_mask=None,
                 pooling: Optional[Union[str, None]] = 'avg',
+                return_loss=False,
         ):
         """Router network forwarding
 
         Args:
-            original_logits (torch.tensor): (batch x sequence_len x voacb_size) size of tensor
-            last_hidden_state (torch.tensor): (batch x sequence_len x hidden_dim) size of tensor
+            batch (torch.tensor): batch_data
             router_attention_mask (torch.tensor, optional): (batch x sequence_len) size of tensor. Last_hidden_statates will be masked where the value is 0. Defaults to None.
             pooling (str, optional): [max, avg] or None. If None, we don't operate sequence-wise pooling. Defaults to avg.
+            return_loss (bool, optional): Whether return loss value or not. Defaults to False.
         """
         # Forward base_model
         src_tok, enc_mask, label = batch['src'], batch['src_attention_mask'], batch['label']
