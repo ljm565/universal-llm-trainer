@@ -10,7 +10,7 @@ class LogitWrapper(nn.Module):
     def __init__(self, config, base_model, router):
         super(LogitWrapper, self).__init__()
         self.base_model = base_model
-        self.router_size = router_size
+        self.router_size = config.router_size
         self.router = router(
             r=config.r,
             dropout=config.dropout,
