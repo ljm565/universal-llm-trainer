@@ -7,6 +7,7 @@ import torch.nn.functional as F
 
 class LoraRouter(nn.Module):
     def __init__(self, r, dropout, in_features, out_features):
+        super(LoraRouter, self).__init__()
         self.lora_A = nn.Linear(in_features, r, bias=False)
         self.lora_B = nn.Linear(r, out_features, bias=False)
         self.activation = nn.SiLU()
