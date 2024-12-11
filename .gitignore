@@ -11,6 +11,6 @@ config/
 config_lora/
 outputs/
 
-# unnecessary files
+# unnecessary files and folders
 *.ipynb
-test.py
+junk/
