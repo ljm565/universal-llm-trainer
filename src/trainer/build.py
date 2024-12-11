@@ -174,7 +174,7 @@ def get_peft_model(model, config):
     return model
 
 
-def get_loro_model(base_model, config):
+def get_loro_model(base_model, config, device):
     from logit_adapter import LogitWrapper
     loro_config = Config(config.loro_config_path)
     loro_config.vocab_size = len(base_model.tokenizer)
@@ -191,7 +191,7 @@ def get_loro_model(base_model, config):
     if config.is_rank_zero:
         print_trainable_parameters(model)
         LOGGER.info(f'Applied {colorstr(loro_type)} type of LoRo to the model.')
-    return model
+    return model.to(device)
 
 
 
