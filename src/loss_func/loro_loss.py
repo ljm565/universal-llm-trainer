@@ -35,5 +35,5 @@ class LoroLoss(nn.Module):
     def forward(self, logits, label, router_wts, router_label):
         logits_loss = self.calculate_logits_loss(logits, label)
         router_loss = self.calculate_router_loss(router_wts, router_label)
-        loss = logits_loss + router_loss
+        loss = logits_loss + router_loss * 1.5
         return {'loss': loss, 'logits_loss': logits_loss, 'router_loss': router_loss}
