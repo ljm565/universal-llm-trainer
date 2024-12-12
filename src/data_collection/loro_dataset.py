@@ -275,7 +275,6 @@ class LoroDataset(Dataset):
             pad_token_id=0,
             bos_token_id=1 if self.add_bos and self.tokenizer.bos_token_id else None,
             eos_token_id=0 if self.add_eos and self.tokenizer.eos_token_id else None,
-            bos_masking=True
         )
 
         if self.add_bos:
