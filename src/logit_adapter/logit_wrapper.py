@@ -127,19 +127,25 @@ class LogitWrapper(nn.Module):
     
     def generate(self, src_tok, max_length, num_return_sequences=1, greedy=False, max_time=None, synced_gpus=False, pooling='avg'):
         # Inference original model
-        def _inference_base_model(src_tok):
+        def _inference_base_model(src_tok, past_key_values):
             attention_mask = torch.ones_like(src_tok).to(self.device)
+            if past_key_values != None:
+                src_tok = src_tok[: , -1:]
+                attention_mask = attention_mask[:, -1:]
+
             output = self.base_model.model(
                 input_ids=src_tok,
                 attention_mask=attention_mask,
                 output_hidden_states=True,
+                past_key_values=past_key_values,
             )
-            return output.logits, output.hidden_states[-1]
+            return output.logits, output.hidden_states[-1], output.past_key_values
         
+        past_key_values = None
         router_attention_mask = torch.ones_like(src_tok).to(self.device)
         for _ in range(max_length):
             # Calculate base model's logits and hidden_states
-            logits, last_hidden_state = _inference_base_model(src_tok)
+            logits, last_hidden_state, past_key_values = _inference_base_model(src_tok, past_key_values)
             
             # Router weight calculation
             router_wts = self.router(self.masking(last_hidden_state, router_attention_mask))      # (batch x sequence_len x router_size)
@@ -159,7 +165,7 @@ class LogitWrapper(nn.Module):
             if src_tok[0, -1].item() in [self.tokenizer.pad_token_id, self.tokenizer.eos_token_id]:
                 break
         
-        return src_tok[0].tolist()
+        return src_tok
 
 
 

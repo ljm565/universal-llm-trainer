@@ -439,7 +439,8 @@ class LoRoTrainer:
         self._freeze_model()
 
         # barrier
-        dist.barrier()
+        if self.is_ddp or self.is_fsdp:
+            dist.barrier()
 
         
     def early_stopper_step(self, epoch, step):
