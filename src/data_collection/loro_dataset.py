@@ -87,7 +87,7 @@ class LoroDataset(Dataset):
 
 
     def generate_prompt_single_turn(self, idx):
-        single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.sample(self.rejection_data, 1)
+        single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
         template = random.choice(self.templates)
         response = single_data['output'][0]
         if len(single_data['input']) == 0:
@@ -103,25 +103,26 @@ class LoroDataset(Dataset):
         response_tokens = self.tokenizer.encode(response)
         full_prompt_tokens = user_prompt_tokens + response_tokens
         label = [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+        router_attention_mask = [1] * len(user_prompt_tokens) + [0] * len(response_tokens)
 
         # sanity check
-        assert len(full_prompt_tokens) == len(label), \
-            f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(label)}'
+        assert len(full_prompt_tokens) == len(label) == len(router_attention_mask), \
+            f'Length of full_prompt_tokens, router_attention_mask, label are not same: {len(full_prompt_tokens)}, {len(router_attention_mask)}, {len(label)}'
         
         for f, l in zip(full_prompt_tokens, label):
             assert f == l or l == self.pad_token_id, f'Full prompt and label are not same: {f}, {l}'
         
-        return full_prompt_tokens, label, user_prompt, response
+        return full_prompt_tokens, label, user_prompt, response, router_attention_mask, single_data['is_chosen']
     
 
     def generate_prompt_multi_turn(self, idx):
-        single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.sample(self.rejection_data, 1)
+        single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
         template = random.choice(self.templates)
         if len(single_data['instruction']) < 2:
             return self.generate_prompt_single_turn(idx)
         
         # multi-turn sanity check
-        full_prompt, full_prompt_tokens, label = '', [], []
+        full_prompt, full_prompt_tokens, label, router_attention_mask = '', [], [], []
         responses = single_data['output']
         instructions = single_data['instruction']
         assert len(responses) == len(instructions), f'Length of instruction and response are not same: {len(instructions)}, {len(responses)}'
@@ -153,6 +154,7 @@ class LoroDataset(Dataset):
                     full_prompt += user_prompt + response
                     full_prompt_tokens += user_prompt_tokens + response_tokens
                     label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+                    router_attention_mask += [1] * len(user_prompt_tokens) + [0] * len(response_tokens)
 
                 else:
                     user_prompt_tokens = self.tokenizer.encode(user_prompt)
@@ -169,6 +171,8 @@ class LoroDataset(Dataset):
                     full_prompt += user_prompt + response
                     full_prompt_tokens += user_prompt_tokens + final_response_tokens
                     label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l
+                    router_attention_mask += [1] * len(user_prompt_tokens) + [0] * (len(response_tokens) + new_line_token_l)
+        
         else:
             template = random.choice(template['prompt_input'])
             for i, (instruction, response) in enumerate(zip(instructions, responses)):
@@ -192,6 +196,7 @@ class LoroDataset(Dataset):
                     full_prompt += user_prompt + response
                     full_prompt_tokens += user_prompt_tokens + response_tokens
                     label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+                    router_attention_mask += [1] * len(user_prompt_tokens) + [0] * len(response_tokens)
                 
                 else:
                     user_prompt_tokens = self.tokenizer.encode(user_prompt)
@@ -208,23 +213,24 @@ class LoroDataset(Dataset):
                     full_prompt += user_prompt + response
                     full_prompt_tokens += user_prompt_tokens + final_response_tokens
                     label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l
+                    router_attention_mask += [1] * len(user_prompt_tokens) + [0] * (len(response_tokens) + new_line_token_l)
                         
         # sanity check
-        assert len(full_prompt_tokens) == len(label), \
-            f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(label)}'
+        assert len(full_prompt_tokens) == len(label) == len(router_attention_mask), \
+            f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(router_attention_mask)}, {len(label)}'
         
         for f, l in zip(full_prompt_tokens, label):
             assert f == l or l == self.pad_token_id, f'Full prompt and label are not same: {f}, {l}'
         
-        return full_prompt_tokens, label, final_user_prompt, response
+        return full_prompt_tokens, label, final_user_prompt, response, router_attention_mask, single_data['is_chosen']
         
 
-    def _pad(self, data, max_length, pad_token_id, bos_token=None, eos_token=None, return_data_len=False, bos_masking=False):
+    def _pad(self, data, max_length, pad_token_id, bos_token_id=None, eos_token_id=None, return_data_len=False, bos_masking=False):
         # add bos and eos token
-        if bos_token:
-            data = [self.tokenizer.pad_token_id] + data if bos_masking else [self.tokenizer.bos_token_id] + data
-        if eos_token:
-            data.append(self.tokenizer.eos_token_id)
+        if bos_token_id != None:
+            data = [pad_token_id] + data if bos_masking else [bos_token_id] + data
+        if eos_token_id != None:
+            data.append(eos_token_id)
         
         # calculate data length
         data = data if len(data) <= max_length else data[:max_length]
@@ -243,38 +249,47 @@ class LoroDataset(Dataset):
     
 
     def __getitem__(self, idx):
-        full_prompt_token, label, user_prompt, response = self.generate_prompt(idx)
+        full_prompt_token, label, user_prompt, response, router_attention_mask, router_label = self.generate_prompt(idx)
         
         # padding
         full_prompt_token, data_len = self._pad(
             data=full_prompt_token,
             max_length=self.max_length,
             pad_token_id=self.pad_token_id,
-            bos_token=self.tokenizer.bos_token_id if self.add_bos and self.tokenizer.bos_token_id else None,
-            eos_token=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
+            bos_token_id=self.tokenizer.bos_token_id if self.add_bos and self.tokenizer.bos_token_id else None,
+            eos_token_id=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
             return_data_len=True
         )
         label = self._pad(
             data=label,
             max_length=self.max_length,
             pad_token_id=self.pad_token_id,
-            bos_token=self.tokenizer.bos_token_id if self.add_bos and self.tokenizer.bos_token_id else None,
-            eos_token=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
+            bos_token_id=self.tokenizer.bos_token_id if self.add_bos and self.tokenizer.bos_token_id else None,
+            eos_token_id=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
             bos_masking=True
         )
         attention_mask = self._pad(self.get_mask(data_len), self.max_length, 0)
+        router_attention_mask = self._pad(
+            data=router_attention_mask,
+            max_length=self.max_length,
+            pad_token_id=0,
+            bos_token_id=1 if self.add_bos and self.tokenizer.bos_token_id else None,
+            eos_token_id=0 if self.add_eos and self.tokenizer.eos_token_id else None,
+            bos_masking=True
+        )
 
         if self.add_bos:
             user_prompt = self.tokenizer.bos_token + user_prompt
         if self.add_eos:
             response = response + self.tokenizer.eos_token
         
-        assert len(full_prompt_token) == len(attention_mask) == len(label) == self.max_length, \
-            f'Length of template, attention_mask, label are not same: {len(full_prompt_token)}, {len(attention_mask)}, {len(label)}'
+        assert len(full_prompt_token) == len(attention_mask) == len(label) == len(router_attention_mask) == self.max_length, \
+            f'Length of template, attention_mask, label, router_attention_mask are not same: {len(full_prompt_token)}, {len(attention_mask)}, {len(router_attention_mask)}, {len(label)}'
 
         return {'src': torch.tensor(full_prompt_token, dtype=torch.long), 'src_attention_mask': torch.tensor(attention_mask, dtype=torch.long),
                 'label': torch.tensor(label, dtype=torch.long),
-                'user_prompt': user_prompt, 'response': response}
+                'user_prompt': user_prompt, 'response': response,
+                'router_attention_mask': torch.tensor(router_attention_mask, dtype=torch.long), 'router_label': torch.tensor(router_label, dtype=torch.long)}
     
 
     def __len__(self):

@@ -95,7 +95,7 @@ class QADataset(Dataset):
 
         # sanity check
         assert len(full_prompt_tokens) == len(label), \
-            f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(label)}'
+            f'Length of full_prompt_tokens, label are not same: {len(full_prompt_tokens)}, {len(label)}'
         
         for f, l in zip(full_prompt_tokens, label):
             assert f == l or l == self.pad_token_id, f'Full prompt and label are not same: {f}, {l}'
@@ -200,7 +200,7 @@ class QADataset(Dataset):
                         
         # sanity check
         assert len(full_prompt_tokens) == len(label), \
-            f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(label)}'
+            f'Length of full_prompt_tokens, label are not same: {len(full_prompt_tokens)}, {len(label)}'
         
         for f, l in zip(full_prompt_tokens, label):
             assert f == l or l == self.pad_token_id, f'Full prompt and label are not same: {f}, {l}'
@@ -208,12 +208,12 @@ class QADataset(Dataset):
         return full_prompt_tokens, label, final_user_prompt, response
         
 
-    def _pad(self, data, max_length, pad_token_id, bos_token=None, eos_token=None, return_data_len=False, bos_masking=False):
+    def _pad(self, data, max_length, pad_token_id, bos_token_id=None, eos_token_id=None, return_data_len=False, bos_masking=False):
         # add bos and eos token
-        if bos_token:
-            data = [self.tokenizer.pad_token_id] + data if bos_masking else [self.tokenizer.bos_token_id] + data
-        if eos_token:
-            data.append(self.tokenizer.eos_token_id)
+        if bos_token_id != None:
+            data = [pad_token_id] + data if bos_masking else [bos_token_id] + data
+        if eos_token_id != None:
+            data.append(eos_token_id)
         
         # calculate data length
         data = data if len(data) <= max_length else data[:max_length]
@@ -239,16 +239,16 @@ class QADataset(Dataset):
             data=full_prompt_token,
             max_length=self.max_length,
             pad_token_id=self.pad_token_id,
-            bos_token=self.tokenizer.bos_token_id if self.add_bos and self.tokenizer.bos_token_id else None,
-            eos_token=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
+            bos_token_id=self.tokenizer.bos_token_id if self.add_bos and self.tokenizer.bos_token_id else None,
+            eos_token_id=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
             return_data_len=True
         )
         label = self._pad(
             data=label,
             max_length=self.max_length,
             pad_token_id=self.pad_token_id,
-            bos_token=self.tokenizer.bos_token_id if self.add_bos and self.tokenizer.bos_token_id else None,
-            eos_token=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
+            bos_token_id=self.tokenizer.bos_token_id if self.add_bos and self.tokenizer.bos_token_id else None,
+            eos_token_id=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
             bos_masking=True
         )
         attention_mask = self._pad(self.get_mask(data_len), self.max_length, 0)
