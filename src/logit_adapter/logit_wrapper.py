@@ -25,6 +25,7 @@ class LogitWrapper(nn.Module):
 
         # Freeze pre-trained base model
         self._freeze_base_model()
+        self._init_lm_heads()
 
         # Init criterion
         self.criterion = LoroLoss(self.base_model.tokenizer.pad_token_id)
@@ -33,6 +34,13 @@ class LogitWrapper(nn.Module):
     def _freeze_base_model(self):
         for param in self.base_model.parameters():
             param.requires_grad = False
+    
+    
+    def _init_lm_heads(self):
+        with torch.no_grad():
+            for lm_head in self.lm_heads:
+                lm_head.weight.copy_(self.base_model.model.lm_head.weight)
+                lm_head.bias.copy_(self.base_model.model.lm_head.bias)
 
 
     def masking(self, last_hidden_state, router_attention_mask=None):

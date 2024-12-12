@@ -112,7 +112,7 @@ class LoRoTrainer:
             return model
 
         # Init base model, loss function, and tokenizer
-        base_model_resume_success = False, False
+        base_model_resume_success = False
         do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path['model'] is not None)
         model, tokenizer = get_model(config, self.device)
         model._init_criterion()
