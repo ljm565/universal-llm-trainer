@@ -353,7 +353,12 @@ class LoRoTrainer:
                 with torch.cuda.amp.autocast(self.amp or self.config.half_inference):
                     batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                     batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
-                    _, loss = self.model(batch, return_loss=True)
+                    _, _, losses = self.model(
+                        batch=batch,
+                        router_attention_mask=batch['router_attention_mask'],
+                        pooling=self.config.pooling,
+                        return_loss=True
+                    )
 
                     # Preparing for model evaluation
                     inference_batch_size = min(batch_size, self.config.fast_validation_n) if self.config.fast_validation_n else batch_size
@@ -366,23 +371,24 @@ class LoRoTrainer:
                         greedy=True,
                         max_time=self.config.generation_max_time,
                         synced_gpus=self.is_fsdp,
+                        pooling=self.config.pooling,
                     ) if response_gt else None
 
                 # Evaluation
-                metric_results = self.metric_evaluation(loss, response_pred, response_gt)
+                metric_results = self.metric_evaluation(losses['loss'], response_pred, response_gt)
                 self.training_logger.update(
                     phase, 
                     epoch, 
                     self.train_cur_step if is_training_now else 0, 
                     inference_batch_size, 
-                    **{'validation_loss': loss.item()}, 
+                    **{'validation_loss': losses['loss'].item()}, 
                     **metric_results
                 )
 
                 # Logging
                 if self.is_rank_zero:
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-                    loss_log = [loss.item()]
+                    loss_log = [losses['loss'].item()]
                     msg = tuple([f'{epoch+1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
                     if self.config.inference_result_verbose and response_gt != None:
                         _init_headline()
