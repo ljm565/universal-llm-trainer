@@ -179,6 +179,7 @@ def get_loro_model(base_model, config, device):
     loro_config = Config(config.loro_config_path)
     loro_config.vocab_size = len(base_model.tokenizer)
     loro_type = loro_config.type
+    config.pooling = loro_config.pooling
 
     if loro_type == 'lora':
         from logit_adapter import LoraRouter

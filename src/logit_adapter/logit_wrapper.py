@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from src.loss_func import LoroLoss
+
 
 
 class LogitWrapper(nn.Module):
@@ -23,6 +25,9 @@ class LogitWrapper(nn.Module):
 
         # Freeze pre-trained base model
         self._freeze_base_model()
+
+        # Init criterion
+        self.criterion = LoroLoss(self.base_model.tokenizer.pad_token_id)
     
     
     def _freeze_base_model(self):
@@ -78,6 +83,15 @@ class LogitWrapper(nn.Module):
         # Weighted sum
         logits = [output.logits] + [lm_head(last_hidden_state) for lm_head in self.lm_heads]
         logits = sum(router_wts[..., i:i+1] * logits[i] for i in range(len(logits)))
+
+        if return_loss:
+            loss = self.criterion(
+                logits=logits,
+                label=batch['label'],
+                router_wts=router_wts,
+                router_label=batch['is_chosen'],
+            )
+            return logits, router_wts, loss
 
         return logits, router_wts
 
