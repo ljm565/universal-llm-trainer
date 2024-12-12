@@ -1,7 +1,6 @@
 import os
 import random
 from tqdm import tqdm
-from copy import deepcopy
 import matplotlib.pyplot as plt
 
 import torch
@@ -22,9 +21,10 @@ class LoroDataset(Dataset):
                  name=None):
         # init
         name = 'LoRo' if not name else name
-        self.data = data
+        self.chosen_data, self.rejection_data = self.split_chosen_and_rejection(data)
         self.tokenizer = tokenizer
         self.pad_token_id = self.tokenizer.pad_token_id
+        self.generate_prompt = self.generate_prompt_multi_turn if config.is_multi_turn else self.generate_prompt_single_turn
         
         # read data and template
         template_paths = [p for p in filter(lambda x: x.startswith('template'), os.listdir(template_dir))]
@@ -37,7 +37,7 @@ class LoroDataset(Dataset):
         self.add_bos = config.add_bos_token_when_response_start
         self.add_eos = config.add_eos_token_when_response_end
         self.verbose = config.data_verbose
-        self.length = len(self.data)
+        self.length = len(self.chosen_data * 2)
 
         # calculate statistics
         if config.is_rank_zero and self.verbose:
@@ -45,7 +45,7 @@ class LoroDataset(Dataset):
             os.makedirs(save_dir, exist_ok=True)
 
             LOGGER.info(f'Calculating statistics of {name} data...')
-            src_l, src_max, src_min, src_avg = self.get_token_len_statistics(self.data)
+            src_l, src_max, src_min, src_avg = self.get_token_len_statistics(data)
             msg = f'{name} dataset: max={src_max}, min={src_min}, avg={src_avg}'
             LOGGER.info(msg)
             
@@ -59,9 +59,16 @@ class LoroDataset(Dataset):
             plt.savefig(os.path.join(save_dir, f'{name}_{mode}_data_hist.png'))
 
     
-    def chosen_rejection_data(self, data):
-        data 
-
+    def split_chosen_and_rejection(self, data):
+        chosen_data, rejection_data = [], []
+        for d in data:
+            if d['is_chosen'] == 0:
+                rejection_data.append(d)
+            else:
+                chosen_data.append(d)
+        LOGGER.info(colorstr(f'Chosen data: {len(chosen_data)}, Rejection data: {len(rejection_data)}'))
+        return chosen_data, rejection_data
+    
 
     def get_token_len_statistics(self, data):
         """
@@ -72,23 +79,144 @@ class LoroDataset(Dataset):
         interv = len(data) // max_n if len(data) > max_n else 1
         if interv > 1:
             LOGGER.warning(f"Length of {colorstr('yellow', len(data))} is too long. Approximately {colorstr('yellow', len(data) // interv)} samples will be used to calculate statistics.")
-        length = [len(self.make_ar_data(i)[0]) for i in tqdm(range(0, len(data), interv))]
+        length = [len(self.generate_prompt(i)[0]) for i in tqdm(range(0, len(data), interv))]
         max_length = max(length)
         min_length = min(length)
         avg_length = sum(length) / len(length)
         return length, max_length, min_length, avg_length
+
+
+    def generate_prompt_single_turn(self, idx):
+        single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.sample(self.rejection_data, 1)
+        template = random.choice(self.templates)
+        response = single_data['output'][0]
+        if len(single_data['input']) == 0:
+            template = random.choice(template['prompt_no_input'])
+            instruction = single_data['instruction'][0]
+            user_prompt = template.format(instruction=instruction)
+        else:
+            template = random.choice(template['prompt_input'])
+            instruction, input = single_data['instruction'][0], single_data['input'][0]
+            user_prompt = template.format(instruction=instruction, input=input)
+
+        user_prompt_tokens = self.tokenizer.encode(user_prompt)
+        response_tokens = self.tokenizer.encode(response)
+        full_prompt_tokens = user_prompt_tokens + response_tokens
+        label = [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+
+        # sanity check
+        assert len(full_prompt_tokens) == len(label), \
+            f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(label)}'
+        
+        for f, l in zip(full_prompt_tokens, label):
+            assert f == l or l == self.pad_token_id, f'Full prompt and label are not same: {f}, {l}'
+        
+        return full_prompt_tokens, label, user_prompt, response
     
 
-    def make_ar_data(self, idx):
-        single_data = self.data[idx]
+    def generate_prompt_multi_turn(self, idx):
+        single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.sample(self.rejection_data, 1)
         template = random.choice(self.templates)
-        template = random.choice(template['prompt_no_input'])
+        if len(single_data['instruction']) < 2:
+            return self.generate_prompt_single_turn(idx)
         
-        instruction = single_data['instruction'][0]
-        full_prompt = template.format(instruction=instruction)
-        full_prompt_tokens = self.tokenizer.encode(full_prompt)
+        # multi-turn sanity check
+        full_prompt, full_prompt_tokens, label = '', [], []
+        responses = single_data['output']
+        instructions = single_data['instruction']
+        assert len(responses) == len(instructions), f'Length of instruction and response are not same: {len(instructions)}, {len(responses)}'
 
-        return full_prompt_tokens, full_prompt
+        # conversation template
+        no_input_template = random.choice(template['prompt_no_input'])
+        guidance_template = no_input_template.split('### Instruction')[0]
+        dialogue_template = '### Instruction' + no_input_template.split('### Instruction')[-1]
+        
+        if len(single_data['input']) == 0:
+            for i, (instruction, response) in enumerate(zip(instructions, responses)):
+                is_last = i == len(instructions) - 1
+                response_end = '' if is_last else self.tokenizer.eos_token
+                user_prompt = guidance_template + dialogue_template.format(instruction=instruction) if i == 0 else dialogue_template.format(instruction=instruction)
+                response = response.strip() + response_end
+                
+                if self.tokenizer.sep_token:
+                    user_prompt = user_prompt + self.tokenizer.sep_token
+                    response = response if is_last else response + '\n\n'
+
+                    all_tokens = self.tokenizer.encode(user_prompt + response)
+                    sel_token_loc = all_tokens.index(self.tokenizer.sep_token_id)
+                    user_prompt_tokens = all_tokens[:sel_token_loc+1]
+                    response_tokens = all_tokens[sel_token_loc+1:]
+
+                    if is_last:
+                        final_user_prompt = full_prompt + user_prompt
+
+                    full_prompt += user_prompt + response
+                    full_prompt_tokens += user_prompt_tokens + response_tokens
+                    label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+
+                else:
+                    user_prompt_tokens = self.tokenizer.encode(user_prompt)
+                    response_tokens = self.tokenizer.encode(response)
+
+                    only_response_tokens_l = len(response_tokens)
+                    response = response if is_last else response + '\n\n'
+                    final_response_tokens = self.tokenizer.encode(response)
+                    new_line_token_l = len(final_response_tokens) - only_response_tokens_l
+
+                    if is_last:
+                        final_user_prompt = full_prompt + user_prompt
+                    
+                    full_prompt += user_prompt + response
+                    full_prompt_tokens += user_prompt_tokens + final_response_tokens
+                    label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l
+        else:
+            template = random.choice(template['prompt_input'])
+            for i, (instruction, response) in enumerate(zip(instructions, responses)):
+                is_last = i == len(instructions) - 1
+                response_end = '' if is_last else self.tokenizer.eos_token
+                user_prompt = template.format(instruction=instruction, input=single_data['input'][0]) if i == 0 else dialogue_template.format(instruction=instruction)
+                response = response.strip() + response_end
+
+                if self.tokenizer.sep_token:
+                    user_prompt = user_prompt + self.tokenizer.sep_token
+                    response = response if is_last else response + '\n\n'
+
+                    all_tokens = self.tokenizer.encode(user_prompt + response)
+                    sel_token_loc = all_tokens.index(self.tokenizer.sep_token_id)
+                    user_prompt_tokens = all_tokens[:sel_token_loc+1]
+                    response_tokens = all_tokens[sel_token_loc+1:]
+
+                    if is_last:
+                        final_user_prompt = full_prompt + user_prompt
+
+                    full_prompt += user_prompt + response
+                    full_prompt_tokens += user_prompt_tokens + response_tokens
+                    label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+                
+                else:
+                    user_prompt_tokens = self.tokenizer.encode(user_prompt)
+                    response_tokens = self.tokenizer.encode(response)
+
+                    only_response_tokens_l = len(response_tokens)
+                    response = response if is_last else response + '\n\n'
+                    final_response_tokens = self.tokenizer.encode(response)
+                    new_line_token_l = len(final_response_tokens) - only_response_tokens_l
+
+                    if is_last:
+                        final_user_prompt = full_prompt + user_prompt
+
+                    full_prompt += user_prompt + response
+                    full_prompt_tokens += user_prompt_tokens + final_response_tokens
+                    label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l
+                        
+        # sanity check
+        assert len(full_prompt_tokens) == len(label), \
+            f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(label)}'
+        
+        for f, l in zip(full_prompt_tokens, label):
+            assert f == l or l == self.pad_token_id, f'Full prompt and label are not same: {f}, {l}'
+        
+        return full_prompt_tokens, label, final_user_prompt, response
         
 
     def _pad(self, data, max_length, pad_token_id, bos_token=None, eos_token=None, return_data_len=False, bos_masking=False):
@@ -115,7 +243,7 @@ class LoroDataset(Dataset):
     
 
     def __getitem__(self, idx):
-        full_prompt_token, full_prompt = self.make_ar_data(idx)
+        full_prompt_token, label, user_prompt, response = self.generate_prompt(idx)
         
         # padding
         full_prompt_token, data_len = self._pad(
@@ -126,18 +254,27 @@ class LoroDataset(Dataset):
             eos_token=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
             return_data_len=True
         )
+        label = self._pad(
+            data=label,
+            max_length=self.max_length,
+            pad_token_id=self.pad_token_id,
+            bos_token=self.tokenizer.bos_token_id if self.add_bos and self.tokenizer.bos_token_id else None,
+            eos_token=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
+            bos_masking=True
+        )
         attention_mask = self._pad(self.get_mask(data_len), self.max_length, 0)
 
         if self.add_bos:
-            full_prompt = self.tokenizer.bos_token + full_prompt
+            user_prompt = self.tokenizer.bos_token + user_prompt
         if self.add_eos:
-            full_prompt = full_prompt + self.tokenizer.eos_token
-
-        label = deepcopy(full_prompt_token)        
+            response = response + self.tokenizer.eos_token
+        
+        assert len(full_prompt_token) == len(attention_mask) == len(label) == self.max_length, \
+            f'Length of template, attention_mask, label are not same: {len(full_prompt_token)}, {len(attention_mask)}, {len(label)}'
 
         return {'src': torch.tensor(full_prompt_token, dtype=torch.long), 'src_attention_mask': torch.tensor(attention_mask, dtype=torch.long),
                 'label': torch.tensor(label, dtype=torch.long),
-                'user_prompt': full_prompt}
+                'user_prompt': user_prompt, 'response': response}
     
 
     def __len__(self):
