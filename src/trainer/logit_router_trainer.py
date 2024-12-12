@@ -251,7 +251,7 @@ class LoRoTrainer:
 
         # init progress bar
         if RANK in (-1, 0):
-            pbar = init_train_progress_bar(train_loader, self.is_rank_zero, self.loss_names, nb)
+            pbar = init_train_progress_bar(train_loader, self.is_rank_zero, self.loss_names, nb, interval='%20s')
     
         # training loop
         self.optimizer.zero_grad()
