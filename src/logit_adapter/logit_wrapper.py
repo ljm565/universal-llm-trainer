@@ -88,8 +88,8 @@ class LogitWrapper(nn.Module):
         output, orig_loss = self.base_model(batch, return_loss=True, output_hidden_states=True)
 
         # Router weight calculation
-        last_hidden_state = self.masking(output.hidden_states[-1], router_attention_mask)
-        router_wts = self.router(last_hidden_state)      # (batch x sequence_len x router_size)
+        last_hidden_state = output.hidden_states[-1]
+        router_wts = self.router(self.masking(last_hidden_state, router_attention_mask))      # (batch x sequence_len x router_size)
         router_wts = self.pooling(router_wts, pooling, router_attention_mask)       # (batch x 1 x router_size) or (batch x seq_len x router_size)
         
         # Weighted sum

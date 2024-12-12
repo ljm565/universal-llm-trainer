@@ -19,5 +19,6 @@ class LoraRouter(nn.Module):
 
 
     def forward(self, last_hidden_state):
-        last_hidden_state = self.lora_B(self.activation(self.lora_A(self.dropout_layer(last_hidden_state))))
+        # last_hidden_state = self.lora_B(self.activation(self.lora_A(self.dropout_layer(last_hidden_state))))
+        last_hidden_state = self.lora_B(self.lora_A(self.dropout_layer(last_hidden_state)))
         return last_hidden_state
