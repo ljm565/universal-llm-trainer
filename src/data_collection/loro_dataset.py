@@ -21,6 +21,7 @@ class LoroDataset(Dataset):
                  name=None):
         # init
         name = 'LoRo' if not name else name
+        self.mode = mode
         self.chosen_data, self.rejection_data = self.split_chosen_and_rejection(data)
         self.tokenizer = tokenizer
         self.pad_token_id = self.tokenizer.pad_token_id
@@ -57,7 +58,7 @@ class LoroDataset(Dataset):
             plt.xlabel('Length of samples')
             plt.ylabel('Number of samples')
             plt.tight_layout()
-            plt.savefig(os.path.join(save_dir, f'{name}_{mode}_data_hist.png'))
+            plt.savefig(os.path.join(save_dir, f'{name}_{self.mode}_data_hist.png'))
 
     
     def split_chosen_and_rejection(self, data):
@@ -67,7 +68,7 @@ class LoroDataset(Dataset):
                 rejection_data.append(d)
             else:
                 chosen_data.append(d)
-        LOGGER.info(colorstr(f'Chosen data: {len(chosen_data)}, Rejection data: {len(rejection_data)}'))
+        LOGGER.info(colorstr(f'{self.mode} dataset: Chosen data: {len(chosen_data)}, Rejection data: {len(rejection_data)}'))
         return chosen_data, rejection_data
     
 

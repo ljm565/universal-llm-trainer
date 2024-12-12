@@ -40,7 +40,11 @@ class LogitWrapper(nn.Module):
         with torch.no_grad():
             for lm_head in self.lm_heads:
                 lm_head.weight.copy_(self.base_model.model.lm_head.weight)
-                lm_head.bias.copy_(self.base_model.model.lm_head.bias)
+                try:
+                    lm_head.bias.copy_(self.base_model.model.lm_head.bias)
+                # No bias case
+                except:
+                    continue
 
 
     def masking(self, last_hidden_state, router_attention_mask=None):
