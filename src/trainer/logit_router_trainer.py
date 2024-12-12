@@ -58,7 +58,7 @@ class LoRoTrainer:
             if self.config.fast_validation_step_interval == 'None': 
                 self.config.fast_validation_step_interval = None
         self.config.is_rank_zero = self.is_rank_zero
-        self.loss_names = ['cross_entropy', 'logits_loss', 'router_loss']
+        self.loss_names = ['cross_entropy', 'logits_loss', 'router_loss', 'orig_logit_loss']
         self.train_verbose = self.config.train_verbose
         self.resume_path = resume_path
 
@@ -290,7 +290,7 @@ class LoRoTrainer:
             )
             if RANK in (-1, 0) and self.is_rank_zero:
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-                loss_log = [loss.item() * self.config.gradient_accumuate_step, losses['logits_loss'].item(), losses['router_loss'].item()]
+                loss_log = [loss.item() * self.config.gradient_accumuate_step, losses['logits_loss'].item(), losses['router_loss'].item(), losses['orig_loss'].item()]
                 msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log)
                 pbar.set_description(('%15s' * 2 + '%15.4g' * len(loss_log)) % msg)
                 

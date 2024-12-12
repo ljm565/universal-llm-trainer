@@ -91,6 +91,7 @@ class LogitWrapper(nn.Module):
                 router_wts=router_wts,
                 router_label=batch['is_chosen'],
             )
+            loss['orig_loss'] = orig_loss
             return logits, router_wts, loss
 
         return logits, router_wts
