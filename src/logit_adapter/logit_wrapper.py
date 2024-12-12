@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.loss_func import LoroLoss
+from loss_func import LoroLoss
 
 
 

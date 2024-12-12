@@ -1,7 +1,6 @@
 import gc
 import time
 import math
-import transformers
 
 import torch
 import torch.nn as nn
