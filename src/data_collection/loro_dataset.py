@@ -38,6 +38,7 @@ class LoroDataset(Dataset):
         self.add_eos = config.add_eos_token_when_response_end
         self.verbose = config.data_verbose
         self.length = len(self.chosen_data * 2)
+        self.all_data = self.chosen_data + self.rejection_data
 
         # calculate statistics
         if config.is_rank_zero and self.verbose:
@@ -79,15 +80,18 @@ class LoroDataset(Dataset):
         interv = len(data) // max_n if len(data) > max_n else 1
         if interv > 1:
             LOGGER.warning(f"Length of {colorstr('yellow', len(data))} is too long. Approximately {colorstr('yellow', len(data) // interv)} samples will be used to calculate statistics.")
-        length = [len(self.generate_prompt(i)[0]) for i in tqdm(range(0, len(data), interv))]
+        length = [len(self.generate_prompt(i, cal_stats=True)[0]) for i in tqdm(range(0, len(data), interv))]
         max_length = max(length)
         min_length = min(length)
         avg_length = sum(length) / len(length)
         return length, max_length, min_length, avg_length
 
 
-    def generate_prompt_single_turn(self, idx):
-        single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
+    def generate_prompt_single_turn(self, idx, cal_stats=False):
+        if cal_stats:
+            single_data = self.all_data[idx]
+        else:
+            single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
         template = random.choice(self.templates)
         response = single_data['output'][0]
         if len(single_data['input']) == 0:
@@ -115,8 +119,11 @@ class LoroDataset(Dataset):
         return full_prompt_tokens, label, user_prompt, response, router_attention_mask, single_data['is_chosen']
     
 
-    def generate_prompt_multi_turn(self, idx):
-        single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
+    def generate_prompt_multi_turn(self, idx, cal_stats=False):
+        if cal_stats:
+            single_data = self.all_data[idx]
+        else:
+            single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
         template = random.choice(self.templates)
         if len(single_data['instruction']) < 2:
             return self.generate_prompt_single_turn(idx)
