@@ -96,7 +96,7 @@ class LoRoTrainer:
                 draw_training_lr_curve(self.config, self.lf, all_steps_n, self.warmup_steps_n, self.is_ddp or self.is_fsdp, self.world_size)
 
 
-    def _init_model(self, config, mode):
+    def _init_model(self, config, mode, is_base_model=True):
         def _resume_model(model, resume_path, device, is_rank_zero):
             checkpoints = torch.load(resume_path, map_location=device)
             model.load_state_dict(checkpoints['model'])
@@ -104,7 +104,10 @@ class LoRoTrainer:
             torch.cuda.empty_cache()
             gc.collect()
             if is_rank_zero:
-                LOGGER.info(f'Resumed base model: {colorstr(resume_path)}')
+                if is_base_model:
+                    LOGGER.info(f'Resumed base model: {colorstr(resume_path)}')
+                else:
+                    LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
             return model
 
         # Init base model, loss function, and tokenizer
@@ -137,7 +140,7 @@ class LoRoTrainer:
         # Apply and resume LoRo model
         model = get_loro_model(model, config, self.device)
         if do_resume:
-            model = _resume_model(model, self.resume_path['model'], self.device, self.is_rank_zero)
+            model = _resume_model(model, self.resume_path['model'], self.device, self.is_rank_zero, is_base_model=False)
 
         # Init ddp
         if self.is_ddp:
