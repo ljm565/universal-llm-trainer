@@ -53,10 +53,6 @@ class LoRoTrainer:
         else:
             config.is_training_mode = False
             config.data_verbose = False
-            if self.config.fast_validation_n == 'None': 
-                self.config.fast_validation_n = None
-            if self.config.fast_validation_step_interval == 'None': 
-                self.config.fast_validation_step_interval = None
         self.config.is_rank_zero = self.is_rank_zero
         self.loss_names = ['loro loss', 'logits_loss', 'router_loss', 'orig_logit_loss']
         self.train_verbose = self.config.train_verbose
@@ -326,7 +322,7 @@ class LoRoTrainer:
         ):
         def _init_headline():
             header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics)
-            LOGGER.info(('\n' + '%15s' * (2 + len(self.loss_names) + len(self.metrics))) % header)
+            LOGGER.info(('\n' + '%20s' * (2 + len(self.loss_names) + len(self.metrics))) % header)
 
         def _get_val_pbar(dloader, nb, is_rank_zero):
             if is_rank_zero:
@@ -388,11 +384,11 @@ class LoRoTrainer:
                 # Logging
                 if self.is_rank_zero:
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-                    loss_log = [losses['loss'].item()]
+                    loss_log = [losses['loss'].item(), losses['logits_loss'].item(), losses['router_loss'].item(), losses['orig_loss'].item()]
                     msg = tuple([f'{epoch+1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
                     if self.config.inference_result_verbose and response_gt != None:
                         _init_headline()
-                    pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
+                    pbar.set_description(('%20s' * 2 + '%20.4g' * (len(loss_log) + len(self.metrics))) % msg)
 
                     if self.config.inference_result_verbose and response_gt != None:
                         for u, p, g in zip(user_prompt, response_pred, response_gt):

@@ -38,8 +38,12 @@ class LoroDataset(Dataset):
         self.add_bos = config.add_bos_token_when_response_start
         self.add_eos = config.add_eos_token_when_response_end
         self.verbose = config.data_verbose
-        self.length = len(self.chosen_data * 2)
-        self.all_data = self.chosen_data + self.rejection_data
+        if self.mode == 'train':
+            self.length = len(self.chosen_data * 2)
+            self.all_data = self.chosen_data + self.rejection_data
+        else:
+            self.length = len(self.rejection_data) if config.test_rejection_data else len(self.chosen_data)
+            self.all_data = self.rejection_data if config.test_rejection_data else self.chosen_data
 
         # calculate statistics
         if config.is_rank_zero and self.verbose:
@@ -92,7 +96,11 @@ class LoroDataset(Dataset):
         if cal_stats:
             single_data = self.all_data[idx]
         else:
-            single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
+            if self.mode == 'train':
+                single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
+            else:
+                single_data = self.all_data[idx]
+
         template = random.choice(self.templates)
         response = single_data['output'][0]
         if len(single_data['input']) == 0:
@@ -124,7 +132,11 @@ class LoroDataset(Dataset):
         if cal_stats:
             single_data = self.all_data[idx]
         else:
-            single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
+            if self.mode == 'train':
+                single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
+            else:
+                single_data = self.all_data[idx]
+            
         template = random.choice(self.templates)
         if len(single_data['instruction']) < 2:
             return self.generate_prompt_single_turn(idx)
