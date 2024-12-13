@@ -375,7 +375,7 @@ class LoRoTrainer:
                     ) if response_gt else None
 
                 # Evaluation
-                metric_results = self.metric_evaluation(losses['loss'], response_pred, response_gt)
+                metric_results = self.metric_evaluation(losses['logits_loss'], response_pred, response_gt)
                 self.training_logger.update(
                     phase, 
                     epoch, 
