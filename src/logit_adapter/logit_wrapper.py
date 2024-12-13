@@ -29,8 +29,9 @@ class LogitWrapper(nn.Module):
 
         # Init etc
         self.device = self.base_model.device
+        self.router_train = config.router_train
         self.tokenizer = self.base_model.tokenizer
-        self.criterion = LoroLoss(self.tokenizer.pad_token_id)
+        self.criterion = LoroLoss(self.tokenizer.pad_token_id, self.router_train)
     
     
     def _freeze_base_model(self):
@@ -96,7 +97,7 @@ class LogitWrapper(nn.Module):
         
         # Weighted sum
         logits = [output.logits] + [lm_head(last_hidden_state) for lm_head in self.lm_heads]
-        logits = sum(router_wts[..., i:i+1] * logits[i] for i in range(len(logits)))
+        logits = sum(router_wts[..., i:i+1] * logits[i] for i in range(len(logits))) if self.router_train else logits[1]
 
         if return_loss:
             loss = self.criterion(
@@ -153,7 +154,7 @@ class LogitWrapper(nn.Module):
 
             # Weighted sum
             logits = [logits] + [lm_head(last_hidden_state) for lm_head in self.lm_heads]
-            logits = sum(router_wts[..., i:i+1] * logits[i] for i in range(len(logits)))
+            logits = sum(router_wts[..., i:i+1] * logits[i] for i in range(len(logits))) if self.router_train else logits[1]
 
             # Predict next token
             src_tok = torch.cat((src_tok, torch.argmax(logits[:, -1], dim=-1).unsqueeze(1)), dim=1)

@@ -5,10 +5,11 @@ import torch.nn.functional as F
 
 
 class LoroLoss(nn.Module):
-    def __init__(self, ignore_index=-100):
+    def __init__(self, ignore_index=-100, router_train=True):
         super(LoroLoss, self).__init__()
         self.logits_criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
         self.router_criterion = nn.NLLLoss()
+        self.router_train = router_train
 
 
     def calculate_logits_loss(self, logits, label):
@@ -35,5 +36,8 @@ class LoroLoss(nn.Module):
     def forward(self, logits, label, router_wts, router_label):
         logits_loss = self.calculate_logits_loss(logits, label)
         router_loss = self.calculate_router_loss(router_wts, router_label)
-        loss = logits_loss + router_loss * 1.5
+        if self.router_train:
+            loss = logits_loss + router_loss * 1.5
+        else:
+            loss = logits_loss
         return {'loss': loss, 'logits_loss': logits_loss, 'router_loss': router_loss}

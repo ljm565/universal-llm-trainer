@@ -18,7 +18,7 @@ from utils.peft_utils import init_lora_config, apply_peft, print_trainable_param
 from utils.filesys_utils import pickle_load
 from utils.training_utils import get_wrap_policy, custom_wrap_policy
 
-PIN_MEMORY = str(os.getenv('PIN_MEMORY', True)).lower() == 'true'  # global pin_memory for dataloaders
+PIN_MEMORY = str(os.getenv('PIN_MEMORY', True)).lower() == 'true'  # Global pin_memory for dataloaders
 
 
 
@@ -66,7 +66,7 @@ def build_llm_dataset(config, tokenizer, mode):
             else:
                 dataset_dict[state].append(dset)
 
-    # concatenate multiple datasets' class
+    # Concatenate multiple datasets' class
     for state, dsets in dataset_dict.items():
         dataset_dict[state] = ConcatDataset(dsets) if len(dsets) > 1 else dsets[0]
 
@@ -146,7 +146,7 @@ def get_model(config, device):
     else:
         raise AssertionError(f'Invalid train_type: {config.train_type}')
     
-    # preparing for bits training
+    # Preparing for bits training
     if model.is4bit or model.is8bit:
         try:
             model = prepare_model_for_kbit_training(model)
@@ -167,7 +167,7 @@ def get_peft_model(model, config):
     else:
         raise NotImplementedError
     
-    # logs
+    # Logging
     if config.is_rank_zero:
         print_trainable_parameters(model)
         LOGGER.info(f'Applied {colorstr(peft_type)} to the model.')
@@ -178,6 +178,7 @@ def get_loro_model(base_model, config, device):
     from logit_adapter import LogitWrapper
     loro_config = Config(config.loro_config_path)
     loro_config.vocab_size = len(base_model.tokenizer)
+    loro_config.router_train = config.router_train
     loro_type = loro_config.type
     config.pooling = loro_config.pooling
 
@@ -188,10 +189,11 @@ def get_loro_model(base_model, config, device):
     else:
         raise NotImplementedError
     
-    # logs
+    # Logging
     if config.is_rank_zero:
         print_trainable_parameters(model)
         LOGGER.info(f'Applied {colorstr(loro_type)} type of LoRo to the model.')
+    
     return model.to(device)
 
 

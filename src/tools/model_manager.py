@@ -7,8 +7,8 @@ class ModelManager:
         self.is_init = True
         self.best_lower, self.best_higher = None, None
         self.lower_candidates_weights = {
-            'validation_loss': 0.6,
-            'ppl': 0,
+            'validation_loss': 0,
+            'ppl': 0.6,
             'edit_distance': 0.4
         }
         self.higher_candidates_weights = {

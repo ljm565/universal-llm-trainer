@@ -29,6 +29,7 @@ def main(args):
     config.yaml_file = args.config
     config.training_stage = 0
     config.loro_config_path = args.loro_config
+    config.router_train = args.router_train
     
     # init environment
     env_setup()
@@ -105,6 +106,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--load_model_type', type=str, default='metric', required=False, choices=['metric', 'loss', 'last'])
     parser.add_argument('-p', '--port', type=str, default='10001', required=False)
     parser.add_argument('--ddp_timeout', type=int, default=86400, required=False)           # 24 hours
+    parser.add_argument('--router_train', action='store_true')
     args = parser.parse_args()
 
     if args.mode == 'resume':
