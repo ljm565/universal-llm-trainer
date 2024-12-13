@@ -96,8 +96,8 @@ class LoRoTrainer:
                 draw_training_lr_curve(self.config, self.lf, all_steps_n, self.warmup_steps_n, self.is_ddp or self.is_fsdp, self.world_size)
 
 
-    def _init_model(self, config, mode, is_base_model=True):
-        def _resume_model(model, resume_path, device, is_rank_zero):
+    def _init_model(self, config, mode):
+        def _resume_model(model, resume_path, device, is_rank_zero, is_base_model=True):
             checkpoints = torch.load(resume_path, map_location=device)
             model.load_state_dict(checkpoints['model'])
             del checkpoints
