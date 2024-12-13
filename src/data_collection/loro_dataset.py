@@ -35,10 +35,11 @@ class LoroDataset(Dataset):
 
         # params
         self.max_length = config.max_length
+        self.is_training_mode = config.is_training_mode
         self.add_bos = config.add_bos_token_when_response_start
         self.add_eos = config.add_eos_token_when_response_end
         self.verbose = config.data_verbose
-        if self.mode == 'train':
+        if self.is_training_mode:
             self.length = len(self.chosen_data * 2)
             self.all_data = self.chosen_data + self.rejection_data
         else:
@@ -96,7 +97,7 @@ class LoroDataset(Dataset):
         if cal_stats:
             single_data = self.all_data[idx]
         else:
-            if self.mode == 'train':
+            if self.is_training_mode:
                 single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
             else:
                 single_data = self.all_data[idx]
@@ -132,7 +133,7 @@ class LoroDataset(Dataset):
         if cal_stats:
             single_data = self.all_data[idx]
         else:
-            if self.mode == 'train':
+            if self.is_training_mode:
                 single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
             else:
                 single_data = self.all_data[idx]
