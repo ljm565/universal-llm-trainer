@@ -40,7 +40,7 @@ def validation(args, config):
     torch.set_num_threads(config.total_cpu_use)
 
     # Init model to be resumed
-    resume_path = {'base_model': choose_proper_resume_model(args.resume_base_model_dir, args.load_model_type),
+    resume_path = {'base_model': choose_proper_resume_model(args.resume_base_model_dir, 'metric'),
                    'model': choose_proper_resume_model(args.resume_model_dir, args.load_model_type)}
 
     if not args.device == None:
