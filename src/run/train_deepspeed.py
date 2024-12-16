@@ -60,7 +60,7 @@ def multi_gpu_train(gpu, ngpus_per_node, config, args):
     torch.set_num_threads(config.total_cpu_use // ngpus_per_node)
 
     # init distribution
-    torch.distributed.init_process_group(
+    deepspeed.init_distributed(
         backend='nccl', 
         init_method=f'tcp://127.0.0.1:{args.port}', 
         world_size=ngpus_per_node, 
