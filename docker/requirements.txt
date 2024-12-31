@@ -1,6 +1,6 @@
 sconf==0.2.5
 tqdm==4.65.0
-transformers==4.47.1
+transformers==4.45.1
 peft==0.14.0
 googletrans==4.0.0rc1
 datasets==2.16.1
