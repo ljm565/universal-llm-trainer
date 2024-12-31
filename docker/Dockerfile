@@ -1,8 +1,8 @@
-# # Use the official PyTorch 2.5.1 image
-# FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
+# Use the official PyTorch 2.5.1 image
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
 
-# Use the official PyTorch 2.2.2 image
-FROM pytorch/pytorch:2.2.2-cuda12.1-cudnn8-devel
+# # Use the official PyTorch 2.2.2 image
+# FROM pytorch/pytorch:2.2.2-cuda12.1-cudnn8-devel
 
 # Set the working directory
 WORKDIR /workspace/llm
