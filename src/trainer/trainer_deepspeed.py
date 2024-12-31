@@ -40,7 +40,7 @@ class TrainerDeepSpeed:
         self.mode = args.mode
         self.is_training_mode = self.mode in ['train', 'resume']
         self.device = torch.device(device)
-        self.is_rank_zero = True if not multi_gpu_train_type or (multi_gpu_train_type and device == 0) else False
+        self.is_rank_zero = True #if not multi_gpu_train_type or (multi_gpu_train_type and device == 0) else False
         self.config = config
         self.world_size = len(self.config.device) if multi_gpu_train_type else 1
         self.steps = self.config.steps
@@ -61,7 +61,7 @@ class TrainerDeepSpeed:
         self.train_verbose = self.config.train_verbose
         self.resume_path = resume_path
         self.deepspeed_config = json_load(args.deepspeed_config)
-        self.config.batch_size = self.deepspeed_config['train_batch_size']
+        # self.config.batch_size = self.deepspeed_config['train_batch_size']
 
         # sanity check
         if 'fp16' in self.deepspeed_config:    
@@ -81,6 +81,8 @@ class TrainerDeepSpeed:
         self.training_logger = TrainingLogger(self.config, self.is_training_mode)
         self.stopper, self.stop = EarlyStopper(self.config.early_stop_criterion), False
         self.dataloaders = get_data_loader(self.config, self.tokenizer, self.modes, self.is_ddp)
+        # print(torch.cuda.current_device())
+        # sfsd
         
         # init criterion and deepspeed's optimizer and model engine
         if self.is_training_mode:

@@ -50,6 +50,7 @@ class Trainer:
         self.scheduler_type = self.config.scheduler_type
         self.metrics = self.config.metrics
         if self.is_training_mode:
+            config.is_training_mode = True
             self.save_dir = make_project_dir(self.config, self.is_rank_zero)
             self.wdir = self.save_dir / 'weights'
         else:

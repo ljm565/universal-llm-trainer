@@ -120,7 +120,7 @@ class Gemma(nn.Module):
                 input_ids=src_tok,
                 attention_mask=attention_mask,
                 max_length=max_length,
-                use_cache=True,
+                use_cache=False if synced_gpus else True,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
                 max_time=max_time,

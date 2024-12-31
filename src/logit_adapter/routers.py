@@ -11,6 +11,7 @@ class LoraRouter(nn.Module):
         self.lora_B = nn.Linear(r, out_features, bias=False)
         self.activation = nn.SiLU()
         self.dropout_layer = nn.Dropout(p=dropout) if dropout > 0.0 else nn.Identity()
+        # self.layernorm = nn.LayerNorm(in_features)
             
 
     def _reset_params(self):
@@ -20,5 +21,6 @@ class LoraRouter(nn.Module):
 
     def forward(self, last_hidden_state):
         # last_hidden_state = self.lora_B(self.activation(self.lora_A(self.dropout_layer(last_hidden_state))))
+        # last_hidden_state = self.layernorm(last_hidden_state)
         last_hidden_state = self.lora_B(self.lora_A(self.dropout_layer(last_hidden_state)))
         return last_hidden_state

@@ -33,18 +33,19 @@ def main(args):
     # init environment
     env_setup()
     
-    # training (cpu/single_gpu or multi_gpu)
-    if len(config.device) <= 1:
-        single_gpu_train(args, config)
-    else:
-        os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, config.device))
-        ngpus_per_node = len(config.device)
-        torch.multiprocessing.spawn(multi_gpu_train, nprocs=ngpus_per_node, args=(ngpus_per_node, config, args))
+    # # training (cpu/single_gpu or multi_gpu)
+    # if len(config.device) <= 1:
+    os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, config.device))
+    single_gpu_train(args, config)
+    # else:
+        # os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, config.device))
+    #     ngpus_per_node = len(config.device)
+    #     torch.multiprocessing.spawn(multi_gpu_train, nprocs=ngpus_per_node, args=(ngpus_per_node, config, args))
 
     
 def single_gpu_train(args, config):
     torch.set_num_threads(config.total_cpu_use)
-    device = torch.device('cpu') if config.device == False else torch.device(f'cuda:{config.device[0]}')
+    device = torch.device('cpu')# if config.device == False else torch.device(f'cuda:{config.device[0]}')
     trainer = TrainerDeepSpeed(
         config, 
         args, 
@@ -61,11 +62,12 @@ def multi_gpu_train(gpu, ngpus_per_node, config, args):
 
     # init distribution
     deepspeed.init_distributed(
-        backend='nccl', 
-        init_method=f'tcp://127.0.0.1:{args.port}', 
-        world_size=ngpus_per_node, 
-        rank=gpu, 
-        timeout=datetime.timedelta(seconds=args.ddp_timeout)
+        # dist_backend='nccl', 
+        # distributed_port=args.port,
+        # # init_method=f'tcp://127.0.0.1:{args.port}', 
+        # world_size=ngpus_per_node, 
+        # rank=gpu, 
+        # timeout=datetime.timedelta(seconds=args.ddp_timeout)
     )
     os.environ['LOCAL_RANK'] = str(gpu)
     torch.cuda.set_device(gpu)
@@ -92,7 +94,8 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--load_model_type', type=str, default='metric', required=False, choices=['metric', 'loss', 'last'])
     parser.add_argument('-s', '--stage', type=int, default=0, required=False)
     parser.add_argument('-p', '--port', type=str, default='10001', required=False)
-    parser.add_argument('--ddp_timeout', type=int, default=86400, required=False)       # 24 hours               
+    parser.add_argument('--ddp_timeout', type=int, default=86400, required=False)       # 24 hours
+    parser.add_argument('--local_rank', type=int, default=0, required=False)
     parser = deepspeed.add_config_arguments(parser)
     args = parser.parse_args()
     

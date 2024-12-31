@@ -27,9 +27,9 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/train.py",
-            "args": ["--config", "config/llm.yaml", "--mode", "train"],
+            "args": ["--config", "config/khc/llm_gemma2_med_korea_fulltuning.yaml", "--mode", "train"],
             "console": "integratedTerminal",
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "nmt & llm train huggingface",
@@ -73,6 +73,24 @@
             "request": "launch",
             "program": "${workspaceFolder}/src/run/validation.py",
             "args": ["--config", "config/llm_llama3.yaml"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "loro train",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/run/train_loro.py",
+            "args": ["--config", "config/khc/llm_llama3.1_loro.yaml", "--loro_config", "config_loro/llm_loro_config.yaml", "--mode", "train", "--resume_base_model_dir", "/full_training/output/ner_korea_fullTuning_02"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "loro valiation",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/run/validation_loro.py",
+            "args": ["--resume_base_model_dir", "/full_training/output/ner_korea_fullTuning_02", "--resume_model_dir", "outputs/test/loro_test_01", "--device", "1", "-l", "loss"],
             "console": "integratedTerminal",
             "justMyCode": true
         }
