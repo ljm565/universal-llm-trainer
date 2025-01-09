@@ -363,7 +363,7 @@ class Trainer:
                         num_return_sequences=1,
                         greedy=True,
                         max_time=self.config.generation_max_time,
-                        synced_gpus=self.is_fsdp,
+                        synced_gpus=True if self.is_fsdp else None,
                     ) if response_gt else None
 
                 # Evaluation
