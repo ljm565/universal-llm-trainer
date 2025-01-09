@@ -124,6 +124,7 @@ class Llama3(nn.Module):
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
                 max_time=max_time,
+                do_sample=False,
                 synced_gpus=synced_gpus,
             )
         return self.model.generate(
