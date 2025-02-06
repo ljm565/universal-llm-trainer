@@ -6,14 +6,14 @@ In this project, you can build a Docker image or Ananconda environment for an LL
 You can build a Docker image using the following command:
 ```bash
 cd docker
-docker build -t {$IMAGE_NAME} .
+docker build -t ${IMAGE_NAME} .
 ```
 
 ### 2. Run Docker Container
 Then, you can make a Docker container using the following command:
 ```bash
-docker run -it -d --name {$CONTAINER_NAME} --gpus all --shm-size=2g -v {$PATH_TO_BE_MOUNTED}:{$MOUNT_PATH} -v {$PATH_OF_HUGGINGFACE_HUB_CACHE_FOLDER}:/root/.cache/ -v {$PATH_OF_NLTK_DATA_FOLDER}:/root/nltk_data {$IMAGE_NAME}
-docker exec -it {$CONTAINER_NAME} /bin/bash
+docker run -it -d --name ${CONTAINER_NAME} --gpus all --shm-size=2g -v ${PATH_TO_BE_MOUNTED}:${MOUNT_PATH} -v ${PATH_OF_HUGGINGFACE_HUB_CACHE_FOLDER}:/root/.cache/ -v ${PATH_OF_NLTK_DATA_FOLDER}:/root/nltk_data ${IMAGE_NAME}
+docker exec -it ${CONTAINER_NAME} /bin/bash
 ```
 
 If you want to prevent auto-kill from your server, please add the below option:
