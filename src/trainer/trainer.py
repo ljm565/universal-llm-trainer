@@ -266,7 +266,10 @@ class Trainer:
                 self.optimizer.param_groups[0]['lr'] = lr_warmup(warmup_step_or_epoch, self.warmup_steps_n, self.lr0, self.lf)
             cur_lr = self.optimizer.param_groups[0]['lr']
             
-            with torch.cuda.amp.autocast(self.amp):
+            with torch.autocast(
+                device_type=self.device.type,
+                enabled=self.amp
+            ):
                 batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                 batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
                 _, loss = self.model(batch, return_loss=True)
@@ -348,7 +351,10 @@ class Trainer:
                 if self.config.fast_validation_step_interval and i % self.config.fast_validation_step_interval != 0:
                     continue                    
                 
-                with torch.cuda.amp.autocast(self.amp or self.config.half_inference):
+                with torch.autocast(
+                    device_type=self.device.type,
+                    enabled=self.amp or self.config.half_inference
+                ):
                     batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                     batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
                     _, loss = self.model(batch, return_loss=True)
