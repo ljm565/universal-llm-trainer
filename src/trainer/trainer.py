@@ -91,7 +91,7 @@ class Trainer:
         # init optimizer, scheduler
         if self.is_training_mode:
             self.lr0 = self.config.lr0
-            self.scaler = amp.GradScaler(enabled=self.amp) if self.amp else None
+            self.scaler = torch.GradScaler(device=self.device.type, enabled=self.amp) if self.amp else None
             self.ema = ModelEMA(self.model_module) if self.ema else None
             self.start_epoch = 0
             self.optimizer = optim.AdamW(self.model.parameters(), lr=self.lr0, betas=(self.config.momentum, 0.999), weight_decay=self.config.weight_decay)
