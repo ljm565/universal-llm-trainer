@@ -337,7 +337,7 @@ class Trainer:
             nb = len(val_loader)
             pbar = _get_val_pbar(val_loader, nb, self.is_rank_zero)
 
-            if (self.config.fast_validation_step_interval or self.config.fast_validation_n) and is_training_now:
+            if (self.is_ddp or self.is_fsdp) and (self.config.fast_validation_step_interval or self.config.fast_validation_n) and is_training_now:
                 val_loader.sampler.set_epoch(epoch)
 
             model = self.ema.ema or self.model if self.ema else self.model
