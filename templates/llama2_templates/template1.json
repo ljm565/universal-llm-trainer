@@ -1,0 +1,12 @@
+{
+    "description": "llama3 template",
+    "prompt_input": [
+        "<s>[INST] <<SYS>>\n{input}\n<</SYS>>\n\n{instruction} [/INST]"
+    ],
+    "prompt_no_input": [
+        "<s>[INST] {instruction} [/INST]"
+    ],
+    "response_split": "[/INST]"
+}
+
+
