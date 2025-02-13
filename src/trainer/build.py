@@ -137,6 +137,10 @@ def get_model(config, device):
             from models import Llama3
             model = Llama3(config, device)
             tokenizer = model.tokenizer
+        elif config.model.lower() == 'llama2':
+            from models import Llama2
+            model = Llama2(config, device)
+            tokenizer = model.tokenizer
         elif config.model.lower() == 'phi3':
             from models import Phi3
             model = Phi3(config, device)
