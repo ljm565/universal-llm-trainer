@@ -24,6 +24,11 @@ class KoGemma(nn.Module):
             **init_model_config(config, self.load16bit)
         )
 
+        if config.gradient_checkpointing:
+            logger(self, 'Gradient checkpointing will be applied')
+            self.model.enable_input_require_grads()
+            self.model.gradient_checkpointing_enable()
+
         # freezing proper layers
         self.freeze_layers(config.training_stage)
 
@@ -78,18 +83,19 @@ class KoGemma(nn.Module):
     
 
     def _init_criterion(self):
-        self.criterion = nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
+        ignore_index = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id != self.tokenizer.eos_token_id else -100
+        self.criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
     
 
-    def forward(self, batch, return_loss=False):
+    def forward(self, batch, return_loss=False, output_hidden_states=False):
         src_tok, enc_mask, label = batch['src'], batch['src_attention_mask'], batch['label']
         output = self.model(
             input_ids=src_tok,
             attention_mask=enc_mask,
+            output_hidden_states=output_hidden_states,
         )
         if return_loss:
-            output = output.logits
-            loss = self.criterion(output[:, :-1, :].reshape(-1, output.size(-1)), label[:, 1:].reshape(-1))
+            loss = self.criterion(output.logits[:, :-1, :].reshape(-1, output.logits.size(-1)), label[:, 1:].reshape(-1))
             return output, loss
         return output
     
@@ -119,6 +125,9 @@ class KoGemma(nn.Module):
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
                 max_time=max_time,
+                do_sample=False,
+                top_p=1,
+                temperature=1,
                 synced_gpus=synced_gpus,
             )
         return self.model.generate(

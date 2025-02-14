@@ -2,7 +2,7 @@ from transformers import AutoTokenizer
 
 
 
-class T3QSolarTokenizer:
+class Llama2Tokenizer:
     def __init__(self, config, path):
         self.tokenizer = AutoTokenizer.from_pretrained(path)
         self.remapping_special_tokens(config)
@@ -38,11 +38,7 @@ class T3QSolarTokenizer:
         Returns:
             (list): tokens.
         """
-        # # solar tokenizer attatches "_" (empty space) token in front of the Korean text
-        tokens = self.tokenizer.encode(s, add_special_tokens=False)
-        # if tokens[0] == 28705:
-        #     return tokens[1:]
-        return tokens
+        return self.tokenizer.encode(s, add_special_tokens=False)
 
 
     def decode(self, tok):
@@ -103,7 +99,7 @@ class T3QSolarTokenizer:
                     setattr(self.tokenizer, k, v)
                 else:
                     raise AttributeError(f'No attribute: {k} in tokenizer. Please check the attribute name.')
-                
+        
         # add special tokens
         add_tokens = {
             'pad_token_id': config.pad_token_id if config.pad_token_id == 'add' else None,

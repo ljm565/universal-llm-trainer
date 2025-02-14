@@ -8,7 +8,7 @@ from torch.cuda import amp
 from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from tools import Evaluator, TrainingLogger
+from tools import Evaluator, TrainingLogger, EarlyStopper
 from trainer.build import get_data_loader, get_model, get_peft_model
 from utils import (
     RANK, LOGGER,
@@ -40,7 +40,7 @@ class TrainerDeepSpeed:
         self.mode = args.mode
         self.is_training_mode = self.mode in ['train', 'resume']
         self.device = torch.device(device)
-        self.is_rank_zero = True if not multi_gpu_train_type or (multi_gpu_train_type and device == 0) else False
+        self.is_rank_zero = True #if not multi_gpu_train_type or (multi_gpu_train_type and device == 0) else False
         self.config = config
         self.world_size = len(self.config.device) if multi_gpu_train_type else 1
         self.steps = self.config.steps
@@ -61,7 +61,7 @@ class TrainerDeepSpeed:
         self.train_verbose = self.config.train_verbose
         self.resume_path = resume_path
         self.deepspeed_config = json_load(args.deepspeed_config)
-        self.config.batch_size = self.deepspeed_config['train_batch_size']
+        # self.config.batch_size = self.deepspeed_config['train_batch_size']
 
         # sanity check
         if 'fp16' in self.deepspeed_config:    
@@ -79,13 +79,14 @@ class TrainerDeepSpeed:
         self.model, self.tokenizer = self._init_model(self.config, self.mode)
         self.evaluator = Evaluator(self.tokenizer)
         self.training_logger = TrainingLogger(self.config, self.is_training_mode)
+        self.stopper, self.stop = EarlyStopper(self.config.early_stop_criterion), False
         self.dataloaders = get_data_loader(self.config, self.tokenizer, self.modes, self.is_ddp)
+        # print(torch.cuda.current_device())
+        # sfsd
         
         # init criterion and deepspeed's optimizer and model engine
         if self.is_training_mode:
             self.scaler = amp.GradScaler(enabled=self.amp) if self.amp else None
-            self.start_epoch = 0
-            self.stop = False
             self.model_engine, self.optimizer, _, _ = deepspeed.initialize(
                 args=args, 
                 model=self.model, 
@@ -117,7 +118,7 @@ class TrainerDeepSpeed:
                     LOGGER.info(f'PEFT is not applied due to training stage.')
             else:
                 # resume before applying peft
-                if mode in ['resume', 'validation']:
+                if do_resume:
                     try:
                         model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
                         resume_success = True
@@ -135,8 +136,10 @@ class TrainerDeepSpeed:
         # init ddp
         if self.is_ddp:
             model = DDP(model, device_ids=[self.device])
-        
-        return model, tokenizer
+        elif self.is_fsdp:
+            model = get_wrapped_model(config, model, self.device)
+
+        return model, tokenizer   
     
 
     def _freeze_model(self):
@@ -158,7 +161,8 @@ class TrainerDeepSpeed:
     def do_train(self) -> None:
         self.train_time_start = time.time()
         self.train_cur_step = -1
-        self.epochs = math.ceil(self.steps / len(self.dataloaders['train']))
+        if not self.is_update_per_epoch:
+            self.epochs = math.ceil(self.steps / len(self.dataloaders['train']))
         
         if self.is_rank_zero:
             LOGGER.info(f'Using {self.dataloaders["train"].num_workers * (self.world_size or 1)} dataloader workers\n'
@@ -193,12 +197,6 @@ class TrainerDeepSpeed:
             gc.collect()
 
             # Early Stopping
-            if self.is_ddp:  # if DDP training
-                broadcast_list = [self.stop if self.is_rank_zero else None]
-                dist.broadcast_object_list(broadcast_list, 0)  # broadcast 'stop' to all ranks
-                if not self.is_rank_zero:
-                    self.stop = broadcast_list[0]
-            
             if self.stop:
                 break  # must break all DDP ranks
             
@@ -242,7 +240,13 @@ class TrainerDeepSpeed:
             self.model_engine.step()
 
             # logging if update criterion is step
-            self.training_logger.update(phase, epoch+1, self.train_cur_step, batch_size, **{'train_loss': loss.item(), 'lr': cur_lr})
+            self.training_logger.update(
+                phase, 
+                epoch+1, 
+                self.train_cur_step, 
+                batch_size, 
+                **{'train_loss': loss.item() * self.config.gradient_accumuate_step, 'lr': cur_lr}
+            )
             if RANK in (-1, 0) and self.is_rank_zero:
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                 loss_log = [loss.item()]
@@ -250,13 +254,18 @@ class TrainerDeepSpeed:
                 pbar.set_description(('%15s' * 2 + '%15.4g' * len(loss_log)) % msg)
                 
             # break if step is over when the update criterion is step
-            if self.train_cur_step == self.steps:
+            if not self.is_update_per_epoch and self.train_cur_step == self.steps:
                 break
 
             # validataion
             if self.train_cur_step != 0 and self.train_cur_step % validation_step_interval == 0 and self.config.validation_step_interval_prop != 1:
                 self.epoch_validate('validation', epoch)
-                self.model_engine.train()
+                
+                # early stop
+                if self.stop:
+                    break
+
+                self.model.train()
                 if self.is_ddp or self.is_fsdp:
                     dist.barrier()
         

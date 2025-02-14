@@ -28,6 +28,7 @@ def apply_peft(model, config, peft_type):
         else:
             pass
         raise AssertionError
+    LOGGER.info(model)
     return model
 
 

@@ -1,7 +1,6 @@
 import gc
 import time
 import math
-import transformers
 
 import torch
 import torch.nn as nn
@@ -15,21 +14,20 @@ from utils import RANK, LOGGER, colorstr, init_seeds, TQDM
 from utils.func_utils import *
 from utils.training_utils import *
 from utils.filesys_utils import yaml_save, make_project_dir
-from trainer.build import get_data_loader, get_model, get_peft_model, get_wrapped_model
+from trainer.build import get_data_loader, get_model, get_peft_model, get_wrapped_model, get_loro_model
 
 
 __version__ = '0.0.1'
 
 
 
-class Trainer:
+class LoRoTrainer:
     def __init__(
             self, 
             config,
             mode: str,
             device,
             multi_gpu_train_type=False,
-            use_huggingface_trainer=False,
             resume_path=None,
         ):
         self.is_ddp, self.is_fsdp = select_training_type(multi_gpu_train_type)
@@ -56,14 +54,9 @@ class Trainer:
         else:
             config.is_training_mode = False
             config.data_verbose = False
-            if self.config.fast_validation_n == 'None': 
-                self.config.fast_validation_n = None
-            if self.config.fast_validation_step_interval == 'None': 
-                self.config.fast_validation_step_interval = None
         self.config.is_rank_zero = self.is_rank_zero
-        self.loss_names = ['cross_entropy']
+        self.loss_names = ['loro loss', 'logits_loss', 'router_loss', 'orig_logit_loss']
         self.train_verbose = self.config.train_verbose
-        self.use_huggingface_trainer = use_huggingface_trainer
         self.resume_path = resume_path
 
         # sanity check
@@ -84,14 +77,11 @@ class Trainer:
         self.training_logger = TrainingLogger(self.config, self.is_training_mode)
         self.stopper, self.stop = EarlyStopper(self.config.early_stop_criterion), False
         self.dataloaders = get_data_loader(self.config, self.tokenizer, self.modes, self.is_ddp or self.is_fsdp)
-        if self.use_huggingface_trainer:
-            self.do_train = self.huggingface_trainer
-            return 
         
         # init optimizer, scheduler
         if self.is_training_mode:
             self.lr0 = self.config.lr0
-            self.scaler = torch.GradScaler(device=self.device.type, enabled=self.amp) if self.amp else None
+            self.scaler = amp.GradScaler(enabled=self.amp) if self.amp else None
             self.ema = ModelEMA(self.model_module) if self.ema else None
             self.start_epoch = 0
             self.optimizer = optim.AdamW(self.model.parameters(), lr=self.lr0, betas=(self.config.momentum, 0.999), weight_decay=self.config.weight_decay)
@@ -108,45 +98,52 @@ class Trainer:
 
 
     def _init_model(self, config, mode):
-        def _resume_model(resume_path, device, is_rank_zero):
+        def _resume_model(model, resume_path, device, is_rank_zero, is_base_model=True):
             checkpoints = torch.load(resume_path, map_location=device)
             model.load_state_dict(checkpoints['model'])
             del checkpoints
             torch.cuda.empty_cache()
             gc.collect()
             if is_rank_zero:
-                LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
+                if is_base_model:
+                    LOGGER.info(f'Resumed base model: {colorstr(resume_path)}')
+                else:
+                    LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
             return model
 
-        # init model, loss function, and tokenizer
-        resume_success = False
-        do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path)
+        # Init base model, loss function, and tokenizer
+        base_model_resume_success = False
+        do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path['model'] is not None)
         model, tokenizer = get_model(config, self.device)
         model._init_criterion()
 
-        # init peft
+        # Init peft
         if config.peft_config_path:
             if config.training_stage != 0:
                 if config.is_rank_zero:
                     LOGGER.info(f'PEFT is not applied due to training stage.')
             else:
-                # resume before applying peft
-                if do_resume:
-                    try:
-                        model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
-                        resume_success = True
-                    except:
-                        pass
+                # Resume the base model before applying peft
+                try:
+                    model = _resume_model(model, self.resume_path['base_model'], self.device, config.is_rank_zero)
+                    base_model_resume_success = True
+                except:
+                    pass
                 model = get_peft_model(model, config)
         else:
             if config.is_rank_zero:
                 LOGGER.info(f'PEFT is not applied.')
 
-        # resume model or resume model after applying peft
-        if do_resume and not resume_success:
-            model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
+        # Reesume base model or resume base model after applying peft
+        if not base_model_resume_success:
+            model = _resume_model(model, self.resume_path['base_model'], self.device, config.is_rank_zero)
 
-        # init ddp
+        # Apply and resume LoRo model
+        model = get_loro_model(model, config, self.device)
+        if do_resume:
+            model = _resume_model(model, self.resume_path['model'], self.device, self.is_rank_zero, is_base_model=False)
+
+        # Init ddp
         if self.is_ddp:
             model = DDP(model, device_ids=[self.device])
         elif self.is_fsdp:
@@ -254,7 +251,7 @@ class Trainer:
 
         # init progress bar
         if RANK in (-1, 0):
-            pbar = init_train_progress_bar(train_loader, self.is_rank_zero, self.loss_names, nb)
+            pbar = init_train_progress_bar(train_loader, self.is_rank_zero, self.loss_names, nb, interval='%20s')
     
         # training loop
         self.optimizer.zero_grad()
@@ -266,14 +263,16 @@ class Trainer:
                 self.optimizer.param_groups[0]['lr'] = lr_warmup(warmup_step_or_epoch, self.warmup_steps_n, self.lr0, self.lf)
             cur_lr = self.optimizer.param_groups[0]['lr']
             
-            with torch.autocast(
-                device_type=self.device.type,
-                enabled=self.amp
-            ):
+            with torch.cuda.amp.autocast(self.amp):
                 batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                 batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
-                _, loss = self.model(batch, return_loss=True)
-                loss = loss / self.config.gradient_accumuate_step
+                _, _, losses = self.model(
+                    batch=batch,
+                    router_attention_mask=batch['router_attention_mask'],
+                    pooling=self.config.pooling,
+                    return_loss=True
+                )
+                loss = losses['loss'] / self.config.gradient_accumuate_step
             
             # backward and optimizer step
             self.scaler.scale(loss).backward() if self.amp else loss.backward()
@@ -291,9 +290,9 @@ class Trainer:
             )
             if RANK in (-1, 0) and self.is_rank_zero:
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-                loss_log = [loss.item() * self.config.gradient_accumuate_step]
+                loss_log = [loss.item() * self.config.gradient_accumuate_step, losses['logits_loss'].item(), losses['router_loss'].item(), losses['orig_loss'].item()]
                 msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log)
-                pbar.set_description(('%15s' * 2 + '%15.4g' * len(loss_log)) % msg)
+                pbar.set_description(('%20s' * 2 + '%20.4g' * len(loss_log)) % msg)
                 
             # break if step is over when the update criterion is step
             if not self.is_update_per_epoch and self.train_cur_step == self.steps:
@@ -327,7 +326,7 @@ class Trainer:
         ):
         def _init_headline():
             header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics)
-            LOGGER.info(('\n' + '%15s' * (2 + len(self.loss_names) + len(self.metrics))) % header)
+            LOGGER.info(('\n' + '%20s' * (2 + len(self.loss_names) + len(self.metrics))) % header)
 
         def _get_val_pbar(dloader, nb, is_rank_zero):
             if is_rank_zero:
@@ -340,7 +339,7 @@ class Trainer:
             nb = len(val_loader)
             pbar = _get_val_pbar(val_loader, nb, self.is_rank_zero)
 
-            if (self.is_ddp or self.is_fsdp) and (self.config.fast_validation_step_interval or self.config.fast_validation_n) and is_training_now:
+            if (self.config.fast_validation_step_interval or self.config.fast_validation_n) and is_training_now:
                 val_loader.sampler.set_epoch(epoch)
 
             model = self.ema.ema or self.model if self.ema else self.model
@@ -351,13 +350,15 @@ class Trainer:
                 if self.config.fast_validation_step_interval and i % self.config.fast_validation_step_interval != 0:
                     continue                    
                 
-                with torch.autocast(
-                    device_type=self.device.type,
-                    enabled=self.amp or self.config.half_inference
-                ):
+                with torch.cuda.amp.autocast(self.amp or self.config.half_inference):
                     batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                     batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
-                    _, loss = self.model(batch, return_loss=True)
+                    _, _, losses = self.model(
+                        batch=batch,
+                        router_attention_mask=batch['router_attention_mask'],
+                        pooling=self.config.pooling,
+                        return_loss=True
+                    )
 
                     # Preparing for model evaluation
                     inference_batch_size = min(batch_size, self.config.fast_validation_n) if self.config.fast_validation_n else batch_size
@@ -369,28 +370,29 @@ class Trainer:
                         num_return_sequences=1,
                         greedy=True,
                         max_time=self.config.generation_max_time,
-                        synced_gpus=True if self.is_fsdp else None,
+                        synced_gpus=self.is_fsdp,
+                        pooling=self.config.pooling,
                     ) if response_gt else None
 
                 # Evaluation
-                metric_results = self.metric_evaluation(loss, response_pred, response_gt)
+                metric_results = self.metric_evaluation(losses['logits_loss'], response_pred, response_gt)
                 self.training_logger.update(
                     phase, 
                     epoch, 
                     self.train_cur_step if is_training_now else 0, 
                     inference_batch_size, 
-                    **{'validation_loss': loss.item()}, 
+                    **{'validation_loss': losses['loss'].item()}, 
                     **metric_results
                 )
 
                 # Logging
                 if self.is_rank_zero:
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-                    loss_log = [loss.item()]
+                    loss_log = [losses['loss'].item(), losses['logits_loss'].item(), losses['router_loss'].item(), losses['orig_loss'].item()]
                     msg = tuple([f'{epoch+1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
                     if self.config.inference_result_verbose and response_gt != None:
                         _init_headline()
-                    pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
+                    pbar.set_description(('%20s' * 2 + '%20.4g' * (len(loss_log) + len(self.metrics))) % msg)
 
                     if self.config.inference_result_verbose and response_gt != None:
                         for u, p, g in zip(user_prompt, response_pred, response_gt):
@@ -477,36 +479,3 @@ class Trainer:
         
         return metric_results
     
-
-    def huggingface_trainer(self):
-        import pandas as pd
-        from datasets import Dataset, DatasetDict
-        from data_collection import huggingface_arc_generator
-        from transformers import DataCollatorForLanguageModeling, TrainingArguments
-        
-        datasets = DatasetDict({k: Dataset.from_pandas(pd.DataFrame(data=v.dataset.data)) for k, v in self.dataloaders.items()})
-        templates = self.dataloaders['train'].dataset.templates
-        responses = self.dataloaders['train'].dataset.responses
-        instructions = self.dataloaders['train'].dataset.instructions
-
-        fn_kwargs={"templates": templates, "responses": responses, "instructions":instructions, "tokenizer": self.tokenizer.tokenizer}
-        datasets = {k: v.shuffle().map(huggingface_arc_generator, batched=False, fn_kwargs=fn_kwargs) if k == 'train' else v.map(huggingface_arc_generator, batched=False, fn_kwargs=fn_kwargs) for k, v in datasets.items()}
-        
-        trainer = transformers.Trainer(
-            model=self.model_module.model,
-            train_dataset=datasets['train'],
-            eval_dataset=datasets['validation'] if 'validation' in datasets else None,
-            args=TrainingArguments(
-                per_device_train_batch_size=self.config.batch_size,
-                gradient_accumulation_steps=1,
-                warmup_steps=self.config.warmup_steps,
-                max_steps=self.steps,
-                learning_rate=self.config.lr0,
-                fp16=self.amp,
-                logging_steps=1,
-                output_dir='outputs'
-            ),
-            data_collator=DataCollatorForLanguageModeling(self.tokenizer.tokenizer, mlm=False)
-        )
-
-        trainer.train()

@@ -1,0 +1,5 @@
+type: lora
+r: 256
+dropout: 0.05
+router_size: 2
+pooling: avg

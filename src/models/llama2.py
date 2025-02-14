@@ -2,15 +2,15 @@ import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM
 
-from tools.tokenizers import GemmaTokenizer
+from tools.tokenizers import Llama2Tokenizer
 from utils import print_mem_consumption, logger
 from utils.training_utils import init_model_config, choose_proper_model
 
 
 
-class Gemma(nn.Module):
+class Llama2(nn.Module):
     def __init__(self, config, device):
-        super(Gemma, self).__init__()
+        super(Llama2, self).__init__()
         self.model_path = choose_proper_model(config)
         self.device = device
         self.load_unnecessary_half = config.load_unnecessary_half
@@ -18,7 +18,7 @@ class Gemma(nn.Module):
         self.set_bit(config.bit, config.training_stage)
 
         self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_path,
+            self.model_path, 
             device_map=self.device,
             low_cpu_mem_usage=True,
             **init_model_config(config, self.load16bit)
@@ -36,13 +36,13 @@ class Gemma(nn.Module):
         if self.load16bit:
             self.mapping_neccessary_32bit()
 
-        self.tokenizer = GemmaTokenizer(config, self.model_path)
+        self.tokenizer = Llama2Tokenizer(config, self.model_path)
         if hasattr(self.tokenizer, 'resized'):
             self.model.resize_token_embeddings(len(self.tokenizer))
             logger(self, 'Model word embedding is resized to match the tokenizer')
 
         print_mem_consumption(self, self.model_path)
-        
+    
 
     def set_bit(self, bit, training_stage):
         assert bit in [4, 8, 16, 32]
@@ -121,7 +121,7 @@ class Gemma(nn.Module):
                 input_ids=src_tok,
                 attention_mask=attention_mask,
                 max_length=max_length,
-                use_cache=False if synced_gpus else True,
+                use_cache=True,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
                 max_time=max_time,
@@ -154,7 +154,7 @@ class Gemma(nn.Module):
             logger(self, 'Freezing all layers except for word embeddings')
 
             for name, param in self.model.named_parameters():
-                if 'embed_tokens' in name:
+                if 'embed' in name:
                     param.data = param.data.to(torch.float32)
                     param.requires_grad = True
                 else:
@@ -164,36 +164,29 @@ class Gemma(nn.Module):
             logger(self, 'Freezing all layers except for the lm_head')
 
             for name, param in self.model.named_parameters():
-                param.requires_grad = False
-
-            for param in self.model.lm_head.parameters():
-                param.data = param.data.to(torch.float32)
-                param.requires_grad = True
-
+                if 'lm_head' in name:
+                    param.data = param.data.to(torch.float32)
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
         
         elif stage == 3:
             logger(self, 'Freezing all layers except for word embeddings and lm_head')
 
             for name, param in self.model.named_parameters():
-                if 'embed_tokens' in name:
+                if 'embed' in name or 'lm_head' in name:
                     param.data = param.data.to(torch.float32)
                     param.requires_grad = True
                 else:
                     param.requires_grad = False
-            
-            for param in self.model.lm_head.parameters():
-                param.data = param.data.to(torch.float32)
-                param.requires_grad = True
         
         elif stage == 4:
             logger(self, 'Unfreezing all layers except for word embeddings and lm_head')
-            
+
             for name, param in self.model.named_parameters():
-                if 'embed_tokens' in name:
+                if 'embed' in name or 'lm_head' in name:
                     param.requires_grad = False
                 else:
                     param.data = param.data.to(torch.float32)
                     param.requires_grad = True
-            
-            for param in self.model.lm_head.parameters():
-                param.requires_grad = False
+

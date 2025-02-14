@@ -22,13 +22,13 @@
 #### 2.2 Command
 ```bash
 # execute LLM
-python3 demo/server.py --model_dir {$project}/{$name} --template_path {$TEMPLATE_JSON_PATH}
+python3 demo/server.py --model_dir ${project}/${name} --template_path ${TEMPLATE_JSON_PATH}
 
 # execute LLM with greedy generation
-python3 demo/server.py --model_dir {$project}/{$name} --template_path {$TEMPLATE_JSON_PATH} --is_greedy
+python3 demo/server.py --model_dir ${project}/${name} --template_path ${TEMPLATE_JSON_PATH} --is_greedy
 
 # execute just pre-training LLM (not your customed LLM)
-python3 demo/server.py --config config/{$CONFIT_YAML}
+python3 demo/server.py --config config/${CONFIT_YAML}
 ```
 <br><br>
 
@@ -41,6 +41,6 @@ cd demo/front
 #### 2.2. Execute the demo page
 ```bash
 # if PORT is 8888, you can see the demo page at "localhost:8888" 
-python3 -m http.server {$PORT}
+python3 -m http.server ${PORT}
 ```
 <br>

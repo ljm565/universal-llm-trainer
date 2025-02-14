@@ -11,7 +11,7 @@ from utils.filesys_utils import txt_load, json_load
 
 
 
-class QADataset(Dataset):
+class LoroDataset(Dataset):
     def __init__(self,
                  mode,
                  config,
@@ -20,8 +20,9 @@ class QADataset(Dataset):
                  template_dir=None,
                  name=None):
         # init
-        name = 'QA' if not name else name
-        self.data = data
+        name = 'LoRo' if not name else name
+        self.mode = mode
+        self.chosen_data, self.rejection_data = self.split_chosen_and_rejection(data)
         self.tokenizer = tokenizer
         self.pad_token_id = self.tokenizer.pad_token_id
         self.ignore_index = self.pad_token_id if self.pad_token_id != self.tokenizer.eos_token_id else -100
@@ -35,10 +36,16 @@ class QADataset(Dataset):
 
         # params
         self.max_length = config.max_length
+        self.is_training_mode = config.is_training_mode
         self.add_bos = config.add_bos_token_when_response_start
         self.add_eos = config.add_eos_token_when_response_end
         self.verbose = config.data_verbose
-        self.length = len(self.data)
+        if self.is_training_mode:
+            self.length = len(self.chosen_data * 2)
+            self.all_data = self.chosen_data + self.rejection_data
+        else:
+            self.length = len(self.rejection_data) if config.test_rejection_data else len(self.chosen_data)
+            self.all_data = self.rejection_data if config.test_rejection_data else self.chosen_data
 
         # calculate statistics
         if config.is_rank_zero and self.verbose:
@@ -46,7 +53,7 @@ class QADataset(Dataset):
             os.makedirs(save_dir, exist_ok=True)
 
             LOGGER.info(f'Calculating statistics of {name} data...')
-            src_l, src_max, src_min, src_avg = self.get_token_len_statistics(self.data)
+            src_l, src_max, src_min, src_avg = self.get_token_len_statistics(data)
             msg = f'{name} dataset: max={src_max}, min={src_min}, avg={src_avg}'
             LOGGER.info(msg)
             
@@ -57,9 +64,20 @@ class QADataset(Dataset):
             plt.xlabel('Length of samples')
             plt.ylabel('Number of samples')
             plt.tight_layout()
-            plt.savefig(os.path.join(save_dir, f'{name}_{mode}_data_hist.png'))
+            plt.savefig(os.path.join(save_dir, f'{name}_{self.mode}_data_hist.png'))
 
     
+    def split_chosen_and_rejection(self, data):
+        chosen_data, rejection_data = [], []
+        for d in data:
+            if d['is_chosen'] == 0:
+                rejection_data.append(d)
+            else:
+                chosen_data.append(d)
+        LOGGER.info(colorstr(f'{self.mode} dataset: Chosen data: {len(chosen_data)}, Rejection data: {len(rejection_data)}'))
+        return chosen_data, rejection_data
+    
+
     def get_token_len_statistics(self, data):
         """
         Args:
@@ -69,15 +87,22 @@ class QADataset(Dataset):
         interv = len(data) // max_n if len(data) > max_n else 1
         if interv > 1:
             LOGGER.warning(f"Length of {colorstr('yellow', len(data))} is too long. Approximately {colorstr('yellow', len(data) // interv)} samples will be used to calculate statistics.")
-        length = [len(self.generate_prompt(i)[0]) for i in tqdm(range(0, len(data), interv))]
+        length = [len(self.generate_prompt(i, cal_stats=True)[0]) for i in tqdm(range(0, len(data), interv))]
         max_length = max(length)
         min_length = min(length)
         avg_length = sum(length) / len(length)
         return length, max_length, min_length, avg_length
 
 
-    def generate_prompt_single_turn(self, idx):
-        single_data = self.data[idx]
+    def generate_prompt_single_turn(self, idx, cal_stats=False):
+        if cal_stats:
+            single_data = self.all_data[idx]
+        else:
+            if self.is_training_mode:
+                single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
+            else:
+                single_data = self.all_data[idx]
+
         template = random.choice(self.templates)
         response = single_data['output'][0]
         if len(single_data['input']) == 0:
@@ -93,25 +118,33 @@ class QADataset(Dataset):
         response_tokens = self.tokenizer.encode(response)
         full_prompt_tokens = user_prompt_tokens + response_tokens
         label = [self.ignore_index] * len(user_prompt_tokens) + response_tokens
+        router_attention_mask = [1] * len(user_prompt_tokens) + [0] * len(response_tokens)
 
         # sanity check
-        assert len(full_prompt_tokens) == len(label), \
-            f'Length of full_prompt_tokens, label are not same: {len(full_prompt_tokens)}, {len(label)}'
+        assert len(full_prompt_tokens) == len(label) == len(router_attention_mask), \
+            f'Length of full_prompt_tokens, router_attention_mask, label are not same: {len(full_prompt_tokens)}, {len(router_attention_mask)}, {len(label)}'
         
         for f, l in zip(full_prompt_tokens, label):
             assert f == l or l == self.ignore_index, f'Full prompt and label are not same: {f}, {l}'
         
-        return full_prompt_tokens, label, user_prompt, response
+        return full_prompt_tokens, label, user_prompt, response, router_attention_mask, single_data['is_chosen']
     
 
-    def generate_prompt_multi_turn(self, idx):
-        single_data = self.data[idx]
+    def generate_prompt_multi_turn(self, idx, cal_stats=False):
+        if cal_stats:
+            single_data = self.all_data[idx]
+        else:
+            if self.is_training_mode:
+                single_data = self.chosen_data[idx//2] if idx % 2 == 0 else random.choice(self.rejection_data)
+            else:
+                single_data = self.all_data[idx]
+            
         template = random.choice(self.templates)
         if len(single_data['instruction']) < 2:
             return self.generate_prompt_single_turn(idx)
         
         # multi-turn sanity check
-        full_prompt, full_prompt_tokens, label = '', [], []
+        full_prompt, full_prompt_tokens, label, router_attention_mask = '', [], [], []
         responses = single_data['output']
         instructions = single_data['instruction']
         assert len(responses) == len(instructions), f'Length of instruction and response are not same: {len(instructions)}, {len(responses)}'
@@ -143,6 +176,7 @@ class QADataset(Dataset):
                     full_prompt += user_prompt + response
                     full_prompt_tokens += user_prompt_tokens + response_tokens
                     label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+                    router_attention_mask += [1] * len(user_prompt_tokens) + [0] * len(response_tokens)
 
                 else:
                     user_prompt_tokens = self.tokenizer.encode(user_prompt)
@@ -159,6 +193,8 @@ class QADataset(Dataset):
                     full_prompt += user_prompt + response
                     full_prompt_tokens += user_prompt_tokens + final_response_tokens
                     label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l
+                    router_attention_mask += [1] * len(user_prompt_tokens) + [0] * (len(response_tokens) + new_line_token_l)
+        
         else:
             template = random.choice(template['prompt_input'])
             for i, (instruction, response) in enumerate(zip(instructions, responses)):
@@ -182,6 +218,7 @@ class QADataset(Dataset):
                     full_prompt += user_prompt + response
                     full_prompt_tokens += user_prompt_tokens + response_tokens
                     label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+                    router_attention_mask += [1] * len(user_prompt_tokens) + [0] * len(response_tokens)
                 
                 else:
                     user_prompt_tokens = self.tokenizer.encode(user_prompt)
@@ -198,15 +235,16 @@ class QADataset(Dataset):
                     full_prompt += user_prompt + response
                     full_prompt_tokens += user_prompt_tokens + final_response_tokens
                     label += [self.ignore_index] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l
+                    router_attention_mask += [1] * len(user_prompt_tokens) + [0] * (len(response_tokens) + new_line_token_l)
                         
         # sanity check
-        assert len(full_prompt_tokens) == len(label), \
-            f'Length of full_prompt_tokens, label are not same: {len(full_prompt_tokens)}, {len(label)}'
+        assert len(full_prompt_tokens) == len(label) == len(router_attention_mask), \
+            f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(router_attention_mask)}, {len(label)}'
         
         for f, l in zip(full_prompt_tokens, label):
             assert f == l or l == self.ignore_index, f'Full prompt and label are not same: {f}, {l}'
         
-        return full_prompt_tokens, label, final_user_prompt, response
+        return full_prompt_tokens, label, final_user_prompt, response, router_attention_mask, single_data['is_chosen']
         
 
     def _pad(self, data, max_length, pad_token_id, bos_token_id=None, eos_token_id=None, return_data_len=False, bos_masking=False):
@@ -233,7 +271,7 @@ class QADataset(Dataset):
     
 
     def __getitem__(self, idx):
-        full_prompt_token, label, user_prompt, response = self.generate_prompt(idx)
+        full_prompt_token, label, user_prompt, response, router_attention_mask, router_label = self.generate_prompt(idx)
         
         # padding
         full_prompt_token, data_len = self._pad(
@@ -253,18 +291,26 @@ class QADataset(Dataset):
             bos_masking=True
         )
         attention_mask = self._pad(self.get_mask(data_len), self.max_length, 0)
+        router_attention_mask = self._pad(
+            data=router_attention_mask,
+            max_length=self.max_length,
+            pad_token_id=0,
+            bos_token_id=1 if self.add_bos and self.tokenizer.bos_token_id else None,
+            eos_token_id=0 if self.add_eos and self.tokenizer.eos_token_id else None,
+        )
 
         if self.add_bos:
             user_prompt = self.tokenizer.bos_token + user_prompt
         if self.add_eos:
             response = response + self.tokenizer.eos_token
         
-        assert len(full_prompt_token) == len(attention_mask) == len(label) == self.max_length, \
-            f'Length of template, attention_mask, label are not same: {len(full_prompt_token)}, {len(attention_mask)}, {len(label)}'
+        assert len(full_prompt_token) == len(attention_mask) == len(label) == len(router_attention_mask) == self.max_length, \
+            f'Length of template, attention_mask, label, router_attention_mask are not same: {len(full_prompt_token)}, {len(attention_mask)}, {len(router_attention_mask)}, {len(label)}'
 
         return {'src': torch.tensor(full_prompt_token, dtype=torch.long), 'src_attention_mask': torch.tensor(attention_mask, dtype=torch.long),
                 'label': torch.tensor(label, dtype=torch.long),
-                'user_prompt': user_prompt, 'response': response}
+                'user_prompt': user_prompt, 'response': response,
+                'router_attention_mask': torch.tensor(router_attention_mask, dtype=torch.long), 'router_label': torch.tensor(router_label, dtype=torch.long)}
     
 
     def __len__(self):

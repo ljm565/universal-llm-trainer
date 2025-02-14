@@ -44,31 +44,13 @@ def choose_proper_model(config):
         if isinstance(config.model_size, str) and config.model_size.lower().endswith('b') \
             else config.model_size
 
-    if config.model.lower() == 'bagel':
-        model_list = [
-            'jondurbin/nontoxic-bagel-34b-v0.2',
-            'jondurbin/bagel-dpo-7b-v0.4'
-        ]
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
-                            for text in model_list]
-        idx = size_diff.index(min(size_diff))
-    
-    elif config.model.lower() == 'kopolyglot':
+    if config.model.lower() == 'kopolyglot':
         model_list = [
             'beomi/KoAlpaca-Polyglot-5.8B',
         ]
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
-    
-    elif config.model.lower() == 't3q_solar':
-        model_list = [
-            'chihoonlee10/T3Q-ko-solar-dpo-v3.0-10.7B',
-        ]
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
-                            for text in model_list]
-        idx = size_diff.index(min(size_diff))
-        model_list[idx] = '-'.join(model_list[idx].split('-')[:-1])
     
     elif config.model.lower() in ['llama3', 'llama3.1']:
         model_list_3 = [
@@ -81,6 +63,14 @@ def choose_proper_model(config):
             model_list = model_list_3 
         elif config.model.lower() == 'llama3.1':
             model_list = model_list_3_1
+        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
+                            for text in model_list]
+        idx = size_diff.index(min(size_diff))
+    
+    elif config.model.lower() == 'llama2':
+        model_list = [
+            'meta-llama/Llama-2-13b-hf',
+        ]
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
@@ -167,11 +157,11 @@ def lr_warmup(cur_step, warmup_steps_n, lr0, func):
     return new_lr
 
 
-def init_train_progress_bar(dloader, is_rank_zero, loss_names, nb):
+def init_train_progress_bar(dloader, is_rank_zero, loss_names, nb, interval='%15s'):
     if is_rank_zero:
         header = tuple(['Epoch', 'GPU_mem'] + \
                 loss_names)
-        LOGGER.info(('\n' + '%15s' * (2 + len(loss_names))) % header)
+        LOGGER.info(('\n' + interval * (2 + len(loss_names))) % header)
         pbar = TQDM(enumerate(dloader), total=nb)
     else:
         pbar = enumerate(dloader)
