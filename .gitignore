@@ -16,3 +16,5 @@ outputs/
 junk/
 logs/
 *.csv
+
+# json*/
