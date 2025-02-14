@@ -8,10 +8,7 @@ class KoGemmaTokenizer:
         self.remapping_special_tokens(config)
         
         # special tokens
-        if isinstance(config.pad_token_id, int) and config.pad_token_id < 0:
-            self.pad_token, self.pad_token_id = None, -1
-        else:
-            self.pad_token, self.pad_token_id = self.tokenizer.pad_token, self.tokenizer.pad_token_id
+        self.pad_token, self.pad_token_id = self.tokenizer.pad_token, self.tokenizer.pad_token_id
         self.bos_token, self.bos_token_id = self.tokenizer.bos_token, self.tokenizer.bos_token_id
         self.eos_token, self.eos_token_id = self.tokenizer.eos_token, self.tokenizer.eos_token_id
         self.unk_token, self.unk_token_id = self.tokenizer.unk_token, self.tokenizer.unk_token_id
@@ -97,7 +94,7 @@ class KoGemmaTokenizer:
     
         # remapping special tokens, not add tokens
         for k, v in new_map.items():
-            if v is not None and v >= 0:
+            if v is not None:
                 if hasattr(self.tokenizer, k):
                     setattr(self.tokenizer, k, v)
                 else:
