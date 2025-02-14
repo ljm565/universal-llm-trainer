@@ -31,8 +31,10 @@ class LogitWrapper(nn.Module):
         self.device = self.base_model.device
         self.router_train = config.router_train
         self.tokenizer = self.base_model.tokenizer
-        self.criterion = LoroLoss(self.tokenizer.pad_token_id, self.router_train)
-    
+        self.criterion = LoroLoss(
+            self.tokenizer.pad_token_id if self.tokenizer.pad_token_id != self.tokenizer.eos_token_id else -100,
+            self.router_train
+        )
     
     def _freeze_base_model(self):
         for param in self.base_model.parameters():

@@ -25,6 +25,7 @@ class LoroDataset(Dataset):
         self.chosen_data, self.rejection_data = self.split_chosen_and_rejection(data)
         self.tokenizer = tokenizer
         self.pad_token_id = self.tokenizer.pad_token_id
+        self.ignore_index = self.pad_token_id if self.pad_token_id != self.tokenizer.eos_token_id else -100
         self.generate_prompt = self.generate_prompt_multi_turn if config.is_multi_turn else self.generate_prompt_single_turn
         
         # read data and template
@@ -116,7 +117,7 @@ class LoroDataset(Dataset):
         user_prompt_tokens = self.tokenizer.encode(user_prompt)
         response_tokens = self.tokenizer.encode(response)
         full_prompt_tokens = user_prompt_tokens + response_tokens
-        label = [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
+        label = [self.ignore_index] * len(user_prompt_tokens) + response_tokens
         router_attention_mask = [1] * len(user_prompt_tokens) + [0] * len(response_tokens)
 
         # sanity check
@@ -124,7 +125,7 @@ class LoroDataset(Dataset):
             f'Length of full_prompt_tokens, router_attention_mask, label are not same: {len(full_prompt_tokens)}, {len(router_attention_mask)}, {len(label)}'
         
         for f, l in zip(full_prompt_tokens, label):
-            assert f == l or l == self.pad_token_id, f'Full prompt and label are not same: {f}, {l}'
+            assert f == l or l == self.ignore_index, f'Full prompt and label are not same: {f}, {l}'
         
         return full_prompt_tokens, label, user_prompt, response, router_attention_mask, single_data['is_chosen']
     
@@ -233,7 +234,7 @@ class LoroDataset(Dataset):
 
                     full_prompt += user_prompt + response
                     full_prompt_tokens += user_prompt_tokens + final_response_tokens
-                    label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l
+                    label += [self.ignore_index] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l
                     router_attention_mask += [1] * len(user_prompt_tokens) + [0] * (len(response_tokens) + new_line_token_l)
                         
         # sanity check
@@ -241,7 +242,7 @@ class LoroDataset(Dataset):
             f'Length of full_prompt_tokens, attention_mask, label are not same: {len(full_prompt_tokens)}, {len(router_attention_mask)}, {len(label)}'
         
         for f, l in zip(full_prompt_tokens, label):
-            assert f == l or l == self.pad_token_id, f'Full prompt and label are not same: {f}, {l}'
+            assert f == l or l == self.ignore_index, f'Full prompt and label are not same: {f}, {l}'
         
         return full_prompt_tokens, label, final_user_prompt, response, router_attention_mask, single_data['is_chosen']
         
@@ -284,7 +285,7 @@ class LoroDataset(Dataset):
         label = self._pad(
             data=label,
             max_length=self.max_length,
-            pad_token_id=self.pad_token_id,
+            pad_token_id=self.ignore_index,
             bos_token_id=self.tokenizer.bos_token_id if self.add_bos and self.tokenizer.bos_token_id else None,
             eos_token_id=self.tokenizer.eos_token_id if self.add_eos and self.tokenizer.eos_token_id else None,
             bos_masking=True

@@ -83,7 +83,8 @@ class Gemma(nn.Module):
     
 
     def _init_criterion(self):
-        self.criterion = nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
+        ignore_index = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id != self.tokenizer.eos_token_id else -100
+        self.criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
     
 
     def forward(self, batch, return_loss=False, output_hidden_states=False):
