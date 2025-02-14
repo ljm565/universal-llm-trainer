@@ -71,7 +71,7 @@ def choose_proper_model(config):
         model_list = [
             'meta-llama/Llama-2-13b-hf',
         ]
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
+        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
     
