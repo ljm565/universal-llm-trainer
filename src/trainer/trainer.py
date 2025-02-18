@@ -136,6 +136,7 @@ class Trainer:
                         model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
                         resume_success = True
                     except:
+                        LOGGER.info(colorstr('yellow', 'Resume wiil be applied after PEFT applied..'))
                         pass
                 model = get_peft_model(model, config)
         else:
