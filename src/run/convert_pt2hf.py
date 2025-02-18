@@ -9,7 +9,7 @@ import torch
 from utils import LOGGER, colorstr
 from utils.func_utils import replace_none_value
 from utils.training_utils import choose_proper_resume_model
-from trainer.build import get_model
+from trainer.build import get_model, get_peft_model
 
 
 def env_setup():
@@ -47,6 +47,8 @@ def resume_model(args, config):
     # Load model checkpoint
     checkpoints = torch.load(resume_path, map_location=device)
     model, tokenizer = get_model(config, device)
+    if config.peft_config_path:
+        model = get_peft_model(model, config)
     model.load_state_dict(checkpoints['model'])
     LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
 
