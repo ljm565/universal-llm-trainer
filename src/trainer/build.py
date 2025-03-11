@@ -11,7 +11,6 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (
     ShardingStrategy,
 )
 
-from data_collection import NMTDataset
 from utils import RANK, LOGGER, colorstr
 from utils.data_utils import seed_worker, choose_proper_dataset
 from utils.peft_utils import init_lora_config, apply_peft, print_trainable_parameters
@@ -19,13 +18,6 @@ from utils.filesys_utils import pickle_load
 from utils.training_utils import get_wrap_policy, custom_wrap_policy
 
 PIN_MEMORY = str(os.getenv('PIN_MEMORY', True)).lower() == 'true'  # Global pin_memory for dataloaders
-
-
-
-def build_nmt_dataset(config, path, tokenizer):
-    return NMTDataset(config=config,
-                      path=path,
-                      tokenizer=tokenizer)
 
 
 

@@ -14,15 +14,6 @@
             "justMyCode": true
         },
         {
-            "name": "dataset_translate.py",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/run/dataset_translate.py",
-            "args": ["--dataset_folder_path", "data/truthful_qa", "--save_path", "data", "--src", "en", "--trg", "ko", "--nmt", "google", "--verbose"],
-            "console": "integratedTerminal",
-            "justMyCode": true
-        },
-        {
             "name": "llm train",
             "type": "debugpy",
             "request": "launch",
