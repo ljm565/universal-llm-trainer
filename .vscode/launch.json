@@ -23,7 +23,7 @@
             "justMyCode": true
         },
         {
-            "name": "nmt & llm train",
+            "name": "llm train",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/train.py",
@@ -32,7 +32,7 @@
             "justMyCode": false
         },
         {
-            "name": "nmt & llm train huggingface",
+            "name": "llm train huggingface",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/train.py",
