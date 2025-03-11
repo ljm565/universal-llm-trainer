@@ -178,29 +178,6 @@ def get_peft_model(model, config):
     return model
 
 
-def get_loro_model(base_model, config, device):
-    from logit_adapter import LogitWrapper
-    loro_config = Config(config.loro_config_path)
-    loro_config.vocab_size = len(base_model.tokenizer)
-    loro_config.router_train = config.router_train
-    loro_type = loro_config.type
-    config.pooling = loro_config.pooling
-
-    if loro_type == 'lora':
-        from logit_adapter import LoraRouter
-        router = LoraRouter
-        model = LogitWrapper(loro_config, base_model, router)
-    else:
-        raise NotImplementedError
-    
-    # Logging
-    if config.is_rank_zero:
-        print_trainable_parameters(model)
-        LOGGER.info(f'Applied {colorstr(loro_type)} type of LoRo to the model.')
-    
-    return model.to(device)
-
-
 
 def get_wrapped_model(config, model, device):
     # Neither quantized nor PEFT case
