@@ -94,61 +94,43 @@ def build_dataloader(dataset, batch, workers, shuffle=True, is_ddp=False):
 
 
 def get_data_loader(config, tokenizer, mode, is_ddp=False):
-    if config.train_type == 'nmt':
-        paths = {m: os.path.join(config.data_path, m + '.csv') for m in mode}
-        datasets = {m: build_nmt_dataset(config,
-                                         paths[m], 
-                                         tokenizer) for m in mode}
-        dataloaders = {m: build_dataloader(datasets[m], 
-                                           config.batch_size, 
-                                           min([config.workers, config.total_cpu_use]),
-                                           shuffle=(m == 'train' or config.fast_validation_n is not None or config.fast_validation_step_interval is not None), 
-                                           is_ddp=is_ddp) for m in mode}
-    elif config.train_type == 'llm':
-        datasets = build_llm_dataset(config, tokenizer, mode)
-        dataloaders = {m: build_dataloader(datasets[m], 
-                                           config.batch_size, 
-                                           min([config.workers, config.total_cpu_use]),
-                                           shuffle=(m == 'train' or config.fast_validation_n is not None or config.fast_validation_step_interval is not None), 
-                                           is_ddp=is_ddp) for m in mode}
+    datasets = build_llm_dataset(config, tokenizer, mode)
+    dataloaders = {m: build_dataloader(datasets[m], 
+                                        config.batch_size, 
+                                        min([config.workers, config.total_cpu_use]),
+                                        shuffle=(m == 'train' or config.fast_validation_n is not None or config.fast_validation_step_interval is not None), 
+                                        is_ddp=is_ddp) for m in mode}
     return dataloaders
 
 
 
 def get_model(config, device):
-    if config.train_type == 'nmt':
-        from models import En2KoNMT
-        model = En2KoNMT(config, device)
+    if config.model.lower() == 'kopolyglot':
+        from models import KoPolyglot
+        model = KoPolyglot(config, device)
         tokenizer = model.tokenizer
-    elif config.train_type == 'llm':
-        if config.model.lower() == 'kopolyglot':
-            from models import KoPolyglot
-            model = KoPolyglot(config, device)
-            tokenizer = model.tokenizer
-        elif config.model.lower() == 'kogemma':
-            from models import KoGemma
-            model = KoGemma(config, device)
-            tokenizer = model.tokenizer
-        elif config.model.lower() in ['gemma', 'gemma1', 'gemma2']:
-            from models import Gemma
-            model = Gemma(config, device)
-            tokenizer = model.tokenizer
-        elif config.model.lower() in ['llama3', 'llama3.1']:
-            from models import Llama3
-            model = Llama3(config, device)
-            tokenizer = model.tokenizer
-        elif config.model.lower() == 'llama2':
-            from models import Llama2
-            model = Llama2(config, device)
-            tokenizer = model.tokenizer
-        elif config.model.lower() == 'phi3':
-            from models import Phi3
-            model = Phi3(config, device)
-            tokenizer = model.tokenizer
-        else:
-            raise NotImplementedError
+    elif config.model.lower() == 'kogemma':
+        from models import KoGemma
+        model = KoGemma(config, device)
+        tokenizer = model.tokenizer
+    elif config.model.lower() in ['gemma', 'gemma1', 'gemma2']:
+        from models import Gemma
+        model = Gemma(config, device)
+        tokenizer = model.tokenizer
+    elif config.model.lower() in ['llama3', 'llama3.1']:
+        from models import Llama3
+        model = Llama3(config, device)
+        tokenizer = model.tokenizer
+    elif config.model.lower() == 'llama2':
+        from models import Llama2
+        model = Llama2(config, device)
+        tokenizer = model.tokenizer
+    elif config.model.lower() == 'phi3':
+        from models import Phi3
+        model = Phi3(config, device)
+        tokenizer = model.tokenizer
     else:
-        raise AssertionError(f'Invalid train_type: {config.train_type}')
+        raise NotImplementedError
     
     # Preparing for bits training
     if model.is4bit or model.is8bit:

@@ -1,5 +1,4 @@
 # base
-train_type: llm
 seed: 0
 deterministic: True
 model: llama3
