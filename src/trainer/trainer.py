@@ -18,9 +18,6 @@ from utils.filesys_utils import yaml_save, make_project_dir
 from trainer.build import get_data_loader, get_model, get_peft_model, get_wrapped_model
 
 
-__version__ = '0.0.1'
-
-
 
 class Trainer:
     def __init__(
