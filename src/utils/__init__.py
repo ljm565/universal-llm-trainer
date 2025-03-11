@@ -10,7 +10,7 @@ from tqdm import tqdm as tqdm_original
 import torch
 
 
-LOGGING_NAME = 'LMM_Tests_1.0'
+LOGGING_NAME = 'LLM_TRAINER_1.5.0'
 VERBOSE = True
 RANK = int(os.getenv('RANK', -1))
 MACOS, LINUX, WINDOWS = (platform.system() == x for x in ['Darwin', 'Linux', 'Windows'])  # environment booleans
@@ -41,7 +41,7 @@ def set_logging(name=LOGGING_NAME, verbose=True):
         'formatters': {
             name: {
                 '()': ColorFormatter,  # Use the custom formatter
-                'format': '%(levelname)s %(asctime)s [%(name)s] %(message)s'
+                'format': '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s'
             }
         },
         'handlers': {
