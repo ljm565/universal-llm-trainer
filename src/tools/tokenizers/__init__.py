@@ -1,4 +1,3 @@
-from .m2m_tokenizer import M2M100Tokenizer
 from .kopolyglot_tokenizer import KoPolyglotTokenizer
 from .kogemma_tokenizer import KoGemmaTokenizer
 from .gemma_tokenizer import GemmaTokenizer
