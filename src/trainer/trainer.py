@@ -56,10 +56,6 @@ class Trainer:
         else:
             config.is_training_mode = False
             config.data_verbose = False
-            if self.config.fast_validation_n == 'None': 
-                self.config.fast_validation_n = None
-            if self.config.fast_validation_step_interval == 'None': 
-                self.config.fast_validation_step_interval = None
         self.config.is_rank_zero = self.is_rank_zero
         self.loss_names = ['cross_entropy']
         self.train_verbose = self.config.train_verbose

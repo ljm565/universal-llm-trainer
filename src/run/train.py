@@ -12,6 +12,7 @@ from utils.training_utils import choose_proper_resume_model
 from trainer import Trainer
 
 
+
 def env_setup():
     os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
     os.environ['CUDA_DEVICE_ORDER'] = "PCI_BUS_ID"
@@ -24,15 +25,15 @@ def load_config(config_path):
 
 
 def main(args):    
-    # init config
+    # Init config
     config = load_config(args.config)
     config.yaml_file = args.config
     config.training_stage = args.stage
     
-    # init environment
+    # Init environment
     env_setup()
     
-    # training (cpu/single_gpu or multi_gpu)
+    # Training (cpu/single_gpu or multi_gpu)
     if len(config.device) <= 1 or config.device == 'cpu':
         single_gpu_train(args, config)
     else:
@@ -61,7 +62,7 @@ def single_gpu_train(args, config):
 def multi_gpu_train(gpu, ngpus_per_node, config, args):
     torch.set_num_threads(config.total_cpu_use // ngpus_per_node)
 
-    # init distribution
+    # Init distribution
     torch.distributed.init_process_group(
         backend='nccl',
         init_method=f'tcp://127.0.0.1:{args.port}', 
