@@ -1,20 +1,31 @@
+# Python cache
 __pycache__/
+*.pyc
+
+# Temporary or junk files
 .junk/
-*.whl
-*.DS_store
-*.out
+.DS_Store
+.out
+.whl
+
+# Shell scripts
 *.sh
 
-# folders
+# Jupyter notebooks
+*.ipynb
+
+# CSV files
+*.csv
+
+# Logs and unnecessary folders
+logs/
+junk/
+json*/
+
+# Data and configuration folders
 data/
 config/
 config_lora/
+
+# Output folders
 outputs/
-
-# unnecessary files and folders
-*.ipynb
-junk/
-logs/
-*.csv
-
-# json*/
