@@ -5,6 +5,7 @@ model: llama3.1
 model_size: 8b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
+data_train_type: ['qa']
 data_path: ['data/kopolyglot_easy_v2']
 template_dir: [templates/llama3_templates]   # list(directory) or directory, if null, template will be chosen according to the {data_path}/templates.
 

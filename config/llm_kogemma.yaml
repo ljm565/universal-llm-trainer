@@ -5,6 +5,7 @@ model: kogemma
 model_size: 2b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
+data_train_type: ['qa', 'ar']
 data_path: ['data/data1', 'data/data2']
 template_dir: ['templates/gemma_templates', 'templates/gemma_templates_ko']   # list(path) or path, if null, template will be chosen according to the {data_path}/templates
 

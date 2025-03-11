@@ -33,7 +33,7 @@ def build_llm_dataset(config, tokenizer, mode):
     if not all([os.path.exists(p) for p in template_paths]) and config.is_rank_zero:
         raise FileNotFoundError(LOGGER.info(colorstr('red', 'Template directory is not found.')))
     
-    dataset_classes = [choose_proper_dataset(d) for d in datasets]
+    dataset_classes = [choose_proper_dataset(d) for d in config.data_train_type]
 
     for i in range(len(datasets)):
         raw_data = pickle_load(dataset_paths[i])
@@ -129,7 +129,7 @@ def get_model(config, device):
         try:
             model = prepare_model_for_kbit_training(model)
         except:
-            LOGGER.warning(colorstr('yellow', 'Quantized model preparation is failed. It will not be a problem.'))
+            LOGGER.warning('Quantized model preparation is failed. It will not be a problem.')
 
     return model, tokenizer
 

@@ -111,7 +111,7 @@ class TrainingLogger:
     def save_model(self, save_dir, model, is_fsdp=False):
         if self.is_rank_zero or is_fsdp:
             if not hasattr(self, 'validation_epoch_result') or len(self.validation_epoch_result) == 0:
-                LOGGER.warning(f'{colorstr("red", "No log data to save")}')
+                LOGGER.warning('No log data to save..')
                 return
 
             epoch, step = self.log_data['epoch'][-1], self.log_data['step'][-1]

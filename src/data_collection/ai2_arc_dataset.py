@@ -67,7 +67,7 @@ class ARCDataset(Dataset):
         max_n = 200000
         interv = len(data) // max_n if len(data) > max_n else 1
         if interv > 1:
-            LOGGER.warning(f"⚠️ Length of {colorstr('yellow', len(data))} is too long. Approximately {colorstr('yellow', len(data) // interv)} samples will be used to calculate statistics.")
+            LOGGER.warning(f"⚠️ Length of {len(data)} is too long. Approximately {len(data) // interv} samples will be used to calculate statistics.")
         length = [len(self.tokenizer.encode(self.construct_instruction(i)[0])) for i in tqdm(range(0, len(data), interv))]
         max_length = max(length)
         min_length = min(length)
@@ -100,7 +100,7 @@ class ARCDataset(Dataset):
         indices = list(range(len(texts)))
         while 1:
             if len(indices) == 0:
-                LOGGER.warning(f"⚠️ {colorstr('yellow', 'All texts are invalid. Randomly select one text.')}")
+                LOGGER.warning("⚠️ All texts are invalid. Randomly select one text.")
                 return None
             
             idx = random.choice(indices)
@@ -216,7 +216,7 @@ def huggingface_arc_generator(single_data, templates, responses, instructions, t
         indices = list(range(len(texts)))
         while 1:
             if len(indices) == 0:
-                LOGGER.warning(f"⚠️ {colorstr('yellow', 'All texts are invalid. Randomly select one text.')}")
+                LOGGER.warning("⚠️ All texts are invalid. Randomly select one text.")
                 return None
             idx = random.choice(indices)
             if _check_valid_format(texts[idx], data):

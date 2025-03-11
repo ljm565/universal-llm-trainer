@@ -68,7 +68,7 @@ class QADataset(Dataset):
         max_n = 200000
         interv = len(data) // max_n if len(data) > max_n else 1
         if interv > 1:
-            LOGGER.warning(f"Length of {colorstr('yellow', len(data))} is too long. Approximately {colorstr('yellow', len(data) // interv)} samples will be used to calculate statistics.")
+            LOGGER.warning(f"Length of {len(data)} is too long. Approximately {len(data) // interv} samples will be used to calculate statistics.")
         length = [len(self.generate_prompt(i)[0]) for i in tqdm(range(0, len(data), interv))]
         max_length = max(length)
         min_length = min(length)

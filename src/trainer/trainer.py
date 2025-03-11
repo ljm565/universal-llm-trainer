@@ -467,14 +467,14 @@ class Trainer:
                 try:
                     metric_results[m] = self.evaluator.cal_rouge_score(response_pred, response_gt, n=None)
                 except RecursionError:
-                    LOGGER.warning(colorstr('yellow', f'Recursion error occured.\nPreds: {response_pred}\nGTs: {response_gt}'))
+                    LOGGER.warning(f'Recursion error occured.\nPreds: {response_pred}\nGTs: {response_gt}')
                     metric_results[m] = 0.0
             elif m == 'meteor':
                 metric_results[m] = self.evaluator.cal_meteor_score(response_pred, response_gt)
             elif m == 'edit_distance':
                 metric_results[m] = self.evaluator.cal_edit_distance(response_pred, response_gt)
             else:
-                LOGGER.warning(f'{colorstr("red", "Invalid key")}: {m}')
+                LOGGER.warning(f'Invalid key: {m}')
         
         return metric_results
     

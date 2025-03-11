@@ -5,6 +5,7 @@ model: phi3
 model_size: 4b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
+data_train_type: ['qa']
 data_path: ['data/kopolyglot_easy_v2']
 template_dir: ['templates/phi3_templates']   # list(path) or path, if null, template will be chosen according to the {data_path}/templates
 

@@ -5,6 +5,7 @@ model: kopolyglot
 model_size: 10b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
+data_train_type: ['qa']
 data_path: ['data/koalpaca_easy_v2']
 template_dir: [templates/kopolyglot_templates]
 

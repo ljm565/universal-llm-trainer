@@ -9,7 +9,7 @@ from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from tools import Evaluator, TrainingLogger, EarlyStopper
-from trainer.build import get_data_loader, get_model, get_peft_model
+from trainer.build import get_data_loader, get_model, get_peft_model, get_wrapped_model
 from utils import (
     RANK, LOGGER,
     colorstr, init_seeds,
@@ -299,7 +299,7 @@ class TrainerDeepSpeed:
             model.eval()
 
             if self.config.half_inference and self.is_rank_zero:
-                LOGGER.warning(colorstr('yellow', 'Half inference started, yet we recommend using mixed precision.'))
+                LOGGER.warning('Half inference started, yet we recommend using mixed precision.')
 
             # validation loop
             for i, batch in pbar:
@@ -378,7 +378,7 @@ class TrainerDeepSpeed:
             elif m == 'edit_distance':
                 metric_results[m] = self.evaluator.cal_edit_distance(response_pred, response_gt)
             else:
-                LOGGER.warning(f'{colorstr("red", "Invalid key")}: {m}')
+                LOGGER.warning(f'Invalid key": {m}')
         
         return metric_results
     

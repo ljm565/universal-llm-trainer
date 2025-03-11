@@ -252,7 +252,7 @@ class Chatter:
         LOGGER.info(colorstr('Start chatting...'))
         LOGGER.info(f"You can {colorstr('ignore description')} by pressing Enter.")
         LOGGER.info(f"Press {colorstr('Ctrl+C')} to exit.")
-        LOGGER.warning(colorstr('red', 'Only QA style is supported.\n'))
+        LOGGER.warning('Only QA style is supported.\n')
 
         self.model.eval()
         with torch.no_grad():   

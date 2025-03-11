@@ -21,22 +21,44 @@ def set_logging(name=LOGGING_NAME, verbose=True):
     """Sets up logging for the given name."""
     rank = int(os.getenv('RANK', -1))  # rank in world for Multi-GPU trainings
     level = logging.INFO if verbose and rank in {-1, 0} else logging.ERROR
+
+    class ColorFormatter(logging.Formatter):
+        """Custom formatter to add colors to log messages using colorstr."""
+        def format(self, record):
+            if record.levelname == "ERROR":
+                record.msg = colorstr("red", record.msg)
+            elif record.levelname == "WARNING":
+                record.msg = colorstr("yellow", record.msg)
+            # elif record.levelname == "INFO":
+            #     record.msg = colorstr("green", record.msg)
+            elif record.levelname == "DEBUG":
+                record.msg = colorstr("blue", record.msg)
+            return super().format(record)
+
     logging.config.dictConfig({
         'version': 1,
         'disable_existing_loggers': False,
         'formatters': {
             name: {
-                'format': '%(message)s'}},
+                '()': ColorFormatter,  # Use the custom formatter
+                'format': '%(levelname)s %(asctime)s [%(name)s] %(message)s'
+            }
+        },
         'handlers': {
             name: {
                 'class': 'logging.StreamHandler',
                 'formatter': name,
-                'level': level}},
+                'level': level
+            }
+        },
         'loggers': {
             name: {
                 'level': level,
                 'handlers': [name],
-                'propagate': False}}})
+                'propagate': False
+            }
+        }
+    })
     
 
 set_logging(LOGGING_NAME, verbose=VERBOSE) 
@@ -262,7 +284,7 @@ DATASET_HELP_MSG = 'If you are looking for LLM benchmark datasets, you can choos
 OPTIM_CRITERION_MSG = 'optimizer_step_criterion must be belonged to' + f' [{colorstr("epoch")}, {colorstr("step")}] '
 SCHEDULER_MSG = 'scheduler_type must be belonged to' + f' [{colorstr("linear")}, {colorstr("cosine")}] '
 FSDP_WRAP_MSG = 'wrap_policy must be belonged to' + f' [{colorstr("size_based")}, {colorstr("transformer_based")}] '
-
+DATASET_TRAIN_TYPE_MSG = 'Currently, we only support' + f' [{colorstr("qa")}, {colorstr("ar")}] ' + 'as dataset_train_type'
 
 ##################### Assertion List #####################
 OPTIM_CRITERION = ['epoch', 'step']

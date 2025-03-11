@@ -8,6 +8,7 @@ from data_collection import (
     ARCDataset,
     QADataset,
 )
+from utils import LOGGER, DATASET_TRAIN_TYPE_MSG
 
 
 def seed_worker(worker_id):  # noqa
@@ -19,9 +20,9 @@ def seed_worker(worker_id):  # noqa
 
 
 def choose_proper_dataset(dataset_name):
-    if 'arc' in dataset_name.lower():
-        return ARCDataset
-    elif dataset_name.lower() in ['kopolyglot_easy', 'kopolyglot_easy_v2']:
+    if 'qa' == dataset_name.lower():
         return QADataset
-    else:
+    elif 'ar' == dataset_name.lower():
         return AutoregressiveDataset
+    else:
+        raise ValueError(LOGGER.error(f'Invalid dataset name: {dataset_name}\n{DATASET_TRAIN_TYPE_MSG}'))

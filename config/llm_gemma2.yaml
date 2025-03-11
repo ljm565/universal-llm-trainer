@@ -5,6 +5,7 @@ model: gemma2
 model_size: 9b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
 
 # data config
+data_train_type: ['qa']
 data_path: ['/llm_data/training_dataset/medical_data']
 template_dir: [templates/gemma_templates]   # list(directory) or directory, if null, template will be chosen according to the {data_path}/templates.
 
