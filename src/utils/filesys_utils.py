@@ -2,49 +2,100 @@ import os
 import json
 import pickle
 from pathlib import Path
+from typing import Any, List
 
 from utils import LOGGER, colorstr
 
 
-def find_parent_dir(path: str, n=1):
-    for _ in range(n):
-        path = os.path.abspath(os.path.dirname(path))
-    return path
 
+def pickle_load(path: str) -> Any:
+    """
+    Load pickle file.
 
-def pickle_load(path: str):
+    Args:
+        path (str): Path to the pickle file.
+
+    Returns:
+        Any: The object loaded from the pickle file.
+    """
     with open(path, 'rb') as f:
         return pickle.load(f)    
 
 
-def pickle_save(path: str, data):
+
+def pickle_save(path: str, data: Any) -> None:
+    """
+    Save data to a pickle file.
+
+    Args:
+        path (str): Path to the pickle file.
+        data (Any): Data to save.
+    """
     with open(path, 'wb') as f:
         pickle.dump(data, f)
 
 
-def txt_load(path: str):
+
+def txt_load(path: str) -> List[str]:
+    """
+    Load data from a text file.
+    For easy processing(e.g. ARC templates, etc.), it returns a list of lines without newline characters.
+
+    Args:
+        path (str): Path to the text file.
+
+    Returns:
+        List[str]: List of lines in the text file.
+    """
     with open(path, 'r') as f:
         lines = f.readlines()
     lines = [line.strip() for line in lines]
     return lines
 
 
-def txt_save(path: str, data):
+
+def txt_save(path: str, data: str) -> None:
+    """
+    Save data to a text file.
+
+    Args:
+        path (str): Path to the text file.
+        data (str): Data to save.
+    """
     with open(path, 'w') as f:
         f.write(data)
 
 
-def json_load(path: str):
+
+def json_load(path: str) -> dict:
+    """
+    Load json file.
+
+    Args:
+        path (str): Path to the json file.
+
+    Returns:
+        dict: The object loaded from the json file.
+    """
     with open(path, 'r') as f:
         return json.load(f)
 
 
-def json_save(path: str, data):
+
+def json_save(path: str, data: dict) -> None:
+    """
+    Save json file.
+
+    Args:
+        path (str): Path to the json file.
+        data (dict): Data to save.
+    """
     with open(path, 'w') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 
-def make_project_dir(config, is_rank_zero=False):
+
+def make_project_dir(config, is_rank_zero:bool=False) -> Path:
     """
     Make project folder.
 
@@ -72,19 +123,15 @@ def make_project_dir(config, is_rank_zero=False):
     return Path(save_dir)
 
 
-def yaml_save(file='data.yaml', data=None, header=''):
+
+def yaml_save(file:str='data.yaml', data:Any=None) -> None:
     """
-    Save YAML data to a file.
+    Save data to an YAML file.
 
     Args:
         file (str, optional): File name. Default is 'data.yaml'.
-        data (dict): Data to save in YAML format.
-        header (str, optional): YAML header to add.
-
-    Returns:
-        (None): Data is saved to the specified file.
+        data (Any, optional): Data to save in YAML format.
     """
-
     save_path = Path(file)
     print(data.dumps())
     with open(save_path, "w") as f:

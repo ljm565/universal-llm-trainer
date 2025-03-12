@@ -1,17 +1,21 @@
 import os
+from typing import List
 from datasets import list_datasets
 
 from .filesys_utils import pickle_load, pickle_save
 
 
-def load_data_list(folder_to_check_cache=None):
+
+def load_data_list(folder_to_check_cache:str=None) -> List[str]:
     """
+    To check download availability, load the list of datasets from the cache file.
+
     Args:
-        folder_to_check_cache (str): Path to the folder where the cache file is located.
-                                    If cache does not exist, it will be created.
+        folder_to_check_cache (str, optional): Path to the folder where the cache file is located. 
+                                               If cache does not exist, the cache will be created. Defaults to None.
 
     Returns:
-        data_list (List[str]): List of dataset names.
+        List[str]: List of dataset names
     """
     if folder_to_check_cache:
         os.makedirs(folder_to_check_cache, exist_ok=True)
