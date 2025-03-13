@@ -243,6 +243,10 @@ def check_version(current: str = '0.0.0',
 TORCH_2_0 = check_version(torch.__version__, '2.0.0')
 
 
+class Output:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
 
 class TQDM(tqdm_original):
     """
