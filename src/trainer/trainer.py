@@ -31,6 +31,7 @@ class Trainer:
         ):
         self.is_ddp, self.is_fsdp = select_training_type(multi_gpu_train_type)
         init_seeds(config.seed + 1 + RANK, config.deterministic)
+        # torch.set_default_dtype(torch.bfloat16)
 
         # init
         self.mode = mode
