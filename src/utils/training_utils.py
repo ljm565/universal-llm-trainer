@@ -354,7 +354,7 @@ def calculate_gathered_results(objs: List[dict]) -> dict:
 
 
 
-def init_model_config(config, load16bit: bool) -> dict:
+def init_model_config(config) -> dict:
     """
     Make additional kwags for Huggingface model initialization.
 
@@ -371,9 +371,8 @@ def init_model_config(config, load16bit: bool) -> dict:
     # Basic
     quant_config = init_quant_config(config)
     kwargs = {
-        # 'torch_dtype': torch.float16 if load16bit else torch.float32,
         'quantization_config': quant_config,
-        'use_cache': False if config.gradient_checkpointing else True
+        'use_cache': False if config.gradient_checkpointing.activate else True
     }
 
     # Determine attention mechanism

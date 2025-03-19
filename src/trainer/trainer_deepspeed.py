@@ -109,7 +109,7 @@ class TrainerDeepSpeed:
         resume_success = False
         do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path)
         model, tokenizer = get_model(config, self.device)
-        model._init_criterion()
+        model.init_criterion()
 
         # init peft
         if config.peft_config_path:

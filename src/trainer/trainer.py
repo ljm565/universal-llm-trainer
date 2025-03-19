@@ -29,16 +29,17 @@ class Trainer:
             use_huggingface_trainer=False,
             resume_path=None,
         ):
-        self.is_ddp, self.is_fsdp = select_training_type(multi_gpu_train_type)
-        init_seeds(config.seed + 1 + RANK, config.deterministic)
+        # Init basic settings
         # torch.set_default_dtype(torch.bfloat16)
-
-        # init
+        self.config = config
+        init_seeds(self.config.seed + 1 + RANK, self.config.deterministic)
+        self.is_ddp, self.is_fsdp = select_training_type(multi_gpu_train_type)
         self.mode = mode
         self.is_training_mode = self.mode in ['train', 'resume']
         self.device = torch.device(device)
         self.is_rank_zero = True if not multi_gpu_train_type or (multi_gpu_train_type and device == 0) else False
-        self.config = config
+        
+        # Init training settings
         self.world_size = len(self.config.device) if multi_gpu_train_type else 1
         self.amp = True if self.config.amp_training or self.config.load_unnecessary_half else False
         self.ema = self.config.ema_updating
@@ -116,7 +117,7 @@ class Trainer:
         resume_success = False
         do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path)
         model, tokenizer = get_model(config, self.device)
-        model._init_criterion()
+        model.init_criterion()
 
         # init peft
         if config.peft_config_path:

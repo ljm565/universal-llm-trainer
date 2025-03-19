@@ -125,7 +125,7 @@ def get_model(config, device):
         raise NotImplementedError
     
     # Preparing for bits training
-    if model.is4bit or model.is8bit:
+    if model.bit in [4, 8]:
         try:
             model = prepare_model_for_kbit_training(model)
         except:

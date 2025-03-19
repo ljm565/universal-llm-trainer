@@ -279,8 +279,13 @@ def print_mem_consumption(self, path):
 
 
 @log_if_rank_zero
-def logger(self, message):
-    LOGGER.info(colorstr(message))
+def logger(self, message, level='info'):
+    if level.lower() == 'warning':
+        LOGGER.warning(message)
+    elif level.lower() == 'error':
+        LOGGER.error(message)
+    else:
+        LOGGER.info(colorstr(message))
 
 
 ########################## MSG ##########################
