@@ -1,246 +1,75 @@
 import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM
+from transformers.models.llama.modeling_llama import LlamaDecoderLayer
+
+from torch.distributed.fsdp.wrap import ModuleWrapPolicy
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import apply_activation_checkpointing
 
 from tools.tokenizers import Llama3Tokenizer
 from utils import print_mem_consumption, logger
+from utils.func_utils import instantiate
 from utils.training_utils import init_model_config, choose_proper_model
-
-from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
-    apply_activation_checkpointing,
-)
-from transformers.models.llama.modeling_llama import LlamaAttention, LlamaDecoderLayer
-from torch.distributed.fsdp.wrap import ModuleWrapPolicy
-
-from utils.training_utils import set_default_dtype
-
-
-import sys
-import mmap
-from functools import partial
-from collections import OrderedDict
-from typing import Any, Dict, Generator, Optional
-from torch._subclasses.fake_tensor import FakeTensorConverter, FakeTensorMode
-
-
-
-_use_low_cpu_ram = False
-
-def _register_reparametrize_state_dict_hooks(
-    module: nn.Module,
-    dtype: torch.dtype = torch.bfloat16,
-    offload_to_cpu: bool = True,
-):
-    """
-    Register the reparametrize state dict hooks to the module and its submodules.
-
-    This function is a wrapper that is meant to toggle between the low_cpu_ram
-    and regular versions of the ``reparametrize_as_dtype`` state dict hooks.
-
-    Args:
-        module (nn.Module): the module to register the hooks to.
-        dtype (torch.dtype): the dtype to restore the weight to. Default is ``torch.bfloat16``.
-        offload_to_cpu (bool): whether to offload the restored weight to CPU. Default is ``True``.
-
-    Raises:
-        RuntimeError: If the low RAM reparametrize hook is used on Windows or an incompatible torch version.
-    """
-    if _use_low_cpu_ram:
-        if sys.platform == "win32":
-            # mmap.MAP_SHARED is not supported on Windows but this change targets colab.
-            raise RuntimeError(
-                "Low RAM reparametrize_as_dtype_state_dict_post_hook is not supported on Windows."
-            )
-        else:
-            hook = _low_ram_reparametrize_as_dtype_state_dict_post_hook
-    else:
-        hook = reparametrize_as_dtype_state_dict_post_hook
-    module._register_state_dict_hook(
-        partial(hook, dtype=dtype, offload_to_cpu=offload_to_cpu)
-    )
-
-def reparametrize_as_dtype_state_dict_post_hook(
-    model: nn.Module,
-    state_dict: Dict[str, Any],
-    *args: Any,
-    dtype: torch.dtype = torch.bfloat16,
-    offload_to_cpu: bool = True,
-    **kwargs: Any,
-):
-    """
-    A state_dict hook that replaces NF4 tensors with their restored
-    higher-precision weight and optionally offloads the restored weight to CPU.
-    Use this hook to avoid increased peak GPU memory usage during checkpoint
-    save when training with QLoRA.
-
-    This function is meant to be used with PyTorch's ``nn.Module._register_state_dict_hook``, i.e.
-
-    >>> m = MyModule()
-    >>> m._register_state_dict_hook(reparametrize_as_dtype_state_dict_post_hook)
-
-    If the hook is registered per the above process, this hook will be called _after_ the module's
-    ``state_dict`` method is called. The hook will replace all ``NF4Tensor`` instances by unquantizing
-    them to the original dtype, and optionally offload the restored weight to CPU.
-
-    Args:
-        model (nn.Module): the model to take ``state_dict()`` on
-        state_dict (Dict[str, Any]): the state dict to modify
-        *args (Any): Unused args passed when running this as a state_dict hook.
-        dtype (torch.dtype): the dtype to restore the weight to. Default is ``torch.bfloat16``.
-        offload_to_cpu (bool): whether to offload the restored weight to CPU. Default is ``True``.
-        **kwargs (Any): Unused keyword args passed when running this as a state_dict hook.
-    """
-    for k, v in state_dict.items():
-        # if isinstance(v, NF4Tensor):
-        if isinstance(v, torch.uint8):
-            state_dict[k] = v.to(dtype)
-            if offload_to_cpu:
-                state_dict[k] = state_dict[k].cpu()
-
-
-def _low_ram_reparametrize_as_dtype_state_dict_post_hook(
-    model: nn.Module,
-    state_dict: Dict[str, Any],
-    *args: Any,
-    dtype: torch.dtype = torch.bfloat16,
-    offload_to_cpu: bool = True,
-    **kwargs: Any,
-):
-    """
-    A state_dict hook that replaces NF4 tensors with their restored
-    higher-precision weight and optionally offloads the restored weight to CPU.
-    Use this hook to avoid increased peak GPU memory usage during checkpoint
-    save when training with QLoRA.
-
-    This hook is similar to ``reparametrize_as_dtype_state_dict_post_hook`` but uses
-    FakeTensor and mmap(2) to avoid CPU OOM on colab.
-
-    This function is meant to be used with PyTorch's ``nn.Module._register_state_dict_hook``, i.e.
-
-    >>> m = MyModule()
-    >>> m._register_state_dict_hook(reparametrize_as_dtype_state_dict_post_hook)
-
-    If the hook is registered per the above process, this hook will be called _after_ the module's
-    ``state_dict`` method is called. The hook will replace all ``NF4Tensor`` instances by unquantizing
-    them to the original dtype, and optionally offload the restored weight to CPU.
-
-    Args:
-        model (nn.Module): the model to take ``state_dict()`` on
-        state_dict (Dict[str, Any]): the state dict to modify
-        *args (Any): Unused args passed when running this as a state_dict hook.
-        dtype (torch.dtype): the dtype to restore the weight to. Default is ``torch.bfloat16``.
-        offload_to_cpu (bool): whether to offload the restored weight to CPU. Default is ``True``.
-        **kwargs (Any): Unused keyword args passed when running this as a state_dict hook.
-    """
-    # Create a state dict of FakeTensors that matches the state_dict
-    mode = FakeTensorMode()
-    converter = FakeTensorConverter()
-    fake_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        if isinstance(v, NF4Tensor):
-            fake_state_dict[k] = converter.from_real_tensor(mode, v).to(dtype)
-        else:
-            fake_state_dict[k] = converter.from_real_tensor(mode, v)
-
-        if offload_to_cpu:
-            fake_state_dict[k] = fake_state_dict[k].cpu()
-
-    # Create a state_dict on disk with space reserved for storage bytes
-    # Then load with mmap and MAP_SHARED (can writeback to disk file)
-    dest_state_dict_path = "/tmp/fake_state_dict.pt"
-    with torch.serialization.skip_data(materialize_fake_tensors=True):
-        torch.save(fake_state_dict, dest_state_dict_path)
-    with torch.serialization.set_default_mmap_options(mmap.MAP_SHARED):
-        dest_state_dict = torch.load(dest_state_dict_path, mmap=True, weights_only=True)
-
-    # Do D2H and upcast one by one and since dest_state_dict is backed by mmap --> won't OOM
-    # even when there is no swap space (e.g. colab)
-    for k in state_dict.keys():
-        if isinstance(state_dict[k], NF4Tensor):
-            dest_state_dict[k].copy_(state_dict[k].to(dtype))
-        else:
-            dest_state_dict[k].copy_(state_dict[k])
-
-    # In place update original state_dict object. Although the private state dict
-    # post hook supports out of place behavior, the semantic actually buggy. We eventually want
-    # to use the public state_dict post hook which does not support out of place behavior.
-    for k in state_dict.keys():
-        state_dict[k] = dest_state_dict[k]
 
 
 
 class Llama3(nn.Module):
     def __init__(self, config, device):
         super(Llama3, self).__init__()
-        self.model_path = choose_proper_model(config)
-        self.device = device
-        self.load_unnecessary_half = config.load_unnecessary_half
+        # Initialize environment settings
         self.is_rank_zero = config.is_rank_zero
-        self.set_bit(config.bit, config.training_stage)
+        self.del_logits = config.del_logits_after_forward
+        self._model_path = choose_proper_model(config)
+        self.bit = self.__set_bit(config.bit)
+        self.device = device
 
-        # with set_default_dtype(torch.bfloat16):
+        # Initialize model and training settings
         self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_path, 
+            self._model_path, 
             device_map=self.device,
             low_cpu_mem_usage=True,
-            torch_dtype=torch.float16,
-            **init_model_config(config, self.load16bit)
+            torch_dtype=instantiate(torch, self.bit) if isinstance(self.bit, str) else torch.float32,
+            **init_model_config(config)
         )
-        
-        # _register_reparametrize_state_dict_hooks(self.model)
-
-        if config.gradient_checkpointing:
-            logger(self, 'Gradient checkpointing will be applied')
-            self.model.enable_input_require_grads()
-            self.model.gradient_checkpointing_enable()
-            # auto_wrap_policy=ModuleWrapPolicy({LlamaDecoderLayer})
-            # apply_activation_checkpointing(self.model, auto_wrap_policy=auto_wrap_policy)
-
-        # freezing proper layers
-        self.freeze_layers(config.training_stage)
-
-        # 4, 8bit model automatically loads neccesaries to 32bit
-        if self.load16bit:
-            self.mapping_neccessary_32bit()
-
-        self.tokenizer = Llama3Tokenizer(config, self.model_path)
+        self.__set_gradient_checkpointing(config)   # Gradient checkpointing setting.
+        self.tokenizer = Llama3Tokenizer(config, self._model_path)
         if hasattr(self.tokenizer, 'resized'):
             self.model.resize_token_embeddings(len(self.tokenizer))
             logger(self, 'Model word embedding is resized to match the tokenizer')
-
-        print_mem_consumption(self, self.model_path)
+        
+        # Freezing proper layers
+        self.freeze_layers(config.training_stage)
+        print_mem_consumption(self, self._model_path)
     
 
-    def set_bit(self, bit, training_stage):
-        assert bit in [4, 8, 16, 32]
-        self.is4bit, self.is8bit, self.is16bit, self.is32bit = False, False, False, False
-        
-        if training_stage in [1, 2, 3, 4]:
-            if bit == 16:
-                self.is16bit = True
-            else:
-                self.is32bit = True
-
-            logger(self, 'Training stage 1, 2, 3, 4 automatically loads model in 32bit or 16bit')
-
-        else:
-            if bit == 4:
-                self.is4bit = True
-                self.load_unnecessary_half = False
-                logger(self, 'Model is loaded in 4bit')
-            elif bit == 8:
-                self.is8bit = True
-                self.load_unnecessary_half = False
-                logger(self, 'Model is loaded in 8bit')
+    def __set_bit(self, bit):
+        if isinstance(bit, int):
+            assert bit in [4, 8, 16, 32]
+            logger(self, f'Model is loaded in {bit}-bit')
+            if bit == 32:
+                bit = 'float32'
             elif bit == 16:
-                self.is16bit = True
-                logger(self, 'Model is loaded in 16bit')
+                bit = 'bfloat16'
+                logger(self, 'Model dytpe is automatically set to torch.bfloat16')
+        elif isinstance(bit, str):
+            logger(self, f'Model dytpe is torch.{bit}')
+        return bit
+
+    
+    def __set_gradient_checkpointing(self, config):
+        if config.gradient_checkpointing.activate:
+            if config.gradient_checkpointing.checkpoint_type.lower() == 'torch_checkpoint':
+                logger(self, 'Torch gradient checkpointing will be applied.')
+                auto_wrap_policy=ModuleWrapPolicy({LlamaDecoderLayer})
+                apply_activation_checkpointing(self.model, auto_wrap_policy=auto_wrap_policy)
             else:
-                self.is32bit = True
-                logger(self, 'Model is loaded in 32bit')
-
-        self.load16bit = True if self.is16bit or self.load_unnecessary_half else False
-
+                if config.gradient_checkpointing.checkpoint_type.lower() == 'hf_checkpoint':
+                    logger(self, 'Hugging Face gradient checkpointing will be applied.')
+                else:
+                    logger(self, 'Invalid checkpoint type. Hugging Face gradient checkpointing will be applied.', 'warning')
+                self.model.enable_input_require_grads()
+                self.model.gradient_checkpointing_enable()
+    
     
     def mapping_neccessary_32bit(self):
         for param in self.model.parameters():
@@ -249,17 +78,13 @@ class Llama3(nn.Module):
                 param.data = param.data.to(torch.float32)
     
 
-    def _init_criterion(self):
+    def init_criterion(self):
         ignore_index = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id != self.tokenizer.eos_token_id else -100
         self.criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
     
 
     def forward(self, batch, return_loss=False, output_hidden_states=False):
         src_tok, enc_mask, label = batch['src'], batch['src_attention_mask'], batch['label']
-        
-        src_tok = torch.randint(0, 10001, (2, 8192), dtype=torch.long).to(self.device)
-        label = torch.randint(0, 10001, (2, 8192), dtype=torch.long).to(self.device)
-        
         output = self.model(
             input_ids=src_tok,
             attention_mask=enc_mask,
@@ -267,8 +92,9 @@ class Llama3(nn.Module):
         )
         if return_loss:
             loss = self.criterion(output.logits[:, :-1, :].reshape(-1, output.logits.size(-1)), label[:, 1:].reshape(-1))
-            del output
-            output = None
+            if self.del_logits:
+                del output
+                output = None
             return output, loss
         return output
     

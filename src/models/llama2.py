@@ -1,9 +1,14 @@
 import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM
+from transformers.models.llama.modeling_llama import LlamaDecoderLayer
+
+from torch.distributed.fsdp.wrap import ModuleWrapPolicy
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import apply_activation_checkpointing
 
 from tools.tokenizers import Llama2Tokenizer
 from utils import print_mem_consumption, logger
+from utils.func_utils import instantiate
 from utils.training_utils import init_model_config, choose_proper_model
 
 
@@ -11,68 +16,59 @@ from utils.training_utils import init_model_config, choose_proper_model
 class Llama2(nn.Module):
     def __init__(self, config, device):
         super(Llama2, self).__init__()
-        self.model_path = choose_proper_model(config)
-        self.device = device
-        self.load_unnecessary_half = config.load_unnecessary_half
+        # Initialize environment settings
         self.is_rank_zero = config.is_rank_zero
-        self.set_bit(config.bit, config.training_stage)
+        self.del_logits = config.del_logits_after_forward
+        self._model_path = choose_proper_model(config)
+        self.bit = self.__set_bit(config.bit)
+        self.device = device
 
+        # Initialize model and training settings
         self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_path, 
+            self._model_path, 
             device_map=self.device,
             low_cpu_mem_usage=True,
-            **init_model_config(config, self.load16bit)
+            torch_dtype=instantiate(torch, self.bit) if isinstance(self.bit, str) else torch.float32,
+            **init_model_config(config)
         )
-
-        if config.gradient_checkpointing:
-            logger(self, 'Gradient checkpointing will be applied')
-            self.model.enable_input_require_grads()
-            self.model.gradient_checkpointing_enable()
-
-        # freezing proper layers
-        self.freeze_layers(config.training_stage)
-
-        # 4, 8bit model automatically loads neccesaries to 32bit
-        if self.load16bit:
-            self.mapping_neccessary_32bit()
-
-        self.tokenizer = Llama2Tokenizer(config, self.model_path)
+        self.__set_gradient_checkpointing(config)   # Gradient checkpointing setting.
+        self.tokenizer = Llama2Tokenizer(config, self._model_path)
         if hasattr(self.tokenizer, 'resized'):
             self.model.resize_token_embeddings(len(self.tokenizer))
             logger(self, 'Model word embedding is resized to match the tokenizer')
 
-        print_mem_consumption(self, self.model_path)
+        # Freezing proper layers
+        self.freeze_layers(config.training_stage)
+        print_mem_consumption(self, self._model_path)
     
 
-    def set_bit(self, bit, training_stage):
-        assert bit in [4, 8, 16, 32]
-        self.is4bit, self.is8bit, self.is16bit, self.is32bit = False, False, False, False
-        
-        if training_stage in [1, 2, 3, 4]:
-            if bit == 16:
-                self.is16bit = True
-            else:
-                self.is32bit = True
-
-            logger(self, 'Training stage 1, 2, 3, 4 automatically loads model in 32bit or 16bit')
-
-        else:
-            if bit == 4:
-                self.is4bit = True
-                self.load_unnecessary_half = False
-                logger(self, 'Model is loaded in 4bit')
-            elif bit == 8:
-                self.is8bit = True
-                self.load_unnecessary_half = False
-                logger(self, 'Model is loaded in 8bit')
+    def __set_bit(self, bit):
+        if isinstance(bit, int):
+            assert bit in [4, 8, 16, 32]
+            logger(self, f'Model is loaded in {bit}-bit')
+            if bit == 32:
+                bit = 'float32'
             elif bit == 16:
-                self.is16bit = True
-                logger(self, 'Model is loaded in 16bit')
-            else:
-                self.is32bit = True
-                logger(self, 'Model is loaded in 32bit')
+                bit = 'bfloat16'
+                logger(self, 'Model dytpe is automatically set to torch.bfloat16')
+        elif isinstance(bit, str):
+            logger(self, f'Model dytpe is torch.{bit}')
+        return bit
 
-        self.load16bit = True if self.is16bit or self.load_unnecessary_half else False
+
+    def __set_gradient_checkpointing(self, config):
+        if config.gradient_checkpointing.activate:
+            if config.gradient_checkpointing.checkpoint_type.lower() == 'torch_checkpoint':
+                logger(self, 'Torch gradient checkpointing will be applied.')
+                auto_wrap_policy=ModuleWrapPolicy({LlamaDecoderLayer})
+                apply_activation_checkpointing(self.model, auto_wrap_policy=auto_wrap_policy)
+            else:
+                if config.gradient_checkpointing.checkpoint_type.lower() == 'hf_checkpoint':
+                    logger(self, 'Hugging Face gradient checkpointing will be applied.')
+                else:
+                    logger(self, 'Invalid checkpoint type. Hugging Face gradient checkpointing will be applied.', 'warning')
+                self.model.enable_input_require_grads()
+                self.model.gradient_checkpointing_enable()
 
     
     def mapping_neccessary_32bit(self):
@@ -82,7 +78,7 @@ class Llama2(nn.Module):
                 param.data = param.data.to(torch.float32)
     
 
-    def _init_criterion(self):
+    def init_criterion(self):
         ignore_index = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id != self.tokenizer.eos_token_id else -100
         self.criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
     
@@ -96,6 +92,9 @@ class Llama2(nn.Module):
         )
         if return_loss:
             loss = self.criterion(output.logits[:, :-1, :].reshape(-1, output.logits.size(-1)), label[:, 1:].reshape(-1))
+            if self.del_logits:
+                del output
+                output = None
             return output, loss
         return output
     
