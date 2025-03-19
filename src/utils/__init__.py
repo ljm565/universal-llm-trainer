@@ -10,7 +10,9 @@ from tqdm import tqdm as tqdm_original
 import torch
 
 
-LOGGING_NAME = 'LLM_TRAINER_1.5.1'
+
+# Initialize
+LOGGING_NAME = f"LLM_TRAINER_{open('version.txt').read().strip()}"
 VERBOSE = True
 RANK = int(os.getenv('RANK', -1))
 MACOS, LINUX, WINDOWS = (platform.system() == x for x in ['Darwin', 'Linux', 'Windows'])  # environment booleans
