@@ -28,7 +28,7 @@ fsdp_hyperparameters:
     amp_training: True
     wrap_policy: size_based     # [size_based, transformer_based]
     size_based:
-        min_num_params: 1000000     # integer value
+        min_num_params: 10000     # integer value
     transformer_based:
         fsdp_layer_cls: null    # List of modules to apply FSDP
 
