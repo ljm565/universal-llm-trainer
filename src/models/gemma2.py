@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM
-from transformers.models.gemma.modeling_gemma import GemmaDecoderLayer
+from transformers.models.gemma2.modeling_gemma2 import Gemma2DecoderLayer
 
 from torch.distributed.fsdp.wrap import ModuleWrapPolicy
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import apply_activation_checkpointing
@@ -13,9 +13,9 @@ from utils.training_utils import init_model_config, choose_proper_model
 
 
 
-class Gemma(nn.Module):
+class Gemma2(nn.Module):
     def __init__(self, config, device):
-        super(Gemma, self).__init__()
+        super(Gemma2, self).__init__()
         # Initialize environment settings
         self.is_rank_zero = config.is_rank_zero
         self.del_logits = config.del_logits_after_forward
@@ -60,7 +60,7 @@ class Gemma(nn.Module):
         if config.gradient_checkpointing.activate:
             if config.gradient_checkpointing.checkpoint_type.lower() == 'torch_checkpoint':
                 logger(self, 'Torch gradient checkpointing will be applied.')
-                auto_wrap_policy=ModuleWrapPolicy({GemmaDecoderLayer})
+                auto_wrap_policy=ModuleWrapPolicy({Gemma2DecoderLayer})
                 apply_activation_checkpointing(self.model, auto_wrap_policy=auto_wrap_policy)
             else:
                 if config.gradient_checkpointing.checkpoint_type.lower() == 'hf_checkpoint':

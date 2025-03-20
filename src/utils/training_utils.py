@@ -2,10 +2,9 @@ import os
 import re
 import math
 import functools
-import contextlib
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Callable, Union, List, Any, Generator
+from typing import Callable, Union, List, Any
 
 import torch
 import torch.nn as nn
