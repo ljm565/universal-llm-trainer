@@ -70,7 +70,7 @@ inference_result_verbose: True
 gradient_checkpointing:
     activate: True        # if True, gradient checkpointing strategy will be used to save GPU memeory consumption.
     checkpoint_type: 'hf_checkpoint'     # ['hf_checkpoint', 'torch_checkpoint'], if null, default value (hf_checkpoint) will be applied.
-gradient_accumuate_step: 32
+gradient_accumuate_step: 1
 generation_max_time: 200        # Maximum time (seconds) of model's generation function. If null, no time limits. 
 del_logits_after_forward: True  # If True, you can save GPU memroy consumption.
 
