@@ -85,8 +85,6 @@ class Gemma2(nn.Module):
 
     def forward(self, batch, return_loss=False, output_hidden_states=False):
         src_tok, enc_mask, label = batch['src'], batch['src_attention_mask'], batch['label']
-        src_tok = torch.randint(0, 10001, (2, 8192), dtype=torch.long).to(self.device)
-        label = torch.randint(0, 10001, (2, 8192), dtype=torch.long).to(self.device)
         output = self.model(
             input_ids=src_tok,
             attention_mask=enc_mask,
