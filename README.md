@@ -33,7 +33,7 @@ Below is an example of the memory requirements and training speed for different 
 > - Sequnece length: 8,192 (Without padding, fully filled tokens)
 > - Model type: torch.bfloat16
 > - Optimizer: torch.optim.AdamW
-> - w/ Gradient checkpointing (Test was done with both "torch" and "Hugging Face" gradient checkpointing methods)
+> - w/ Gradient checkpointing (Tests were done with both "torch" and "Hugging Face" gradient checkpointing methods)
 > - Gradient accumulation: 
 >   - Full fine-tuning: 1
 >   - LoRA: 32
