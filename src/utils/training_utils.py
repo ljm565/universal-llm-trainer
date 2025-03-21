@@ -82,7 +82,7 @@ def choose_proper_model(config) -> str:
     Args:
         config: Configuration object that contains the following attributes:
             - model_size (Union[str, float]): The target model size (e.g., '8B', 8).
-            - model (str): The name of the model family (e.g., 'kopolyglot', 'llama3', 'gemma').
+            - model (str): The name of the model family (e.g., 'llama3', 'gemma').
             - is_rank_zero (bool): Flag indicating whether this is the rank 0 process in distributed training.
 
     Returns:
@@ -96,15 +96,7 @@ def choose_proper_model(config) -> str:
         if isinstance(config.model_size, str) and config.model_size.lower().endswith('b') \
             else config.model_size
 
-    if config.model.lower() == 'kopolyglot':
-        model_list = [
-            'beomi/KoAlpaca-Polyglot-5.8B',
-        ]
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
-                            for text in model_list]
-        idx = size_diff.index(min(size_diff))
-    
-    elif config.model.lower() in ['llama3', 'llama3.1']:
+    if config.model.lower() in ['llama3', 'llama3.1']:
         model_list_3 = [
             'meta-llama/Meta-Llama-3-8B-Instruct',
         ]
@@ -124,14 +116,6 @@ def choose_proper_model(config) -> str:
             'meta-llama/Llama-2-13b-hf',
         ]
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
-                            for text in model_list]
-        idx = size_diff.index(min(size_diff))
-    
-    elif config.model.lower() == 'kogemma':
-        model_list = [
-            'gemmathon/gemma-2b-ko-dev-pbmt192',
-        ]
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
     

@@ -1,5 +1,3 @@
-from .kopolyglot import KoPolyglot
-from .kogemma import KoGemma
 from .gemma import Gemma
 from .gemma2 import Gemma2
 from .llama3 import Llama3
