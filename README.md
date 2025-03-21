@@ -28,7 +28,7 @@ Below is an example of the memory requirements and training speed for different 
 
 > [!NOTE]
 > Training conditions: 
-> - Environments: Ubuntu 22.04.4 LTS
+> - Environments: Ubuntu 22.04.4 LTS, PyTorch===2.5.1, transformers==4.49.0
 > - Batch size: 2
 > - Sequnece length: 8,192 (Without padding, fully filled tokens)
 > - Model type: torch.bfloat16
