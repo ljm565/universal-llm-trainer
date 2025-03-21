@@ -2,7 +2,7 @@
 
 
 ### Recent updates 📣
-* *March 2025 (v1.5.2)*: Universal LLM trainer does not support KoPolyglot and KoGemma and, GPU memory usage during model training has been improved.
+* *March 2025 (v1.5.2)*: Universal LLM trainer does not support KoPolyglot and KoGemma, and support Llama 2 and Gemma 1. Also, GPU memory usage during model training has been improved.
 * *March 2025 (v1.5.1)*: Universal LLM trainer does not support unnecessary fucntions (e.g. NMT, translator).
 * *February 2025 (v1.5.0)*: Universal LLM trainer has supported LLaMA 2 template. Please refer to the **tempaltes** folder.
 * *November 2024 (v1.4.9)*: Universal LLM trainer has supported FSDP training.
@@ -40,19 +40,41 @@ Below is an example of the memory requirements and training speed for different 
 
 | Model | Tuning Method | GPU | Peak Mem. (Model Mem.) | Sec/batch |
 |:- |-:|-:|-:|-:|
-| Llama 3.1 8B    | Full | H100 x 1  | 78 GiB (16 GiB)    | 4.7    |
-| Llama 3.1 8B    | LoRA | H100 x 1  | 36 GiB (16 GiB)    | 6.4    |
-| Llama 3 8B      | Full | H100 x 1  | 78 GiB (16 GiB)    | 4.7    |
-| Llama 3 8B      | LoRA | H100 x 1  | 36 GiB (16 GiB)    | 6.4    |
-| Llama 2 13B *   | Full | H100 x 2  | 56 GiB (25.5 GiB)  | 9.5    |  
-| Llama 2 13B     | LoRA | H100 x 1  | 43 GiB (25.5 GiB)  | 9.8    |
-| Gemma 2 9B *    | Full | H100 x 2  | 74 GiB (18 GiB)    | 12.6   |
-| Gemma 2 9B      | LoRA | H100 x 1  | 60 GiB (18 GiB)    | 12.9   |
-| Gemma 7B *      | Full | H100 x 2  | 60 GiB (18 GiB)    | 8.7    |   
-| Gemma 7B        | LoRA | H100 x 1  | 51 GiB (17 GiB)    | 9.5    |
-| Phi3-mini (3.8B)| Full | H100 x 1  | 40 GiB (8 GiB)     | 4.0    |
-| Phi3-mini (3.8B)| LoRA | H100 x 1  | 17 GiB (8 GiB)     | 5.0    |
+| [Llama 3.1 8B](config/llm_llama3.1_full.yaml)      | Full | H100 x 1  | 78 GiB (16 GiB)    | 4.7    |
+| [Llama 3.1 8B](config/llm_llama3.1_lora.yaml)      | LoRA | H100 x 1  | 36 GiB (16 GiB)    | 6.4    |
+| [Llama 3 8B](config/llm_llama3_full.yaml)          | Full | H100 x 1  | 78 GiB (16 GiB)    | 4.7    |
+| [Llama 3 8B](config/llm_llama3_lora.yaml)          | LoRA | H100 x 1  | 36 GiB (16 GiB)    | 6.4    |
+| [Llama 2 13B](config/llm_llama2_full_fsdp.yaml) *  | Full | H100 x 2  | 56 GiB (25.5 GiB)  | 9.5    |  
+| [Llama 2 13B](config/llm_llama2_lora.yaml)         | LoRA | H100 x 1  | 43 GiB (25.5 GiB)  | 9.8    |
+| [Gemma 2 9B](config/llm_gemma2_full_fsdp.yaml) *   | Full | H100 x 2  | 74 GiB (18 GiB)    | 12.6   |
+| [Gemma 2 9B](config/llm_gemma2_lora.yaml)          | LoRA | H100 x 1  | 60 GiB (18 GiB)    | 12.9   |
+| [Gemma 7B](config/llm_gemma_full_fsdp.yaml) *      | Full | H100 x 2  | 60 GiB (18 GiB)    | 8.7    |   
+| [Gemma 7B](config/llm_gemma_lora.yaml)             | LoRA | H100 x 1  | 51 GiB (17 GiB)    | 9.5    |
+| [Phi3-mini (3.8B)](config/llm_phi3_full.yaml)      | Full | H100 x 1  | 40 GiB (8 GiB)     | 4.0    |
+| [Phi3-mini (3.8B)](config/llm_phi3_lora.yaml)      | LoRA | H100 x 1  | 17 GiB (8 GiB)     | 5.0    |
 * : FSDP training + 32 gradient accumuation.
+
+&nbsp;
+
+## Quick Starts 🚀
+### Environment Setup
+We have to install PyTorch and other requirements. Please refer to more [detailed setup](./docs/1_getting_started.md) including Docker.
+```bash
+# PyTorch Install
+pip3 install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu124
+
+# Requirements Install
+pip3 install -r docker/requirements.txt
+```
+
+### LLM Training
+```bash
+# Llama 3.1 8B LoRA fine-tuning
+python3 src/run/train.py --config config/llm_llama3.1_lora.yaml --mode train
+
+# Llama 3.1 8B full fine-tuning
+python3 src/run/train.py --config config/llm_llama3.1_full.yaml --mode train
+```
 
 &nbsp;
 
@@ -100,6 +122,6 @@ This repository is structured as follows.
 <br><br> -->
 
 ## Tutorials & Documentations
-1. [Getting Started](./docs/1_getting_start.md)
+1. [Getting Started](./docs/1_getting_started.md)
 2. [Data Preparation](./docs/2_data_preparation.md)
 3. [Training](./docs/3_training.md)
