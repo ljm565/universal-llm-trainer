@@ -52,7 +52,8 @@ Below is an example of the memory requirements and training speed for different 
 | [Gemma 7B](config/llm_gemma_lora.yaml)             | LoRA | H100 x 1  | 51 GiB (17 GiB)    | 9.5    |
 | [Phi3-mini (3.8B)](config/llm_phi3_full.yaml)      | Full | H100 x 1  | 40 GiB (8 GiB)     | 4.0    |
 | [Phi3-mini (3.8B)](config/llm_phi3_lora.yaml)      | LoRA | H100 x 1  | 17 GiB (8 GiB)     | 5.0    |
-* : FSDP training + 32 gradient accumuation.
+
+*: FSDP training + 32 gradient accumuation.
 
 &nbsp;
 
