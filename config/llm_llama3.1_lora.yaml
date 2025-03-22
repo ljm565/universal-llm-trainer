@@ -10,7 +10,7 @@ data_path: ['./data_examples/allenai_ai2_arc']
 template_dir: [templates/llama3_templates]   # list(directory) or directory, if null, template will be chosen according to the {data_path}/templates.
 
 # project config
-project: /full_training/output/llama3.1
+project: ./output/llama3.1
 name: lora_test
 
 # environment config
