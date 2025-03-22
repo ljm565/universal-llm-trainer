@@ -9,6 +9,8 @@
 
 &nbsp;
 
+&nbsp;
+
 
 
 ## Overview 📚
@@ -57,6 +59,8 @@ Below is an example of the memory requirements and training speed for different 
 
 &nbsp;
 
+&nbsp;
+
 ## Quick Starts 🚀
 ### Environment Setup
 We have to install PyTorch and other requirements. Please refer to more [detailed setup](./docs/1_getting_started.md) including Docker.
@@ -68,14 +72,25 @@ pip3 install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url http
 pip3 install -r docker/requirements.txt
 ```
 
+&nbsp;
+
+### Data preparation
+```bash
+python3 src/run/dataset_download.py --dataset allenai/ai2_arc --download_path data_examples
+```
+
+&nbsp;
+
 ### LLM Training
 ```bash
 # Llama 3.1 8B LoRA fine-tuning
-python3 src/run/train.py --config config/llm_llama3.1_lora.yaml --mode train
+python3 src/run/train.py --config config/example_llama3.1_lora.yaml --mode train
 
 # Llama 3.1 8B full fine-tuning
-python3 src/run/train.py --config config/llm_llama3.1_full.yaml --mode train
+python3 src/run/train.py --config config/example_llama3.1_full.yaml --mode train
 ```
+
+&nbsp;
 
 &nbsp;
 
