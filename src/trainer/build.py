@@ -1,5 +1,6 @@
 import os
 from sconf import Config
+from datasets import concatenate_datasets
 from peft import prepare_model_for_kbit_training
 
 import torch
@@ -47,7 +48,7 @@ def build_llm_dataset(config, tokenizer, mode):
             dset = dataset_classes[i](
                 mode=state,
                 config=config,
-                data=sum(data, []),
+                data=sum(data, []) if isinstance(data[0], list) else concatenate_datasets(data),
                 tokenizer=tokenizer,
                 template_dir=template_paths[i],
                 name=datasets[i]
