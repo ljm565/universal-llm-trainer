@@ -1,2 +1,0 @@
-[INST]{instruction}[/INST]
-{response}{eos_token}

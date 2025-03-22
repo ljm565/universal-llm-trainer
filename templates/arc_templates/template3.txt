@@ -1,6 +1,0 @@
-user
-{instruction}
-{eos_token}
-system
-{response}
-{eos_token}

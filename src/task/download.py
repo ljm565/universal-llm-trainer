@@ -17,7 +17,7 @@ class DownloadTask:
 
 
     def download(self):
-        if self.dataset == 'ai2_arc':
+        if self.dataset == 'allenai/ai2_arc':
             return ARC(self.download_path, self.dataset).download_dataset()
         elif self.dataset == 'gsm8k':
             return GradeSchoolMath8k(self.download_path, self.dataset).download_dataset()

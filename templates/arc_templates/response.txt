@@ -1,8 +1,0 @@
-정답은 {answerKey}입니다.
-답은 {answerKey}입니다.
-찾는 답은 {answerKey}입니다.
-올바른 대답은 {answerKey}입니다.
-찾고 있는 답은 {answerKey}입니다.
-선택해야 하는 답은 {answerKey}입니다.
-알맞은 답은 {answerKey}입니다.
-좋아보이는 답은 {answerKey}입니다.
