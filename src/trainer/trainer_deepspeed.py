@@ -1,7 +1,10 @@
 import gc
 import time
 import math
-import deepspeed
+try:
+    import deepspeed
+except:
+    pass
 
 import torch
 from torch.cuda import amp
