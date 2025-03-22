@@ -1,6 +1,8 @@
 # Getting Started
 In this project, you can build a Docker image or Ananconda environment for an LLM training.
 
+&nbsp;
+
 ## Docker
 ### 1. Image Build
 You can build a Docker image using the following command:
@@ -8,6 +10,7 @@ You can build a Docker image using the following command:
 cd docker
 docker build -t ${IMAGE_NAME} .
 ```
+&nbsp;
 
 ### 2. Run Docker Container
 Then, you can make a Docker container using the following command:
@@ -20,7 +23,11 @@ If you want to prevent auto-kill from your server, please add the below option:
 ```bash
 --oom-score-adj=-1000
 ```
-<br><br>
+
+&nbsp;
+
+&nbsp;
+
 
 ## Anaconda
 ### 0. Preliminary
