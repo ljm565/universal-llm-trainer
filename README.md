@@ -40,7 +40,7 @@ Below is an example of the memory requirements and training speed for different 
 >   - Full fine-tuning: 1
 >   - LoRA: 32
 
-| Model | Tuning Method | GPU | Peak Mem. (Model Mem.) | Sec/batch |
+| Model | Tuning Method | GPU | Peak Mem. (Model Mem.) | Sec/step |
 |:- |-:|-:|-:|-:|
 | [Llama 3.1 8B](config/llm_llama3.1_full.yaml)      | Full | H100 x 1  | 78 GiB (16 GiB)    | 4.7    |
 | [Llama 3.1 8B](config/llm_llama3.1_lora.yaml)      | LoRA | H100 x 1  | 36 GiB (16 GiB)    | 6.4    |
