@@ -54,7 +54,7 @@ Below is an example of the memory requirements and training speed for different 
 | [Llama 2 13B](config/llm_llama2_qlora.yaml) **     | QLoRA  | H100 x 1  | 38 GiB (8.3 GiB)   | 43.0   |
 | [Gemma 2 9B](config/llm_gemma2_full_fsdp.yaml) *   | Full   | H100 x 2  | 74 GiB (18 GiB)    | 12.6   |
 | [Gemma 2 9B](config/llm_gemma2_lora.yaml)          | LoRA   | H100 x 1  | 60 GiB (18 GiB)    | 12.9   |
-| [Gemma 2 9B](config/llm_gemma2_qlora.yaml) **      | QLoRA  | H100 x 1  | OOM GiB (8.4 GiB)  | OOM    |
+| [Gemma 2 9B](config/llm_gemma2_qlora.yaml) **      | QLoRA  | H100 x 1  | OOM (8.4 GiB)      | OOM    |
 | [Gemma 7B](config/llm_gemma_full_fsdp.yaml) *      | Full   | H100 x 2  | 60 GiB (18 GiB)    | 8.7    |   
 | [Gemma 7B](config/llm_gemma_lora.yaml)             | LoRA   | H100 x 1  | 51 GiB (17 GiB)    | 9.5    |
 | [Gemma 7B](config/llm_gemma_qlora.yaml) **         | QLoRA  | H100 x 1  | 70 GiB (7.5 GiB)   | 27.4   |
