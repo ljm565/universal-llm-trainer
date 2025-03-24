@@ -101,7 +101,8 @@ def choose_proper_model(config) -> str:
             'meta-llama/Meta-Llama-3-8B-Instruct',
         ]
         model_list_3_1 = [
-            'meta-llama/Llama-3.1-8B-Instruct'
+            'meta-llama/Llama-3.1-8B-Instruct',
+            'meta-llama/Llama-3.1-70B-Instruct',
         ]
         if config.model.lower() == 'llama3':
             model_list = model_list_3 
