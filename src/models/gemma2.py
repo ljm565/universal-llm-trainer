@@ -26,7 +26,7 @@ class Gemma2(nn.Module):
         # Initialize model and training settings
         self.model = AutoModelForCausalLM.from_pretrained(
             self._model_path, 
-            device_map=self.device,
+            device_map=self.device if not config.fsdp_train else None,      # Does not need to pre-define device_map for FSDP training
             low_cpu_mem_usage=True,
             torch_dtype=instantiate(torch, self.bit) if isinstance(self.bit, str) else torch.float32,
             **init_model_config(config)
