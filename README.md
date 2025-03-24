@@ -27,7 +27,7 @@ For detailed usage instructions, please refer to the description below.
 &nbsp;
 
 
-### GPU Memory and training speed
+### GPU memory and training speed
 Below is an example of the memory requirements and training speed for different models.
 
 > [!NOTE]
@@ -72,7 +72,7 @@ Below is an example of the memory requirements and training speed for different 
 &nbsp;
 
 ## Quick Starts 🚀
-### Environment Setup
+### Environment setup
 We have to install PyTorch and other requirements. Please refer to more [detailed setup](./docs/1_getting_started.md) including Docker.
 ```bash
 # PyTorch Install
@@ -91,7 +91,7 @@ python3 src/run/dataset_download.py --dataset allenai/ai2_arc --download_path da
 
 &nbsp;
 
-### LLM Training
+### LLM training
 ```bash
 # Llama 3.1 8B LoRA fine-tuning
 python3 src/run/train.py --config config/example_llama3.1_lora.yaml --mode train
