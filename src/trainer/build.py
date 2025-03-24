@@ -151,9 +151,7 @@ def get_peft_model(model, config):
 
 
 def get_wrapped_model(config, model, device):
-    # Not PEFT case
-    # if model.is32bit and not config.peft_config_path:
-    if not config.peft_config_path:
+    if not config.quant_config:
         model = FSDP(model, 
                      auto_wrap_policy=get_wrap_policy(config), 
                      device_id=device, 
