@@ -42,20 +42,27 @@ Below is an example of the memory requirements and training speed for different 
 
 | Model | Tuning Method | GPU | Peak Mem. (Model Mem.) | Sec/step |
 |:- |-:|-:|-:|-:|
-| [Llama 3.1 8B](config/llm_llama3.1_full.yaml)      | Full | H100 x 1  | 78 GiB (16 GiB)    | 4.7    |
-| [Llama 3.1 8B](config/llm_llama3.1_lora.yaml)      | LoRA | H100 x 1  | 36 GiB (16 GiB)    | 6.4    |
-| [Llama 3 8B](config/llm_llama3_full.yaml)          | Full | H100 x 1  | 78 GiB (16 GiB)    | 4.7    |
-| [Llama 3 8B](config/llm_llama3_lora.yaml)          | LoRA | H100 x 1  | 36 GiB (16 GiB)    | 6.4    |
-| [Llama 2 13B](config/llm_llama2_full_fsdp.yaml) *  | Full | H100 x 2  | 56 GiB (25.5 GiB)  | 9.5    |  
-| [Llama 2 13B](config/llm_llama2_lora.yaml)         | LoRA | H100 x 1  | 43 GiB (25.5 GiB)  | 9.8    |
-| [Gemma 2 9B](config/llm_gemma2_full_fsdp.yaml) *   | Full | H100 x 2  | 74 GiB (18 GiB)    | 12.6   |
-| [Gemma 2 9B](config/llm_gemma2_lora.yaml)          | LoRA | H100 x 1  | 60 GiB (18 GiB)    | 12.9   |
-| [Gemma 7B](config/llm_gemma_full_fsdp.yaml) *      | Full | H100 x 2  | 60 GiB (18 GiB)    | 8.7    |   
-| [Gemma 7B](config/llm_gemma_lora.yaml)             | LoRA | H100 x 1  | 51 GiB (17 GiB)    | 9.5    |
-| [Phi3-mini (3.8B)](config/llm_phi3_full.yaml)      | Full | H100 x 1  | 40 GiB (8 GiB)     | 4.0    |
-| [Phi3-mini (3.8B)](config/llm_phi3_lora.yaml)      | LoRA | H100 x 1  | 17 GiB (8 GiB)     | 5.0    |
+| [Llama 3.1 8B](config/llm_llama3.1_full.yaml)      | Full   | H100 x 1  | 78 GiB (16 GiB)    | 4.7    |
+| [Llama 3.1 8B](config/llm_llama3.1_lora.yaml)      | LoRA   | H100 x 1  | 36 GiB (16 GiB)    | 6.4    |
+| [Llama 3.1 8B](config/llm_llama3.1_qlora.yaml) **  | QLoRA  | H100 x 1  | 48 GiB (8.0 GiB)   | 26.1   |
+| [Llama 3 8B](config/llm_llama3_full.yaml)          | Full   | H100 x 1  | 78 GiB (16 GiB)    | 4.7    |
+| [Llama 3 8B](config/llm_llama3_lora.yaml)          | LoRA   | H100 x 1  | 36 GiB (16 GiB)    | 6.4    |
+| [Llama 3 8B](config/llm_llama3_qlora.yaml) **      | QLoRA  | H100 x 1  | 48 GiB (8.0 GiB)   | 26.1   |
+| [Llama 2 13B](config/llm_llama2_full_fsdp.yaml) *  | Full   | H100 x 2  | 56 GiB (25.5 GiB)  | 9.5    |  
+| [Llama 2 13B](config/llm_llama2_lora.yaml)         | LoRA   | H100 x 1  | 43 GiB (25.5 GiB)  | 9.8    |
+| [Llama 2 13B](config/llm_llama2_qlora.yaml) **     | QLoRA  | H100 x 1  | 38 GiB (8.3 GiB)   | 43.0   |
+| [Gemma 2 9B](config/llm_gemma2_full_fsdp.yaml) *   | Full   | H100 x 2  | 74 GiB (18 GiB)    | 12.6   |
+| [Gemma 2 9B](config/llm_gemma2_lora.yaml)          | LoRA   | H100 x 1  | 60 GiB (18 GiB)    | 12.9   |
+| [Gemma 2 9B](config/llm_gemma2_qlora.yaml) **      | QLoRA  | H100 x 1  | OOM GiB (8.4 GiB)  | OOM    |
+| [Gemma 7B](config/llm_gemma_full_fsdp.yaml) *      | Full   | H100 x 2  | 60 GiB (18 GiB)    | 8.7    |   
+| [Gemma 7B](config/llm_gemma_lora.yaml)             | LoRA   | H100 x 1  | 51 GiB (17 GiB)    | 9.5    |
+| [Gemma 7B](config/llm_gemma_qlora.yaml) **         | QLoRA  | H100 x 1  | 70 GiB (7.5 GiB)   | 27.4   |
+| [Phi3-mini (3.8B)](config/llm_phi3_full.yaml)      | Full   | H100 x 1  | 40 GiB (8 GiB)     | 4.0    |
+| [Phi3-mini (3.8B)](config/llm_phi3_lora.yaml)      | LoRA   | H100 x 1  | 17 GiB (8 GiB)     | 5.0    |
+| [Phi3-mini (3.8B)](config/llm_phi3_qlora.yaml) **  | QLoRA  | H100 x 1  | 21 GiB (3.2 GiB)   | 17.6   |
 
-*: FSDP training + 32 gradient accumuation.
+*: FSDP training + 32 gradient accumuation.<br>
+**: 4-bit QLoRA training. QLoRA does not always use less GPU than LoRA, but it varies depending on sequence length and model size. Experimentally, QLoRA use less GPU when less than 1,500 sequence length. Please refer to [Google document](https://cloud.google.com/vertex-ai/generative-ai/docs/model-garden/lora-qlora).
 
 &nbsp;
 
@@ -85,6 +92,9 @@ python3 src/run/dataset_download.py --dataset allenai/ai2_arc --download_path da
 ```bash
 # Llama 3.1 8B LoRA fine-tuning
 python3 src/run/train.py --config config/example_llama3.1_lora.yaml --mode train
+
+# Llama 3.1 8B QLoRA fine-tuning
+python3 src/run/train.py --config config/example_llama3.1_qlora.yaml --mode train
 
 # Llama 3.1 8B full fine-tuning
 python3 src/run/train.py --config config/example_llama3.1_full.yaml --mode train
