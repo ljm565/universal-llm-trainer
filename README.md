@@ -2,6 +2,7 @@
 
 
 ### Recent updates 📣
+* *March 2025 (v1.5.4)*: Universal LLM trainer supports **Llama 3.1 70B LoRA** training and GPU memory usage during FSDP model training has been improved.
 * *March 2025 (v1.5.3)*: QLoRA test results have been added.
 * *March 2025 (v1.5.2)*: Universal LLM trainer does not support KoPolyglot and KoGemma, and support Llama 2 and Gemma 1. Also, GPU memory usage during model training has been improved.
 * *March 2025 (v1.5.1)*: Universal LLM trainer does not support unnecessary fucntions (e.g. NMT, translator).
@@ -43,26 +44,27 @@ Below is an example of the memory requirements and training speed for different 
 
 | Model | Tuning Method | GPU | Peak Mem. (Model Mem.) | Sec/step |
 |:- |-:|-:|-:|-:|
-| [Llama 3.1 8B](config/llm_llama3.1_full.yaml)      | Full   | H100 x 1  | 78 GiB (16 GiB)    | 4.7    |
-| [Llama 3.1 8B](config/llm_llama3.1_lora.yaml)      | LoRA   | H100 x 1  | 36 GiB (16 GiB)    | 6.4    |
-| [Llama 3.1 8B](config/llm_llama3.1_qlora.yaml) **  | QLoRA  | H100 x 1  | 48 GiB (8.0 GiB)   | 26.1   |
-| [Llama 3 8B](config/llm_llama3_full.yaml)          | Full   | H100 x 1  | 78 GiB (16 GiB)    | 4.7    |
-| [Llama 3 8B](config/llm_llama3_lora.yaml)          | LoRA   | H100 x 1  | 36 GiB (16 GiB)    | 6.4    |
-| [Llama 3 8B](config/llm_llama3_qlora.yaml) **      | QLoRA  | H100 x 1  | 48 GiB (8.0 GiB)   | 26.1   |
-| [Llama 2 13B](config/llm_llama2_full_fsdp.yaml) *  | Full   | H100 x 2  | 56 GiB (25.5 GiB)  | 9.5    |  
-| [Llama 2 13B](config/llm_llama2_lora.yaml)         | LoRA   | H100 x 1  | 43 GiB (25.5 GiB)  | 9.8    |
-| [Llama 2 13B](config/llm_llama2_qlora.yaml) **     | QLoRA  | H100 x 1  | 38 GiB (8.3 GiB)   | 43.0   |
-| [Gemma 2 9B](config/llm_gemma2_full_fsdp.yaml) *   | Full   | H100 x 2  | 74 GiB (18 GiB)    | 12.6   |
-| [Gemma 2 9B](config/llm_gemma2_lora.yaml)          | LoRA   | H100 x 1  | 60 GiB (18 GiB)    | 12.9   |
-| [Gemma 2 9B](config/llm_gemma2_qlora.yaml) **      | QLoRA  | H100 x 1  | OOM (8.4 GiB)      | OOM    |
-| [Gemma 7B](config/llm_gemma_full_fsdp.yaml) *      | Full   | H100 x 2  | 60 GiB (18 GiB)    | 8.7    |   
-| [Gemma 7B](config/llm_gemma_lora.yaml)             | LoRA   | H100 x 1  | 51 GiB (17 GiB)    | 9.5    |
-| [Gemma 7B](config/llm_gemma_qlora.yaml) **         | QLoRA  | H100 x 1  | 70 GiB (7.5 GiB)   | 27.4   |
-| [Phi3-mini (3.8B)](config/llm_phi3_full.yaml)      | Full   | H100 x 1  | 40 GiB (8 GiB)     | 4.0    |
-| [Phi3-mini (3.8B)](config/llm_phi3_lora.yaml)      | LoRA   | H100 x 1  | 17 GiB (8 GiB)     | 5.0    |
-| [Phi3-mini (3.8B)](config/llm_phi3_qlora.yaml) **  | QLoRA  | H100 x 1  | 21 GiB (3.2 GiB)   | 17.6   |
+| [Llama 3.1 8B](config/llm_llama3.1_full.yaml)                 | Full   | H100 x 1  | 78 GiB (16 GiB)       | 4.7    |
+| [Llama 3.1 8B](config/llm_llama3.1_lora.yaml)                 | LoRA   | H100 x 1  | 36 GiB (16 GiB)       | 6.4    |
+| [Llama 3.1 8B](config/llm_llama3.1_qlora.yaml) **             | QLoRA  | H100 x 1  | 48 GiB (8.0 GiB)      | 26.1   |
+| [Llama 3.1 70B](config/llm_llama3.1_70B_lora_fsdp.yaml) *     | LoRA   | H100 x 2  | 66 GiB (CPU Offload)  | 40.2   |
+| [Llama 3 8B](config/llm_llama3_full.yaml)                     | Full   | H100 x 1  | 78 GiB (16 GiB)       | 4.7    |
+| [Llama 3 8B](config/llm_llama3_lora.yaml)                     | LoRA   | H100 x 1  | 36 GiB (16 GiB)       | 6.4    |
+| [Llama 3 8B](config/llm_llama3_qlora.yaml) **                 | QLoRA  | H100 x 1  | 48 GiB (8.0 GiB)      | 26.1   |
+| [Llama 2 13B](config/llm_llama2_full_fsdp.yaml) *             | Full   | H100 x 2  | 31 GiB (CPU Offload)  | 9.5    |  
+| [Llama 2 13B](config/llm_llama2_lora.yaml)                    | LoRA   | H100 x 1  | 43 GiB (25.5 GiB)     | 9.8    |
+| [Llama 2 13B](config/llm_llama2_qlora.yaml) **                | QLoRA  | H100 x 1  | 38 GiB (8.3 GiB)      | 43.0   |
+| [Gemma 2 9B](config/llm_gemma2_full_fsdp.yaml) *              | Full   | H100 x 2  | 59 GiB (CPU Offload)  | 12.6   |
+| [Gemma 2 9B](config/llm_gemma2_lora.yaml)                     | LoRA   | H100 x 1  | 60 GiB (18 GiB)       | 12.9   |
+| [Gemma 2 9B](config/llm_gemma2_qlora.yaml) **                 | QLoRA  | H100 x 1  | OOM (8.4 GiB)         | OOM    |
+| [Gemma 7B](config/llm_gemma_full_fsdp.yaml) *                 | Full   | H100 x 2  | 48 GiB (CPU Offload)  | 8.7    |   
+| [Gemma 7B](config/llm_gemma_lora.yaml)                        | LoRA   | H100 x 1  | 51 GiB (17 GiB)       | 9.5    |
+| [Gemma 7B](config/llm_gemma_qlora.yaml) **                    | QLoRA  | H100 x 1  | 70 GiB (7.5 GiB)      | 27.4   |
+| [Phi3-mini (3.8B)](config/llm_phi3_full.yaml)                 | Full   | H100 x 1  | 40 GiB (8 GiB)        | 4.0    |
+| [Phi3-mini (3.8B)](config/llm_phi3_lora.yaml)                 | LoRA   | H100 x 1  | 17 GiB (8 GiB)        | 5.0    |
+| [Phi3-mini (3.8B)](config/llm_phi3_qlora.yaml) **             | QLoRA  | H100 x 1  | 21 GiB (3.2 GiB)      | 17.6   |
 
-*: FSDP training + 32 gradient accumuation.<br>
+*: FSDP training with CPU offloading + 32 gradient accumuation.<br>
 **: 4-bit QLoRA training. QLoRA does not always use less GPU than LoRA, but it varies depending on sequence length and model size. Experimentally, QLoRA use less GPU when less than 1,500 sequence length. Please refer to [Google document](https://cloud.google.com/vertex-ai/generative-ai/docs/model-garden/lora-qlora).
 
 &nbsp;
