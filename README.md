@@ -2,6 +2,7 @@
 
 
 ### Recent updates 📣
+* *March 2025 (v1.5.3)*: QLoRA test results have been added.
 * *March 2025 (v1.5.2)*: Universal LLM trainer does not support KoPolyglot and KoGemma, and support Llama 2 and Gemma 1. Also, GPU memory usage during model training has been improved.
 * *March 2025 (v1.5.1)*: Universal LLM trainer does not support unnecessary fucntions (e.g. NMT, translator).
 * *February 2025 (v1.5.0)*: Universal LLM trainer has supported LLaMA 2 template. Please refer to the **tempaltes** folder.
