@@ -19,7 +19,7 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (
 )
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
-from utils import LOGGER, colorstr, TQDM
+from utils import log, colorstr, TQDM
 from utils.func_utils import wrap_modules
 from utils.quant_utils import init_quant_config
 
@@ -156,8 +156,7 @@ def choose_proper_model(config) -> str:
         raise NotImplementedError
     
     # logs
-    if config.is_rank_zero:
-        LOGGER.info(f"Chosen model: {colorstr(model_list[idx])}")
+    log(f"Chosen model: {colorstr(model_list[idx])}")
     
     return model_list[idx]
 
@@ -269,7 +268,7 @@ def init_train_progress_bar(dloader,
     """
     if is_rank_zero:
         header = tuple(['Epoch', 'GPU_mem'] + loss_names)
-        LOGGER.info(('\n' + interval * (2 + len(loss_names))) % header)
+        log(('\n' + interval * (2 + len(loss_names))) % header)
         pbar = TQDM(enumerate(dloader), total=nb)
     else:
         pbar = enumerate(dloader)
@@ -362,8 +361,7 @@ def init_model_config(config) -> dict:
     # Determine attention mechanism
     if config.attn_implementation:
         kwargs['attn_implementation'] = config.attn_implementation
-        if config.is_rank_zero:
-            LOGGER.info(f"{colorstr(config.attn_implementation)} attention will be used.")
+        log(f"{colorstr(config.attn_implementation)} attention will be used.")
     
     return kwargs
 
@@ -438,7 +436,6 @@ def custom_wrap_policy(config, model: nn.Module, device: torch.device) -> nn.Mod
                 )
                 break       # due to leaf modules
     
-    if config.is_rank_zero:
-        LOGGER.info(colorstr('Custom Wrapping Process is applied because the quantization model is used'))
+    log('Custom Wrapping Process is applied because the quantization model is used', color=True)
     
     return model

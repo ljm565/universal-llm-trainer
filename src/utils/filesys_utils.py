@@ -4,7 +4,7 @@ import pickle
 from pathlib import Path
 from typing import Any, List
 
-from utils import LOGGER, colorstr
+from utils import is_rank_zero, colorstr, log
 
 
 
@@ -95,13 +95,12 @@ def json_save(path: str, data: dict) -> None:
 
 
 
-def make_project_dir(config, is_rank_zero:bool=False) -> Path:
+def make_project_dir(config) -> Path:
     """
     Make project folder.
 
     Args:
         config: yaml config.
-        is_rank_zero (bool): make folder only at the zero-rank device.
 
     Returns:
         (path): project folder path.
@@ -112,8 +111,7 @@ def make_project_dir(config, is_rank_zero:bool=False) -> Path:
 
     save_dir = os.path.join(project, name)
     if os.path.exists(save_dir):
-        if is_rank_zero:
-            LOGGER.info(f'{prefix}: Project {save_dir} already exists. New folder will be created.')
+        log(f'{prefix}: Project {save_dir} already exists. New folder will be created.')
         save_dir = os.path.join(project, name + str(len(os.listdir(project))+1))
     
     if is_rank_zero:
@@ -133,7 +131,7 @@ def yaml_save(file:str='data.yaml', data:Any=None) -> None:
         data (Any, optional): Data to save in YAML format.
     """
     save_path = Path(file)
-    print(data.dumps())
+    log(data.dumps())
     with open(save_path, "w") as f:
         f.write(data.dumps(modified_color=None, quote_str=True))
-        print(f"Config is saved at {save_path}")
+        log(f"Config is saved at {save_path}")

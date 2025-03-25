@@ -5,7 +5,7 @@ import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 
 from .model_manager import ModelManager
-from utils import LOGGER, colorstr, logger
+from utils import is_rank_zero, colorstr, log
 
 
 
@@ -16,10 +16,10 @@ class TrainingLogger:
         self.log_keys = config.common + config.metrics
         self.log_data.update({k: [] for k in self.log_keys})
         self.train_batch_sizes, self.val_batch_sizes = [], []
-        self.is_rank_zero = config.is_rank_zero
+        self.is_rank_zero = is_rank_zero['value']
         self.st = 0
+        log(f'{colorstr("Logging data")}: {self.log_keys}')
         if self.is_rank_zero and self.training:
-            LOGGER.info(f'{colorstr("Logging data")}: {self.log_keys}')
             self.writer = SummaryWriter(log_dir=config.save_dir)
         self.model_manager = ModelManager()
         self.tensorboard_logging_interval = config.tensorboard_logging_interval
@@ -98,7 +98,7 @@ class TrainingLogger:
         if printing:
             result = train_epoch_result if phase == 'train' else self.validation_epoch_result
             msg = [f'{k}={v:.4f}' for k, v in result.items()]
-            LOGGER.info(f"{colorstr('green', 'bold', ', '.join(msg))}\n")
+            log(f"{colorstr('green', 'bold', ', '.join(msg))}\n")
 
     
     def delete_file(self, save_dir, flag):
@@ -111,25 +111,25 @@ class TrainingLogger:
     def save_model(self, save_dir, model, is_fsdp=False):
         if self.is_rank_zero or is_fsdp:
             if not hasattr(self, 'validation_epoch_result') or len(self.validation_epoch_result) == 0:
-                LOGGER.warning('No log data to save..')
+                log('No log data to save..', level='warning')
                 return
 
             epoch, step = self.log_data['epoch'][-1], self.log_data['step'][-1]
             lower_flag, higher_flag = self.model_manager.update_best(self.validation_epoch_result)
 
             if lower_flag:
-                logger(self, 'The model achieving the lowest loss has been saved..')
+                log('The model achieving the lowest loss has been saved..')
                 self.delete_file(save_dir, 'loss')
                 model_path = os.path.join(save_dir, f'model_epoch:{epoch}_step:{step}_loss_best.pt')
                 self.model_manager.save(model, model_path, self.validation_epoch_result, self.is_rank_zero)
 
             if higher_flag:
-                logger(self, 'The model achieving the highest metric has been saved..')
+                log('The model achieving the highest metric has been saved..')
                 self.delete_file(save_dir, 'metric')
                 model_path = os.path.join(save_dir, f'model_epoch:{epoch}_step:{step}_metric_best.pt')
                 self.model_manager.save(model, model_path, self.validation_epoch_result, self.is_rank_zero)
             
-            logger(self, 'The last validated model has been saved..')
+            log('The last validated model has been saved..')
             self.delete_file(save_dir, 'last')
             model_path = os.path.join(save_dir, f'model_epoch:{epoch}_step:{step}_last_best.pt')
             self.model_manager.save(model, model_path, self.validation_epoch_result, self.is_rank_zero)

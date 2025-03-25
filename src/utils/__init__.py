@@ -19,6 +19,7 @@ VERBOSE = True
 RANK = int(os.getenv('RANK', -1))
 MACOS, LINUX, WINDOWS = (platform.system() == x for x in ['Darwin', 'Linux', 'Windows'])  # environment booleans
 TQDM_BAR_FORMAT = '{l_bar}{bar:10}{r_bar}' if VERBOSE else None  # tqdm bar format
+is_rank_zero = {'value': True}
 
 
 def set_logging(name=LOGGING_NAME, verbose=True):
@@ -265,27 +266,35 @@ class TQDM(tqdm_original):
         super().__init__(*args, **kwargs)
 
 
+def set_rank_zero(value: bool):
+    global is_rank_zero
+    is_rank_zero['value'] = value
+
+
 def log_if_rank_zero(func):
     def wrapper(self, *args, **kwargs):
-        if self.is_rank_zero:
+        if is_rank_zero['value']:
             return func(self, *args, **kwargs)
     return wrapper
 
 
 @log_if_rank_zero
-def print_mem_consumption(self, path):
+def print_mem_consumption(path):
     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
     LOGGER.info(f'{colorstr(path)} accounts for {colorstr(mem)} of GPU memory.')
 
 
 @log_if_rank_zero
-def logger(self, message, level='info'):
+def log(message, level='info', color=False):
     if level.lower() == 'warning':
         LOGGER.warning(message)
     elif level.lower() == 'error':
         LOGGER.error(message)
     else:
-        LOGGER.info(colorstr(message))
+        if color:
+            LOGGER.info(colorstr(message))
+        else:
+            LOGGER.info(message)
 
 
 ########################## MSG ##########################

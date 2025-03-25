@@ -12,7 +12,7 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (
     ShardingStrategy,
 )
 
-from utils import RANK, LOGGER, colorstr
+from utils import RANK, log, colorstr
 from utils.data_utils import seed_worker, choose_proper_dataset
 from utils.peft_utils import init_lora_config, apply_peft, print_trainable_parameters
 from utils.filesys_utils import pickle_load
@@ -32,7 +32,7 @@ def build_llm_dataset(config, tokenizer, mode):
         template_paths = [config.template_dir] if isinstance(config.template_dir, str) else config.template_dir
     
     if not all([os.path.exists(p) for p in template_paths]) and config.is_rank_zero:
-        raise FileNotFoundError(LOGGER.info(colorstr('red', 'Template directory is not found.')))
+        raise FileNotFoundError(log('Template directory is not found.', level='error'))
     
     dataset_classes = [choose_proper_dataset(d) for d in config.data_train_type]
 
@@ -126,7 +126,7 @@ def get_model(config, device):
         try:
             model = prepare_model_for_kbit_training(model)
         except:
-            LOGGER.warning('Quantized model preparation is failed. It will not be a problem.')
+            log('Quantized model preparation is failed. It will not be a problem.', level='warning')
 
     return model, tokenizer
 
@@ -143,9 +143,8 @@ def get_peft_model(model, config):
         raise NotImplementedError
     
     # Logging
-    if config.is_rank_zero:
-        print_trainable_parameters(model)
-        LOGGER.info(f'Applied {colorstr(peft_type)} to the model.')
+    print_trainable_parameters(model)
+    log(f'Applied {colorstr(peft_type)} to the model.')
     return model
 
 

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import Dataset
 
-from utils import LOGGER, colorstr
+from utils import log
 from utils.filesys_utils import txt_load, json_load
 
 
@@ -46,10 +46,10 @@ class ARCDataset(Dataset):
             save_dir = os.path.join(config.save_dir, 'vis_data')
             os.makedirs(save_dir, exist_ok=True)
 
-            LOGGER.info(f'Calculating statistics of {name} data...')
+            log(f'Calculating statistics of {name} data...')
             src_l, src_max, src_min, src_avg = self.get_token_len_statistics(self.data)
             msg = f'{name} dataset: max={src_max}, min={src_min}, avg={src_avg}'
-            LOGGER.info(msg)
+            log(msg)
             
             # save histograms
             plt.figure(figsize=(10, 10))
@@ -95,7 +95,7 @@ class ARCDataset(Dataset):
         max_n = 200000
         interv = len(data) // max_n if len(data) > max_n else 1
         if interv > 1:
-            LOGGER.warning(f"Length of {len(data)} is too long. Approximately {len(data) // interv} samples will be used to calculate statistics.")
+            log(f"Length of {len(data)} is too long. Approximately {len(data) // interv} samples will be used to calculate statistics.", level='warning')
         length = [len(self.generate_prompt(i)[0]) for i in tqdm(range(0, len(data), interv))]
         max_length = max(length)
         min_length = min(length)
@@ -327,7 +327,7 @@ def huggingface_arc_generator(single_data, templates, responses, instructions, t
         indices = list(range(len(texts)))
         while 1:
             if len(indices) == 0:
-                LOGGER.warning("⚠️ All texts are invalid. Randomly select one text.")
+                log("⚠️ All texts are invalid. Randomly select one text.", level='warning')
                 return None
             idx = random.choice(indices)
             if _check_valid_format(texts[idx], data):

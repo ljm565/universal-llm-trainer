@@ -1,6 +1,6 @@
 from peft import LoraConfig, get_peft_model
 
-from utils import LOGGER, colorstr
+from utils import log, colorstr
 
 
 
@@ -53,13 +53,13 @@ def apply_peft(model, config, peft_type: str):
         model.model = get_peft_model(model.model, config)
     except:
         if peft_type == 'lora':
-            print(model.model)
-            LOGGER.info(f"{colorstr('red', 'Failed to apply PEFT to the model. Please specify the target modules in the lora config according to the above model architectures.')}")
+            log(f'\n{model.model}')
+            log('Failed to apply PEFT to the model. Please specify the target modules in the lora config according to the above model architectures.', level='error')
         else:
             # TODO: Add other PEFT types
             pass
         raise AssertionError
-    LOGGER.info(model)
+    log(f'\n{model}')
     return model
 
 
@@ -77,4 +77,4 @@ def print_trainable_parameters(model) -> None:
         all_param += param.numel()
         if param.requires_grad:
             trainable_params += param.numel()
-    LOGGER.info(f"trainable params: {colorstr(trainable_params)} || all params: {colorstr(all_param)} || trainable: {colorstr(100 * trainable_params / all_param)} %")
+    log(f"trainable params: {colorstr(trainable_params)} || all params: {colorstr(all_param)} || trainable: {colorstr(100 * trainable_params / all_param)} %")

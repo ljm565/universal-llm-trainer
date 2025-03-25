@@ -9,7 +9,7 @@ from data_collection import (
     ARCDataset,
     QADataset,
 )
-from utils import LOGGER, DATASET_TRAIN_TYPE_MSG
+from utils import log, DATASET_TRAIN_TYPE_MSG
 
 
 
@@ -62,4 +62,4 @@ def choose_proper_dataset(dataset_name: str) -> Type[Union[QADataset, Autoregres
     elif 'arc' == dataset_name.lower():
         return ARCDataset
     else:
-        raise ValueError(LOGGER.error(f'Invalid dataset name: {dataset_name}\n{DATASET_TRAIN_TYPE_MSG}'))
+        raise ValueError(log(f'Invalid dataset name: {dataset_name}\n{DATASET_TRAIN_TYPE_MSG}', level='error'))
