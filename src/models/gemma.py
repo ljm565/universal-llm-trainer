@@ -7,7 +7,7 @@ from torch.distributed.fsdp.wrap import ModuleWrapPolicy
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import apply_activation_checkpointing
 
 from tools.tokenizers import GemmaTokenizer
-from utils import print_mem_consumption, logger
+from utils import print_mem_consumption, log
 from utils.func_utils import instantiate
 from utils.training_utils import init_model_config, choose_proper_model
 
@@ -35,38 +35,38 @@ class Gemma(nn.Module):
         self.tokenizer = GemmaTokenizer(config, self._model_path)
         if hasattr(self.tokenizer, 'resized'):
             self.model.resize_token_embeddings(len(self.tokenizer))
-            logger(self, 'Model word embedding is resized to match the tokenizer')
+            log('Model word embedding is resized to match the tokenizer')
         
         # Freezing proper layers
         self.freeze_layers(config.training_stage)
-        print_mem_consumption(self, self._model_path)
+        print_mem_consumption(self._model_path)
         
 
     def __set_bit(self, bit):
         if isinstance(bit, int):
             assert bit in [4, 8, 16, 32]
-            logger(self, f'Model is loaded in {bit}-bit')
+            log(f'Model is loaded in {bit}-bit')
             if bit == 32:
                 bit = 'float32'
             elif bit == 16:
                 bit = 'bfloat16'
-                logger(self, 'Model dytpe is automatically set to torch.bfloat16')
+                log('Model dytpe is automatically set to torch.bfloat16')
         elif isinstance(bit, str):
-            logger(self, f'Model dytpe is torch.{bit}')
+            log(f'Model dytpe is torch.{bit}')
         return bit
 
     
     def __set_gradient_checkpointing(self, config):
         if config.gradient_checkpointing.activate:
             if config.gradient_checkpointing.checkpoint_type.lower() == 'torch_checkpoint':
-                logger(self, 'Torch gradient checkpointing will be applied.')
+                log('Torch gradient checkpointing will be applied.')
                 auto_wrap_policy=ModuleWrapPolicy({GemmaDecoderLayer})
                 apply_activation_checkpointing(self.model, auto_wrap_policy=auto_wrap_policy)
             else:
                 if config.gradient_checkpointing.checkpoint_type.lower() == 'hf_checkpoint':
-                    logger(self, 'Hugging Face gradient checkpointing will be applied.')
+                    log('Hugging Face gradient checkpointing will be applied.')
                 else:
-                    logger(self, 'Invalid checkpoint type. Hugging Face gradient checkpointing will be applied.', 'warning')
+                    log('Invalid checkpoint type. Hugging Face gradient checkpointing will be applied.', 'warning')
                 self.model.enable_input_require_grads()
                 self.model.gradient_checkpointing_enable()
 
@@ -150,7 +150,7 @@ class Gemma(nn.Module):
     
     def freeze_layers(self, stage):
         if stage == 1:
-            logger(self, 'Freezing all layers except for word embeddings')
+            log('Freezing all layers except for word embeddings')
 
             for name, param in self.model.named_parameters():
                 if 'embed_tokens' in name:
@@ -160,7 +160,7 @@ class Gemma(nn.Module):
                     param.requires_grad = False
                 
         elif stage == 2:
-            logger(self, 'Freezing all layers except for the lm_head')
+            log('Freezing all layers except for the lm_head')
 
             for name, param in self.model.named_parameters():
                 param.requires_grad = False
@@ -171,7 +171,7 @@ class Gemma(nn.Module):
 
         
         elif stage == 3:
-            logger(self, 'Freezing all layers except for word embeddings and lm_head')
+            log('Freezing all layers except for word embeddings and lm_head')
 
             for name, param in self.model.named_parameters():
                 if 'embed_tokens' in name:
@@ -185,7 +185,7 @@ class Gemma(nn.Module):
                 param.requires_grad = True
         
         elif stage == 4:
-            logger(self, 'Unfreezing all layers except for word embeddings and lm_head')
+            log('Unfreezing all layers except for word embeddings and lm_head')
             
             for name, param in self.model.named_parameters():
                 if 'embed_tokens' in name:
