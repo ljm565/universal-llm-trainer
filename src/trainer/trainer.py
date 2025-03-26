@@ -11,7 +11,7 @@ from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from tools import ModelEMA, Evaluator, TrainingLogger, EarlyStopper
-from utils import RANK, LOGGER, colorstr, init_seeds, TQDM
+from utils import RANK, is_rank_zero, set_rank_zero, log, colorstr, init_seeds, TQDM
 from utils.func_utils import *
 from utils.training_utils import *
 from utils.filesys_utils import yaml_save, make_project_dir
@@ -33,11 +33,12 @@ class Trainer:
         # torch.set_default_dtype(torch.bfloat16)
         self.config = config
         init_seeds(self.config.seed + 1 + RANK, self.config.deterministic)
+        set_rank_zero(True if not multi_gpu_train_type or (multi_gpu_train_type and device == 0) else False)
         self.is_ddp, self.is_fsdp = select_training_type(multi_gpu_train_type)
         self.mode = mode
         self.is_training_mode = self.mode in ['train', 'resume']
         self.device = torch.device(device)
-        self.is_rank_zero = True if not multi_gpu_train_type or (multi_gpu_train_type and device == 0) else False
+        self.is_rank_zero = is_rank_zero['value']
         
         # Init training settings
         self.world_size = len(self.config.device) if multi_gpu_train_type else 1
@@ -50,9 +51,10 @@ class Trainer:
         self.metrics = self.config.metrics
         if self.is_training_mode:
             config.is_training_mode = True
-            self.save_dir = make_project_dir(self.config, self.is_rank_zero)
+            self.save_dir = make_project_dir(self.config)
             self.wdir = self.save_dir / 'weights'
         else:
+            config.fsdp_train = False
             config.is_training_mode = False
             config.data_verbose = False
         self.config.is_rank_zero = self.is_rank_zero
@@ -103,14 +105,13 @@ class Trainer:
 
 
     def _init_model(self, config, mode):
-        def _resume_model(resume_path, device, is_rank_zero):
+        def _resume_model(resume_path, device):
             checkpoints = torch.load(resume_path, map_location=device)
             model.load_state_dict(checkpoints['model'])
             del checkpoints
             torch.cuda.empty_cache()
             gc.collect()
-            if is_rank_zero:
-                LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
+            log(f'Resumed model: {colorstr(resume_path)}')
             return model
 
         # init model, loss function, and tokenizer
@@ -122,25 +123,23 @@ class Trainer:
         # init peft
         if config.peft_config_path:
             if config.training_stage != 0:
-                if config.is_rank_zero:
-                    LOGGER.info(f'PEFT is not applied due to training stage.')
+                log(f'PEFT is not applied due to training stage.')
             else:
                 # resume before applying peft
                 if do_resume:
                     try:
-                        model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
+                        model = _resume_model(self.resume_path, self.device)
                         resume_success = True
                     except:
-                        LOGGER.info(colorstr('yellow', 'Resume wiil be applied after PEFT applied..'))
+                        log('Resume wiil be applied after PEFT applied..', level='warning')
                         pass
                 model = get_peft_model(model, config)
         else:
-            if config.is_rank_zero:
-                LOGGER.info(f'PEFT is not applied.')
+            log('PEFT is not applied.')
 
         # resume model or resume model after applying peft
         if do_resume and not resume_success:
-            model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
+            model = _resume_model(self.resume_path, self.device)
 
         # init ddp
         if self.is_ddp:
@@ -154,7 +153,7 @@ class Trainer:
     def _freeze_model(self):
         if self.config.training_stage:
             # Firstly, changing model dtype
-            if self.model_module.load16bit:
+            if self.model_module.bit == 16:
                 self.model.half()
             else:
                 self.model.float()
@@ -163,7 +162,7 @@ class Trainer:
             self.model_module.freeze_layers(self.config.training_stage)
 
             # Lastly, changing layers dtype those have to be float32
-            if self.model_module.load16bit:
+            if self.model_module.bit == 16:
                 self.model_module.mapping_neccessary_32bit()
 
 
@@ -191,10 +190,9 @@ class Trainer:
         if not self.is_update_per_epoch:
             self.epochs = math.ceil(self.steps / len(self.dataloaders['train']))
         
-        if self.is_rank_zero:
-            LOGGER.info(f'Using {self.dataloaders["train"].num_workers * (self.world_size or 1)} dataloader workers\n'
-                        f"Logging results to {colorstr('bold', self.save_dir)}\n"
-                        f'Starting training for {self.epochs} epochs...\n')
+        log(f'Using {self.dataloaders["train"].num_workers * (self.world_size or 1)} dataloader workers')
+        log(f"Logging results to {colorstr('bold', self.save_dir)}")
+        log(f'Starting training for {self.epochs} epochs...')
 
         if self.is_ddp or self.is_fsdp:
             dist.barrier()
@@ -203,12 +201,10 @@ class Trainer:
             start = time.time()
             self.epoch = epoch
 
-            if self.is_rank_zero:
-                print('-'*100)
+            log('='*200)
 
             for phase in self.modes:
-                if self.is_rank_zero:
-                    print('Phase: {}'.format(phase))
+                log('Phase: {}'.format(phase))
 
                 if phase == 'train':
                     self.epoch_train(phase, epoch)
@@ -227,13 +223,9 @@ class Trainer:
             if self.stop:
                 break  # must break all DDP ranks
             
-            if self.is_rank_zero:
-                print(f"\nepoch {epoch+1} time: {time.time() - start} s\n")
-                print('\n'*2)
+            log(f"epoch {epoch+1} time: {time.time() - start} s\n\n\n")
 
-        if RANK in (-1, 0) and self.is_rank_zero:
-            LOGGER.info(f'\n{epoch - self.start_epoch + 1} epochs completed in '
-                        f'{(time.time() - self.train_time_start) / 3600:.3f} hours.')
+        log(f'{epoch - self.start_epoch + 1} epochs completed in {(time.time() - self.train_time_start) / 3600:.3f} hours.')
             
 
     def epoch_train(self, 
@@ -249,8 +241,7 @@ class Trainer:
             train_loader.sampler.set_epoch(epoch)
 
         # init progress bar
-        if RANK in (-1, 0):
-            pbar = init_train_progress_bar(train_loader, self.is_rank_zero, self.loss_names, nb)
+        pbar = init_train_progress_bar(train_loader, self.is_rank_zero, self.loss_names, nb)
     
         # training loop
         self.optimizer.zero_grad()
@@ -285,7 +276,7 @@ class Trainer:
                 batch_size, 
                 **{'train_loss': loss.item() * self.config.gradient_accumuate_step, 'lr': cur_lr}
             )
-            if RANK in (-1, 0) and self.is_rank_zero:
+            if self.is_rank_zero:
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                 loss_log = [loss.item() * self.config.gradient_accumuate_step]
                 msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log)
@@ -308,7 +299,7 @@ class Trainer:
                     dist.barrier()
         
         # upadate logs
-        if RANK in (-1, 0) and self.is_rank_zero:
+        if self.is_rank_zero:
             self.training_logger.update_phase_end(phase, printing=True)
         
         # scheduler step if update criterion is epoch
@@ -323,7 +314,7 @@ class Trainer:
         ):
         def _init_headline():
             header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics)
-            LOGGER.info(('\n' + '%15s' * (2 + len(self.loss_names) + len(self.metrics))) % header)
+            log(('\n' + '%15s' * (2 + len(self.loss_names) + len(self.metrics))) % header)
 
         def _get_val_pbar(dloader, nb, is_rank_zero):
             if is_rank_zero:
@@ -390,12 +381,12 @@ class Trainer:
 
                     if self.config.inference_result_verbose and response_gt != None:
                         for u, p, g in zip(user_prompt, response_pred, response_gt):
-                            LOGGER.info('\n\n' + '-'*100)
-                            LOGGER.info(colorstr('Prompt    : ') + u)
-                            LOGGER.info(colorstr('Prediction: ') + p)
-                            LOGGER.info(colorstr('GT        : ') + g)
-                            LOGGER.info('-'*100 + '\n')
-
+                            print('\n\n' + '-'*200)
+                            print(colorstr('\nPrompt    : ') + u)
+                            print(colorstr('\nPrediction: ') + p)
+                            print(colorstr('\nGT        : ') + g)
+                            print('-'*200 + '\n')
+            
             # Upadate logs and save model
             self.training_logger.update_phase_end(phase, printing=self.is_rank_zero)
 
@@ -417,7 +408,7 @@ class Trainer:
             
             if self.is_rank_zero:
                 for i, tmp in enumerate(gathered_list):
-                    LOGGER.info(colorstr('green', f'Rank{i}: {tmp}'))
+                    log(colorstr('green', f'Rank{i}: {tmp}'))
                 gathered_results = calculate_gathered_results(gathered_list)
             
             dist.barrier()
@@ -462,14 +453,14 @@ class Trainer:
                 try:
                     metric_results[m] = self.evaluator.cal_rouge_score(response_pred, response_gt, n=None)
                 except RecursionError:
-                    LOGGER.warning(f'Recursion error occured.\nPreds: {response_pred}\nGTs: {response_gt}')
+                    log(f'Recursion error occured.\nPreds: {response_pred}\nGTs: {response_gt}', level='warning')
                     metric_results[m] = 0.0
             elif m == 'meteor':
                 metric_results[m] = self.evaluator.cal_meteor_score(response_pred, response_gt)
             elif m == 'edit_distance':
                 metric_results[m] = self.evaluator.cal_edit_distance(response_pred, response_gt)
             else:
-                LOGGER.warning(f'Invalid key: {m}')
+                log(f'Invalid key: {m}', level='warning')
         
         return metric_results
     
