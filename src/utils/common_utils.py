@@ -10,6 +10,8 @@ from utils import (
     SCHEDULER_MSG, 
     FSDP_WRAP_TYPE,
     FSDP_WRAP_MSG,
+    ADAPTER_SAVE_TYPE_MSG,
+    ADAPTER_SAVE_TYPE,
     colorstr
 )
 
@@ -39,6 +41,9 @@ def sanity_check(clazz: Any) -> None:
     if clazz.config.attn_implementation:
         assert clazz.config.amp_training or (clazz.config.fsdp_train and clazz.config.fsdp_hyperparameters.amp_training), \
             colorstr('You must set amp_training option to True if you use attn_implementation option.')
+    if clazz.config.peft_config_path:
+        assert clazz.config.adapter_save_type in ADAPTER_SAVE_TYPE, \
+            ADAPTER_SAVE_TYPE_MSG + f' but got {colorstr(clazz.config.adapter_save_type)}.'
         
 
     

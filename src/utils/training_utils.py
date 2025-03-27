@@ -20,7 +20,7 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from utils import log, colorstr, TQDM
-from utils.func_utils import wrap_modules
+from utils.common_utils import wrap_modules
 from utils.quant_utils import init_quant_config
 
 

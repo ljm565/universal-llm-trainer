@@ -18,7 +18,7 @@ from utils import (
     colorstr, init_seeds,
     TQDM
 )
-from utils.func_utils import *
+from utils.common_utils import *
 from utils.training_utils import *
 from utils.filesys_utils import yaml_save, make_project_dir, json_load, json_save
 

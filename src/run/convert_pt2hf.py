@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 import torch
 
 from utils import LOGGER, colorstr
-from utils.func_utils import replace_none_value
+from utils.common_utils import replace_none_value
 from utils.training_utils import choose_proper_resume_model
 from trainer.build import get_model, get_peft_model
 

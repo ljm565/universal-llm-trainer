@@ -8,7 +8,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import apply_ac
 
 from tools.tokenizers import Llama3Tokenizer
 from utils import print_mem_consumption, log
-from utils.func_utils import instantiate
+from utils.common_utils import instantiate
 from utils.training_utils import init_model_config, choose_proper_model
 
 
