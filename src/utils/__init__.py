@@ -302,9 +302,11 @@ DATASET_HELP_MSG = 'If you are looking for LLM benchmark datasets, you can choos
 OPTIM_CRITERION_MSG = 'optimizer_step_criterion must be belonged to' + f' [{colorstr("epoch")}, {colorstr("step")}] '
 SCHEDULER_MSG = 'scheduler_type must be belonged to' + f' [{colorstr("linear")}, {colorstr("cosine")}] '
 FSDP_WRAP_MSG = 'wrap_policy must be belonged to' + f' [{colorstr("size_based")}, {colorstr("transformer_based")}] '
-DATASET_TRAIN_TYPE_MSG = 'Currently, we only support' + f' [{colorstr("qa")}, {colorstr("ar")}] ' + 'as dataset_train_type'
+DATASET_TRAIN_TYPE_MSG = 'Currently, we only support' + f' [{colorstr("qa")}, {colorstr("ar")}, and {colorstr("arc")}] ' + 'as dataset_train_type'
+ADAPTER_SAVE_TYPE_MSG = 'We support' + f' [{colorstr("adapter_only")}, {colorstr("merge")}] ' + 'as dataset_train_type'
 
 ##################### Assertion List #####################
 OPTIM_CRITERION = ['epoch', 'step']
 SCHEDULER_TYPE = ['linear', 'cosine']
 FSDP_WRAP_TYPE = ['size_based', 'transformer_based']
+ADAPTER_SAVE_TYPE = ['merge', 'adapter_only']
