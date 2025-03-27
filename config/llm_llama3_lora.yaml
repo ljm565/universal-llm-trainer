@@ -18,7 +18,6 @@ device: [0]
 bit: bfloat16                 # [4, 8, 16, 32] or string like "float16" or "bfloat16", etc.
 quant_config: False    # str, if you set bit as 4 or 8, you have to insert appropriate quantization config, or assertion error will occur. It only activate when you set bit to 4 or 8.
 attn_implementation: null      # [flash_attention_2, sdpa, eager], if null, None default value will be applied.
-load_unnecessary_half: False    # recommend to set True if you set bit to 16 (4, 8bit model automatically loads neccesaries to 32bit)
 half_inference: False
 
 # FSDP training configs
@@ -76,6 +75,7 @@ del_logits_after_forward: True  # If True, you can save GPU memroy consumption.
 
 # peft
 peft_config_path: config_lora/llm_lora_config.yaml     # if False, training without peft
+adapter_save_type: merge             # ['merge', 'adapter_only']
 
 # logging data and metrics
 common: ['train_loss', 'validation_loss', 'lr']               # ['train_loss', 'validation_loss', 'lr']
