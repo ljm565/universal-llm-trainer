@@ -1,4 +1,8 @@
+import os
+from copy import deepcopy
 from peft import LoraConfig, get_peft_model
+
+import torch
 
 from utils import log, colorstr
 
@@ -78,3 +82,26 @@ def print_trainable_parameters(model) -> None:
         if param.requires_grad:
             trainable_params += param.numel()
     log(f"trainable params: {colorstr(trainable_params)} || all params: {colorstr(all_param)} || trainable: {colorstr(100 * trainable_params / all_param)} %")
+
+
+
+def merge_unmerged_checkpoints(wdir:str, model:torch.nn.Module) -> None:
+    """
+    Merge the unmerged checkpoints.
+
+    Args:
+        wdir (str): Weight checkpoint directory.
+        model (torch.nn.Module): Models for loading saved checkpoints.
+    """
+    device = torch.device('cpu')
+    checkpoint_dirs = [os.path.join(wdir, checkpoint) for checkpoint in os.listdir(wdir)]
+    model = model.to(device)
+    
+    for checkpoint_dir in checkpoint_dirs:
+        cloned_model = deepcopy(model)
+        checkpoint = torch.load(checkpoint_dir, map_location=device)
+        cloned_model.load_state_dict(checkpoint['model'])
+        cloned_model.model = cloned_model.model.merge_and_unload()
+        checkpoint['model'] = cloned_model.state_dict()
+        torch.save(checkpoint, checkpoint_dir)
+        log(f'Merged and saved {checkpoint_dir}')
