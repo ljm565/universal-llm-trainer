@@ -360,7 +360,7 @@ class TrainerDeepSpeed:
 
             if is_training_now:
                 if self.is_rank_zero:
-                    self.training_logger.save_model(self.wdir, self.model_engine)
+                    self.training_logger.save_model(self.wdir, self.model_engine, self.optimizer)
                     self.training_logger.save_logs(self.save_dir)
 
                 # re-freezing model for training phase
