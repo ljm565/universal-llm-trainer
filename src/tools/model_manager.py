@@ -18,10 +18,15 @@ class ModelManager:
         }
 
 
-    def save(self, model, model_path, log_data, is_rank_zero):
+    def save(self, model, optimizer, model_path, log_data, is_rank_zero):
         model_state_dict = model.state_dict()
+        optimizer_state_dict = optimizer.state_dict()
         if is_rank_zero:
-            checkpoint = {'model': model_state_dict, 'log_data': log_data}
+            checkpoint = {
+                'model': model_state_dict,
+                'optimizer': optimizer_state_dict,
+                'log_data': log_data
+            }
             torch.save(checkpoint, model_path)
 
 
