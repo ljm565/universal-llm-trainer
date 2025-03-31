@@ -12,8 +12,9 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from tools import ModelEMA, Evaluator, TrainingLogger, EarlyStopper
 from utils import RANK, is_rank_zero, set_rank_zero, log, colorstr, init_seeds, TQDM
-from utils.func_utils import *
+from utils.common_utils import *
 from utils.training_utils import *
+from utils.peft_utils import merge_unmerged_checkpoints
 from utils.filesys_utils import yaml_save, make_project_dir
 from trainer.build import get_data_loader, get_model, get_peft_model, get_wrapped_model
 
@@ -42,7 +43,7 @@ class Trainer:
         
         # Init training settings
         self.world_size = len(self.config.device) if multi_gpu_train_type else 1
-        self.amp = True if self.config.amp_training or self.config.load_unnecessary_half else False
+        self.amp = True if self.config.amp_training else False
         self.ema = self.config.ema_updating
         self.epochs = self.config.epochs
         self.steps = self.config.steps
@@ -63,17 +64,17 @@ class Trainer:
         self.use_huggingface_trainer = use_huggingface_trainer
         self.resume_path = resume_path
 
-        # sanity check
+        # Sanity check
         sanity_check(self)
         self.is_update_per_epoch = True if self.optimizer_step_criterion == 'epoch' else False
 
-        # save the yaml config
+        # Save the yaml config
         if self.is_rank_zero and self.is_training_mode:
             self.wdir.mkdir(parents=True, exist_ok=True)  # make dir
             self.config.save_dir = str(self.save_dir)
             yaml_save(self.save_dir / 'args.yaml', self.config)  # save run args
         
-        # init model, dataset, dataloader, etc.
+        # Init model, dataset, dataloader, etc.
         self.modes = ['train', 'validation'] if self.is_training_mode else ['validation']
         self.model, self.tokenizer = self._init_model(self.config, self.mode)
         self.model_module = self.model.module if self.is_ddp else self.model
@@ -85,7 +86,7 @@ class Trainer:
             self.do_train = self.huggingface_trainer
             return 
         
-        # init optimizer, scheduler
+        # Init optimizer, scheduler
         if self.is_training_mode:
             self.lr0 = self.config.lr0
             self.scaler = torch.GradScaler(device=self.device.type, enabled=self.amp) if self.amp else None
@@ -215,7 +216,7 @@ class Trainer:
                     if self.is_ddp or self.is_fsdp:
                         dist.barrier()
 
-            # clears GPU vRAM at end of epoch, can help with out of memory errors
+            # Clear GPU vRAM at end of epoch to prevent OOM errors
             torch.cuda.empty_cache()
             gc.collect()
 
@@ -226,6 +227,14 @@ class Trainer:
             log(f"epoch {epoch+1} time: {time.time() - start} s\n\n\n")
 
         log(f'{epoch - self.start_epoch + 1} epochs completed in {(time.time() - self.train_time_start) / 3600:.3f} hours.')
+
+        # Finally merge unmerged checkpoints at the end of training
+        if self.config.peft_config_path and self.config.adapter_save_type == 'merge':
+            if self.is_rank_zero:
+                merge_unmerged_checkpoints(self.wdir, self.model_module)
+            
+            if self.is_ddp or self.is_fsdp:
+                dist.barrier()
             
 
     def epoch_train(self, 
@@ -417,7 +426,7 @@ class Trainer:
 
     
     def save_model(self):
-        self.training_logger.save_model(self.wdir, self.model_module, self.is_fsdp)
+        self.training_logger.save_model(self.wdir, self.model_module, self.optimizer, self.is_fsdp)
         self.training_logger.save_logs(self.save_dir)
 
         # re-freezing model for training phase
