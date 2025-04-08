@@ -108,7 +108,7 @@ class TrainingLogger:
                 os.remove(os.path.join(save_dir, file[0]))
 
 
-    def save_model(self, save_dir, model, optimizer, is_fsdp=False):
+    def save_model(self, save_dir, model, optimizer, is_fsdp=False, save_only_adapter=False):
         if self.is_rank_zero or is_fsdp:
             if not hasattr(self, 'validation_epoch_result') or len(self.validation_epoch_result) == 0:
                 log('No log data to save..', level='warning')
@@ -121,18 +121,18 @@ class TrainingLogger:
                 log('The model achieving the lowest loss has been saved..')
                 self.delete_file(save_dir, 'loss')
                 model_path = os.path.join(save_dir, f'model_epoch:{epoch}_step:{step}_loss_best.pt')
-                self.model_manager.save(model, optimizer, model_path, self.validation_epoch_result, self.is_rank_zero)
+                self.model_manager.save(model_path, model, optimizer, self.validation_epoch_result, self.is_rank_zero, save_only_adapter)
 
             if higher_flag:
                 log('The model achieving the highest metric has been saved..')
                 self.delete_file(save_dir, 'metric')
                 model_path = os.path.join(save_dir, f'model_epoch:{epoch}_step:{step}_metric_best.pt')
-                self.model_manager.save(model, optimizer, model_path, self.validation_epoch_result, self.is_rank_zero)
+                self.model_manager.save(model_path, model, optimizer, self.validation_epoch_result, self.is_rank_zero, save_only_adapter)
             
             log('The last validated model has been saved..')
             self.delete_file(save_dir, 'last')
             model_path = os.path.join(save_dir, f'model_epoch:{epoch}_step:{step}_last_best.pt')
-            self.model_manager.save(model, optimizer, model_path, self.validation_epoch_result, self.is_rank_zero)
+            self.model_manager.save(model_path, model, optimizer, self.validation_epoch_result, self.is_rank_zero, save_only_adapter)
 
     
     def save_logs(self, save_dir):

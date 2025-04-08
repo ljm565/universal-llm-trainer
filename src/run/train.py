@@ -52,7 +52,8 @@ def single_gpu_train(args, config):
         args.mode, 
         device, 
         use_huggingface_trainer=args.use_huggingface_trainer,
-        resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.mode == 'resume' else None
+        resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.resume_model_dir else None,
+        adapter_path=args.adapter_path if args.adapter_path else None,
     )
 
     if args.mode in ['train', 'resume']:
@@ -77,7 +78,8 @@ def multi_gpu_train(gpu, ngpus_per_node, config, args):
         args.mode,
         gpu,
         multi_gpu_train_type='fsdp' if config.fsdp_train else 'ddp',
-        resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.mode == 'resume' else None
+        resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.resume_model_dir else None,
+        adapter_path=args.adapter_path if args.adapter_path else None,
     )
 
     if args.mode in ['train', 'resume']:
@@ -91,20 +93,24 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-c', '--config', type=str, required=False)
     parser.add_argument('-m', '--mode', type=str, required=True, choices=['train', 'resume'])
-    parser.add_argument('-r', '--resume_model_dir', type=str, required=False)
+    parser.add_argument('-r', '--resume_model_dir', default=None, type=str, required=False)
+    parser.add_argument('-a', '--adapter_path', default=None, type=str, required=False)
     parser.add_argument('-l', '--load_model_type', type=str, default='metric', required=False, choices=['metric', 'loss', 'last'])
     parser.add_argument('-s', '--stage', type=int, default=0, required=False)
     parser.add_argument('-p', '--port', type=str, default='10001', required=False)
-    parser.add_argument('--ddp_timeout', type=int, default=86400, required=False)           # 24 hours
+    parser.add_argument('--ddp_timeout', type=int, default=86400, required=False)   # 24 hours
     parser.add_argument('--use_huggingface_trainer', action='store_true')
     args = parser.parse_args()
 
+    # Sanity checks
+    if args.resume_model_dir or args.adapter_path:
+        assert args.mode == 'resume', colorstr('red', 'Please set mode to resume..')
+    
     if args.mode == 'train':
-        assert args.config, colorstr('red', 'config file is required for training')
+        assert args.config, colorstr('red', 'config file is required for training..')
         main(args)
     elif args.mode == 'resume':
-        assert args.config, colorstr('red', 'config file is required for training')
-        assert args.resume_model_dir, colorstr('red', 'Path for model resuming is required')
+        assert args.config, colorstr('red', 'config file is required for training..')
         main(args)
 
     

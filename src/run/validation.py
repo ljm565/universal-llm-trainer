@@ -47,7 +47,8 @@ def validation(args, config):
         config, 
         'validation', 
         device, 
-        resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.resume_model_dir else None
+        resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.resume_model_dir else None,
+        adapter_path=args.adapter_path if args.adapter_path else None,
     )
 
     trainer.epoch_validate('validation', 0, False)
@@ -57,7 +58,8 @@ def validation(args, config):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('-r', '--resume_model_dir', type=str, required=False)
+    parser.add_argument('-r', '--resume_model_dir', default=None, type=str, required=False)
+    parser.add_argument('-a', '--adapter_path', default=None, type=str, required=False)
     parser.add_argument('-l', '--load_model_type', type=str, default='metric', required=False, choices=['metric', 'loss', 'last'])
     parser.add_argument('-c', '--config', type=str, required=False)
     parser.add_argument('-d', '--device', default=None, required=False)
