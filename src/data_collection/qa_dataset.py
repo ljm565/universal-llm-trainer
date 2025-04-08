@@ -56,7 +56,7 @@ class QADataset(Dataset):
             ax.yaxis.grid(True, linestyle='--', color='gray', alpha=0.7)
             ax.tick_params(axis='y', labelsize=15)
             ax.tick_params(axis='x', labelsize=15)
-            plt.title(f'{name} dataset', fontdict=20)
+            plt.title(f'{name} dataset', fontsize=20)
             plt.xlabel('Length of samples', fontsize=20)
             plt.ylabel('Number of samples', fontsize=20)
             plt.tight_layout()
