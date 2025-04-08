@@ -114,7 +114,7 @@ def make_project_dir(config) -> Path:
         log(f'{prefix}: Project {save_dir} already exists. New folder will be created.')
         save_dir = os.path.join(project, name + str(len(os.listdir(project))+1))
     
-    if is_rank_zero:
+    if is_rank_zero['value']:
         os.makedirs(project, exist_ok=True)
         os.makedirs(save_dir)
     
