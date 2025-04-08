@@ -50,13 +50,16 @@ class AutoregressiveDataset(Dataset):
             log(msg)
             
             # save histograms
-            plt.figure(figsize=(10, 10))
+            fig, ax = plt.subplots(figsize=(10, 10))
             plt.hist(src_l, bins=100)
-            plt.title(f'{name} dataset')
-            plt.xlabel('Length of samples')
-            plt.ylabel('Number of samples')
+            ax.yaxis.grid(True, linestyle='--', color='gray', alpha=0.7)
+            ax.tick_params(axis='y', labelsize=15)
+            ax.tick_params(axis='x', labelsize=15)
+            plt.title(f'{name} dataset', fontdict=20)
+            plt.xlabel('Length of samples', fontsize=20)
+            plt.ylabel('Number of samples', fontsize=20)
             plt.tight_layout()
-            plt.savefig(os.path.join(save_dir, f'{name}_{mode}_data_hist.png'))
+            plt.savefig(os.path.join(save_dir, f'{name}_{mode}_data_hist.png'), dpi=300)
 
     
     def get_token_len_statistics(self, data):
