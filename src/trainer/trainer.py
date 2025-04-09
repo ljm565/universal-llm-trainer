@@ -29,6 +29,7 @@ class Trainer:
             multi_gpu_train_type=False,
             use_huggingface_trainer=False,
             resume_path=None,
+            **kwargs,
         ):
         # Init basic settings
         # torch.set_default_dtype(torch.bfloat16)
@@ -63,6 +64,7 @@ class Trainer:
         self.train_verbose = self.config.train_verbose
         self.use_huggingface_trainer = use_huggingface_trainer
         self.resume_path = resume_path
+        self.adapter_path = kwargs.get('adapter_path', None)
 
         # Sanity check
         sanity_check(self)
@@ -115,18 +117,18 @@ class Trainer:
             log(f'Resumed model: {colorstr(resume_path)}')
             return model
 
-        # init model, loss function, and tokenizer
+        # Initialize model, loss function, and tokenizer
         resume_success = False
-        do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path)
+        do_resume = (mode == 'resume' and self.resume_path) or (mode == 'validation' and self.resume_path)
         model, tokenizer = get_model(config, self.device)
         model.init_criterion()
 
-        # init peft
+        # Initialize peft
         if config.peft_config_path:
             if config.training_stage != 0:
                 log(f'PEFT is not applied due to training stage.')
             else:
-                # resume before applying peft
+                # Resume before applying peft
                 if do_resume:
                     try:
                         model = _resume_model(self.resume_path, self.device)
@@ -138,11 +140,28 @@ class Trainer:
         else:
             log('PEFT is not applied.')
 
-        # resume model or resume model after applying peft
+        # Resume model or resume model after applying peft
         if do_resume and not resume_success:
             model = _resume_model(self.resume_path, self.device)
 
-        # init ddp
+        # Load adapter weights
+        if self.adapter_path:
+            try:
+                from safetensors.torch import load_file
+                adapter_wts = load_file(os.path.join(self.adapter_path, 'adapter_model.safetensors'))
+                model_state_dict = model.state_dict()
+                for k, v in adapter_wts.items():
+                    model_state_dict[f'model.{k.replace(".weight", ".default.weight")}'].copy_(v)
+                log(f'Loaded adapter weights from {colorstr(self.adapter_path)} successfully.')
+                del adapter_wts
+            except KeyError:
+                log(f'Failed to load all of adapter weights from {self.adapter_path}. Please check the model weights..', level='warning')
+                raise KeyError
+            except ModuleNotFoundError:
+                log('Please install safetensors via pip install safetensors', level='errㅁor')
+                raise ModuleNotFoundError
+
+        # Initialize DDP or FSDP
         if self.is_ddp:
             model = DDP(model, device_ids=[self.device])
         elif self.is_fsdp:
@@ -426,7 +445,13 @@ class Trainer:
 
     
     def save_model(self):
-        self.training_logger.save_model(self.wdir, self.model_module, self.optimizer, self.is_fsdp)
+        self.training_logger.save_model(
+            save_dir=self.wdir,
+            model=self.model_module,
+            optimizer=self.optimizer,
+            is_fsdp=self.is_fsdp,
+            save_only_adapter=self.config.peft_config_path and self.config.adapter_save_type == 'adapter_only'
+        )
         self.training_logger.save_logs(self.save_dir)
 
         # re-freezing model for training phase
