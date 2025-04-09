@@ -2,12 +2,21 @@
 
 
 ### Recent updates 📣
+* *April 2025 (v1.5.5)*: Logging methods have been simplified. Universal LLM trainer saves optimizer states and model checkpoints, and supports two LoRA adapter saving methods: LoRA merged model and LoRA adapter only.
 * *March 2025 (v1.5.4)*: Universal LLM trainer supports **Llama 3.1 70B LoRA** training and GPU memory usage during FSDP model training has been improved.
 * *March 2025 (v1.5.3)*: QLoRA test results have been added.
 * *March 2025 (v1.5.2)*: Universal LLM trainer does not support KoPolyglot and KoGemma, and support Llama 2 and Gemma 1. Also, GPU memory usage during model training has been improved.
 * *March 2025 (v1.5.1)*: Universal LLM trainer does not support unnecessary fucntions (e.g. NMT, translator).
 * *February 2025 (v1.5.0)*: Universal LLM trainer has supported LLaMA 2 template. Please refer to the **tempaltes** folder.
-* *November 2024 (v1.4.9)*: Universal LLM trainer has supported FSDP training.
+* *November 2024 (v1.4.4)*: Universal LLM trainer has completely supported FSDP training.
+* *October 2024 (v1.4.3)*: Change QLoRA configuration.
+* *September 2024 (v1.4.2)*: Fix Rank-zero bug.
+* *September 2024 (v1.4.1)*: Initialize FSDP and updated DDP training codes.
+* *July 2024 (v1.4.0)*: Universal LLM trainer has supported QLoRA training. 
+* *June 2024 (v1.3.0)*: Validation codes are updated. LLaMA 3 template and Gemma model are added.
+* *May 2024 (v1.2.0)*: Universal LLM trainer has supported Phi 3 model. Also, model freezing and resumimg training are possible.
+* *April 2024 (v1.1.0)*: Universal LLM trainer has supported herd of LLaMA 3 model series.
+* *March 2024 (v1.0.0)*: Universal LLM trainer has supported DDP training and tensorboard logging.
 
 &nbsp;
 
