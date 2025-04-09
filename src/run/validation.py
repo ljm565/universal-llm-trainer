@@ -1,6 +1,7 @@
 import os
 import sys
 from sconf import Config
+from pathlib import Path
 from argparse import ArgumentParser
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -25,15 +26,22 @@ def load_config(config_path):
 
 
 def main(args):    
-    # init config
-    config = load_config(os.path.join(args.resume_model_dir, 'args.yaml')) if args.resume_model_dir else load_config(args.config)
+    # Initialize config
+    if args.resume_model_dir:
+        config = load_config(os.path.join(args.resume_model_dir, 'args.yaml'))
+    elif args.adapter_path:
+        path =  Path(args.adapter_path).parent.parent / 'args.yaml'
+        config = load_config(path)
+    else:
+        load_config(args.config)
+    
     if 'training_stage' not in config:
         config.training_stage = 0
     
-    # init environment
+    # Initailize environment
     env_setup()
     
-    # validation
+    # Validation
     validation(args, config)
 
     
@@ -65,7 +73,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--device', default=None, required=False)
     args = parser.parse_args()
 
-    if not args.resume_model_dir:
+    if not args.resume_model_dir and not args.adapter_path:
         assert args.config is not None, 'Please provide resume model directory or config path'
     main(args)
 
