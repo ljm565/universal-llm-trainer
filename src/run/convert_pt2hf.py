@@ -47,7 +47,7 @@ def resume_model(args, config):
     # Load model checkpoint
     checkpoints = torch.load(resume_path, map_location=device)
     model, tokenizer = get_model(config, device)
-    if config.peft_config_path:
+    if config.peft_config_path and config.adapter_save_type != 'merge':
         model = get_peft_model(model, config)
     model.load_state_dict(checkpoints['model'])
     LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
