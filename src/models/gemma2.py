@@ -118,9 +118,9 @@ class Gemma2(nn.Module):
         if greedy:
             return self.model.generate(
                 input_ids=src_tok,
-                attention_mask=attention_mask,
+                # attention_mask=attention_mask,
                 max_length=max_length,
-                use_cache=False if synced_gpus else True,
+                use_cache=False, # if synced_gpus else True,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
                 max_time=max_time,
@@ -131,7 +131,7 @@ class Gemma2(nn.Module):
             )
         return self.model.generate(
             input_ids=src_tok,
-            attention_mask=attention_mask,
+            # attention_mask=attention_mask,
             max_length=max_length,
             num_return_sequences=num_return_sequences,
             pad_token_id=self.tokenizer.pad_token_id,
@@ -143,7 +143,7 @@ class Gemma2(nn.Module):
             no_repeat_ngram_size=3,
             num_beams=2,
             early_stopping=True,
-            use_cache=True,
+            use_cache=False, # True,
             max_time=max_time,
             synced_gpus=synced_gpus,
         )
