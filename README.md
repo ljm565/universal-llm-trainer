@@ -163,3 +163,11 @@ This repository is structured as follows.
 1. [Getting Started](./docs/1_getting_started.md)
 2. [Data Preparation](./docs/2_data_preparation.md)
 3. [Training](./docs/3_training.md)
+
+&nbsp;
+
+&nbsp;
+
+## Bug Reports
+If an error occurs while executing the code, check if any of the cases below apply.
+* [Bug Cases](./docs/bugs.md)
