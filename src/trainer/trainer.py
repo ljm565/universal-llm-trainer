@@ -52,10 +52,12 @@ class Trainer:
         self.scheduler_type = self.config.scheduler_type
         self.metrics = self.config.metrics
         if self.is_training_mode:
+            self.do_generate_answer = False if self.metrics == ['ppl'] else True
             config.is_training_mode = True
             self.save_dir = make_project_dir(self.config)
             self.wdir = self.save_dir / 'weights'
         else:
+            self.do_generate_answer = True
             config.fsdp_train = False
             config.is_training_mode = False
             config.data_verbose = False
@@ -385,7 +387,7 @@ class Trainer:
                         greedy=True,
                         max_time=self.config.generation_max_time,
                         synced_gpus=True if self.is_fsdp else None,
-                    ) if response_gt else None
+                    ) if response_gt and self.do_generate_answer else None
 
                 # Evaluation
                 metric_results = self.metric_evaluation(loss, response_pred, response_gt)
@@ -403,11 +405,11 @@ class Trainer:
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                     loss_log = [loss.item()]
                     msg = tuple([f'{epoch+1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
-                    if self.config.inference_result_verbose and response_gt != None:
+                    if self.config.inference_result_verbose and response_gt != None and self.do_generate_answer:
                         _init_headline()
                     pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
 
-                    if self.config.inference_result_verbose and response_gt != None:
+                    if self.config.inference_result_verbose and response_gt != None and self.do_generate_answer:
                         for u, p, g in zip(user_prompt, response_pred, response_gt):
                             print('\n\n' + '-'*200)
                             print(colorstr('\nPrompt    : ') + u)
