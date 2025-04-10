@@ -2,6 +2,7 @@
 
 
 ### Recent updates 📣
+* *April 2025 (v1.5.7)*: Update logic to not generate answers during the model validation step if they are not needed for efficient training.
 * *April 2025 (v1.5.6)*: Update code to convert our model checkpoints to Hugging Face model format.
 * *April 2025 (v1.5.5)*: Logging methods have been simplified. Universal LLM trainer saves optimizer states and model checkpoints, and supports two LoRA adapter saving methods: LoRA merged model and LoRA adapter only.
 * *March 2025 (v1.5.4)*: Universal LLM trainer supports **Llama 3.1 70B LoRA** training and GPU memory usage during FSDP model training has been improved.
