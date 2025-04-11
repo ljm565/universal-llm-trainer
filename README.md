@@ -172,4 +172,4 @@ This repository is structured as follows.
 
 ## Bug Reports
 If an error occurs while executing the code, check if any of the cases below apply.
-* [Bug Cases](./docs/bugs.md) 
+* [Bug Cases](./docs/bugs.md)
