@@ -53,6 +53,7 @@ epochs: 300
 warmup_epochs: 0
 steps: 284000
 warmup_steps: 2000
+user_prompt_masking_start_step: 100000  # It activate when you set the is_multi_turn to True. After this steps, user prompts will be masked during computing loss.
 optimizer_step_criterion: 'step'   # ['epoch', 'step']
 lr0: 5e-5
 lrf: 0.01      # last_lr = lr0 * lrf
