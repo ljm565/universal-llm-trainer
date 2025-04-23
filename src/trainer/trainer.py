@@ -282,6 +282,7 @@ class Trainer:
             if warmup_step_or_epoch <= self.warmup_steps_n:
                 self.optimizer.param_groups[0]['lr'] = lr_warmup(warmup_step_or_epoch, self.warmup_steps_n, self.lr0, self.lf)
             cur_lr = self.optimizer.param_groups[0]['lr']
+            user_prompt_masking = False if self.config.is_multi_turn and self.config.user_prompt_masking_start_step > self.train_cur_step else True
             
             with torch.autocast(
                 device_type=self.device.type,
@@ -289,7 +290,7 @@ class Trainer:
             ):
                 batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                 batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
-                _, loss = self.model(batch, return_loss=True)
+                _, loss = self.model(batch, return_loss=True, user_prompt_masking=user_prompt_masking)
                 loss = loss / self.config.gradient_accumuate_step
             
             # backward and optimizer step

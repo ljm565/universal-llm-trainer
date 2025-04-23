@@ -84,7 +84,7 @@ class Llama2(nn.Module):
         self.criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
     
 
-    def forward(self, batch, return_loss=False, output_hidden_states=False):
+    def forward(self, batch, return_loss=False, output_hidden_states=False, **kwargs):
         src_tok, enc_mask, label = batch['src'], batch['src_attention_mask'], batch['label']
         output = self.model(
             input_ids=src_tok,
@@ -92,7 +92,11 @@ class Llama2(nn.Module):
             output_hidden_states=output_hidden_states,
         )
         if return_loss:
-            loss = self.criterion(output.logits[:, :-1, :].reshape(-1, output.logits.size(-1)), label[:, 1:].reshape(-1))
+            user_prompt_masking = kwargs.get('user_prompt_masking', True)
+            if user_prompt_masking:
+                loss = self.criterion(output.logits[:, :-1, :].reshape(-1, output.logits.size(-1)), label[:, 1:].reshape(-1))
+            else:
+                loss = self.criterion(output.logits[:, :-1, :].reshape(-1, output.logits.size(-1)), src_tok[:, 1:].reshape(-1))
             if self.del_logits:
                 del output
                 output = None
