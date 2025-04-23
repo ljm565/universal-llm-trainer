@@ -2,6 +2,7 @@
 
 
 ### Recent updates 📣
+* *April 2025 (v1.5.8)*: Update multi-turn data training codes of Phi3, LLaMA 3, LLaMA 3.1, Gemma, and Gemma 2.
 * *April 2025 (v1.5.7)*: Update logic to not generate answers during the model validation step if they are not needed for efficient training.
 * *April 2025 (v1.5.6)*: Update code to convert our model checkpoints to Hugging Face model format.
 * *April 2025 (v1.5.5)*: Logging methods have been simplified. Universal LLM trainer saves optimizer states and model checkpoints, and supports two LoRA adapter saving methods: LoRA merged model and LoRA adapter only.
