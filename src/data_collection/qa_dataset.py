@@ -114,94 +114,43 @@ class QADataset(Dataset):
             return self.generate_prompt_single_turn(idx)
         
         # multi-turn sanity check
-        full_prompt, full_prompt_tokens, label = '', [], []
         responses = single_data['output']
         instructions = single_data['instruction']
         assert len(responses) == len(instructions), f'Length of instruction and response are not same: {len(instructions)}, {len(responses)}'
 
         # conversation template
+        input_template = random.choice(template['prompt_input'])
         no_input_template = random.choice(template['prompt_no_input'])
-        guidance_template = no_input_template.split('### Instruction')[0]
-        dialogue_template = '### Instruction' + no_input_template.split('### Instruction')[-1]
+        try:
+            multiturn_split = template['multiturn_split']
+        except:
+            log("Current model does not support multi-turn training", level='error')
+
+        full_prompt_tokens, label, user_prompt = [], [], ''
+
+        for i, (instruction, response) in enumerate(zip(instructions, responses)):
+            is_first = i == 0
+            is_last = i == len(instructions) - 1    # Whether the last turn or not
+            one_response = response + multiturn_split if not is_last else response
+
+            # Processing the current turn
+            if is_first and len(single_data['input']) != 0:
+                one_user_prompt = input_template.format(input=single_data['input'][0], instruction=instruction)
+            else:
+                one_user_prompt = no_input_template.format(instruction=instruction)
+            one_user_prompt_tokens = self.tokenizer.encode(one_user_prompt)
+            one_response_tokens = self.tokenizer.encode(one_response)
+            one_full_prompt_tokens = one_user_prompt_tokens + one_response_tokens
+            one_label = [self.ignore_index] * len(one_user_prompt_tokens) + one_response_tokens
+
+            # Sanity check
+            assert one_full_prompt_tokens == self.tokenizer.encode(one_user_prompt + one_response)
+            
+            # Processing the entire turns
+            full_prompt_tokens += one_full_prompt_tokens
+            label += one_label
+            user_prompt += self.tokenizer.decode(one_full_prompt_tokens) if not is_last else self.tokenizer.decode(one_user_prompt_tokens)
         
-        if len(single_data['input']) == 0:
-            for i, (instruction, response) in enumerate(zip(instructions, responses)):
-                is_last = i == len(instructions) - 1
-                response_end = '' if is_last else self.tokenizer.eos_token
-                user_prompt = guidance_template + dialogue_template.format(instruction=instruction) if i == 0 else dialogue_template.format(instruction=instruction)
-                response = response.strip() + response_end
-                
-                if self.tokenizer.sep_token:
-                    user_prompt = user_prompt + self.tokenizer.sep_token
-                    response = response if is_last else response + '\n\n'
-
-                    all_tokens = self.tokenizer.encode(user_prompt + response)
-                    sel_token_loc = all_tokens.index(self.tokenizer.sep_token_id)
-                    user_prompt_tokens = all_tokens[:sel_token_loc+1]
-                    response_tokens = all_tokens[sel_token_loc+1:]
-
-                    if is_last:
-                        final_user_prompt = full_prompt + user_prompt
-
-                    full_prompt += user_prompt + response
-                    full_prompt_tokens += user_prompt_tokens + response_tokens
-                    label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
-
-                else:
-                    user_prompt_tokens = self.tokenizer.encode(user_prompt)
-                    response_tokens = self.tokenizer.encode(response)
-
-                    only_response_tokens_l = len(response_tokens)
-                    response = response if is_last else response + '\n\n'
-                    final_response_tokens = self.tokenizer.encode(response)
-                    new_line_token_l = len(final_response_tokens) - only_response_tokens_l
-
-                    if is_last:
-                        final_user_prompt = full_prompt + user_prompt
-                    
-                    full_prompt += user_prompt + response
-                    full_prompt_tokens += user_prompt_tokens + final_response_tokens
-                    label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l
-        else:
-            template = random.choice(template['prompt_input'])
-            for i, (instruction, response) in enumerate(zip(instructions, responses)):
-                is_last = i == len(instructions) - 1
-                response_end = '' if is_last else self.tokenizer.eos_token
-                user_prompt = template.format(instruction=instruction, input=single_data['input'][0]) if i == 0 else dialogue_template.format(instruction=instruction)
-                response = response.strip() + response_end
-
-                if self.tokenizer.sep_token:
-                    user_prompt = user_prompt + self.tokenizer.sep_token
-                    response = response if is_last else response + '\n\n'
-
-                    all_tokens = self.tokenizer.encode(user_prompt + response)
-                    sel_token_loc = all_tokens.index(self.tokenizer.sep_token_id)
-                    user_prompt_tokens = all_tokens[:sel_token_loc+1]
-                    response_tokens = all_tokens[sel_token_loc+1:]
-
-                    if is_last:
-                        final_user_prompt = full_prompt + user_prompt
-
-                    full_prompt += user_prompt + response
-                    full_prompt_tokens += user_prompt_tokens + response_tokens
-                    label += [self.pad_token_id] * len(user_prompt_tokens) + response_tokens
-                
-                else:
-                    user_prompt_tokens = self.tokenizer.encode(user_prompt)
-                    response_tokens = self.tokenizer.encode(response)
-
-                    only_response_tokens_l = len(response_tokens)
-                    response = response if is_last else response + '\n\n'
-                    final_response_tokens = self.tokenizer.encode(response)
-                    new_line_token_l = len(final_response_tokens) - only_response_tokens_l
-
-                    if is_last:
-                        final_user_prompt = full_prompt + user_prompt
-
-                    full_prompt += user_prompt + response
-                    full_prompt_tokens += user_prompt_tokens + final_response_tokens
-                    label += [self.ignore_index] * len(user_prompt_tokens) + response_tokens + [self.pad_token_id] * new_line_token_l
-                        
         # sanity check
         assert len(full_prompt_tokens) == len(label), \
             f'Length of full_prompt_tokens, label are not same: {len(full_prompt_tokens)}, {len(label)}'
@@ -209,7 +158,7 @@ class QADataset(Dataset):
         for f, l in zip(full_prompt_tokens, label):
             assert f == l or l == self.ignore_index, f'Full prompt and label are not same: {f}, {l}'
         
-        return full_prompt_tokens, label, final_user_prompt, response
+        return full_prompt_tokens, label, user_prompt, response
         
 
     def _pad(self, data, max_length, pad_token_id, bos_token_id=None, eos_token_id=None, return_data_len=False, bos_masking=False):
