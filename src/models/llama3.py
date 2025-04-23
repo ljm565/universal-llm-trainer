@@ -29,6 +29,7 @@ class Llama3(nn.Module):
             device_map=self.device if not config.fsdp_train else None,      # Does not need to pre-define device_map for FSDP training
             low_cpu_mem_usage=True,
             torch_dtype=instantiate(torch, self.bit) if isinstance(self.bit, str) else torch.float32,
+            cache_dir=config.model_cache_dir if config.model_cache_dir else None,
             **init_model_config(config)
         )
         self.__set_gradient_checkpointing(config)   # Gradient checkpointing setting.
