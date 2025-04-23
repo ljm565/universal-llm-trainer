@@ -3,6 +3,7 @@ seed: 0
 deterministic: True
 model: phi3
 model_size: 4b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
+model_cache_dir: null
 
 # data config
 data_train_type: ['qa']
