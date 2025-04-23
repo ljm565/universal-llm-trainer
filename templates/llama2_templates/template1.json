@@ -1,10 +1,10 @@
 {
     "description": "llama3 template",
     "prompt_input": [
-        "[INST] <<SYS>>\n{input}\n<</SYS>>\n\n{instruction} [/INST]"
+        "[INST] <<SYS>>\n{input}\n<</SYS>>\n\n{instruction} [/INST] "
     ],
     "prompt_no_input": [
-        "[INST] {instruction} [/INST]"
+        "[INST] {instruction} [/INST] "
     ],
     "response_split": "[/INST]"
 }
