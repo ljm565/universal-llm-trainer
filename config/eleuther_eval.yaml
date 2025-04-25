@@ -1,4 +1,5 @@
 # Base
+total_cpu_use: 32
 model_cache_dir: null
 device: [0]
 dtype: bfloat16
