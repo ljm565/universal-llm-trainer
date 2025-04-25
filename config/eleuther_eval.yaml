@@ -1,0 +1,10 @@
+# Base
+model_cache_dir: null
+device: [0]
+dtype: bfloat16
+max_length: 8192
+
+# Task
+tasks: ['mmlu']
+include_path: null
+limit: 100    # Limit the number of examples per task
