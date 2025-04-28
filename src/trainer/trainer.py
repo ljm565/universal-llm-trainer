@@ -160,7 +160,7 @@ class Trainer:
                 log(f'Failed to load all of adapter weights from {self.adapter_path}. Please check the model weights..', level='warning')
                 raise KeyError
             except ModuleNotFoundError:
-                log('Please install safetensors via pip install safetensors', level='errㅁor')
+                log('Please install safetensors via pip install safetensors', level='error')
                 raise ModuleNotFoundError
 
         # Initialize DDP or FSDP
