@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 import torch
 
-from utils import LOGGER, colorstr
+from utils import log, colorstr
 from utils.common_utils import replace_none_value
 from utils.training_utils import choose_proper_resume_model
 from trainer.build import get_model, get_peft_model
@@ -50,12 +50,12 @@ def resume_model(args, config):
     if config.peft_config_path and config.adapter_save_type != 'merge':
         model = get_peft_model(model, config)
     model.load_state_dict(checkpoints['model'])
-    LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
+    log(f'Resumed model: {colorstr(resume_path)}')
 
     # Extract the only Hugging Face model
     model.model.save_pretrained(args.save_model_dir)
     tokenizer.tokenizer.save_pretrained(args.save_model_dir)
-    LOGGER.info(f'Conversion is completed: {colorstr(args.save_model_dir)}')
+    log(f'Conversion is completed: {colorstr(args.save_model_dir)}')
 
    
 
