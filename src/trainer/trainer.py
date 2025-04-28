@@ -14,8 +14,8 @@ from tools import ModelEMA, Evaluator, TrainingLogger, EarlyStopper
 from utils import RANK, is_rank_zero, set_rank_zero, log, colorstr, init_seeds, TQDM
 from utils.common_utils import *
 from utils.training_utils import *
-from utils.peft_utils import merge_unmerged_checkpoints
 from utils.filesys_utils import yaml_save, make_project_dir
+from utils.peft_utils import merge_unmerged_checkpoints, load_hf_adapter
 from trainer.build import get_data_loader, get_model, get_peft_model, get_wrapped_model
 
 
@@ -148,20 +148,7 @@ class Trainer:
 
         # Load adapter weights
         if self.adapter_path:
-            try:
-                from safetensors.torch import load_file
-                adapter_wts = load_file(os.path.join(self.adapter_path, 'adapter_model.safetensors'))
-                model_state_dict = model.state_dict()
-                for k, v in adapter_wts.items():
-                    model_state_dict[f'model.{k.replace(".weight", ".default.weight")}'].copy_(v)
-                log(f'Loaded adapter weights from {colorstr(self.adapter_path)} successfully.')
-                del adapter_wts
-            except KeyError:
-                log(f'Failed to load all of adapter weights from {self.adapter_path}. Please check the model weights..', level='warning')
-                raise KeyError
-            except ModuleNotFoundError:
-                log('Please install safetensors via pip install safetensors', level='error')
-                raise ModuleNotFoundError
+            load_hf_adapter(model, self.adapter_path)   # In-place logic
 
         # Initialize DDP or FSDP
         if self.is_ddp:

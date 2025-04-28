@@ -105,3 +105,31 @@ def merge_unmerged_checkpoints(wdir:str, model:torch.nn.Module) -> None:
         checkpoint['model'] = cloned_model.state_dict()
         torch.save(checkpoint, checkpoint_dir)
         log(f'Merged and saved {checkpoint_dir}')
+
+
+def load_hf_adapter(model:torch.nn.Module, adapter_path:str) -> None:
+    """
+    Load Hugging Face's adapter module. In-place logic.
+
+    Args:
+        model (torch.nn.Module): Model that need to be resumed.
+        adapter_path (str): Hugging Face's adapter path.
+
+    Raises:
+        KeyError: When adpater checkpoint's key mismatched.
+        ModuleNotFoundError: When safetensors module not installed.
+    """
+    try:
+        from safetensors.torch import load_file
+        adapter_wts = load_file(os.path.join(adapter_path, 'adapter_model.safetensors'))
+        model_state_dict = model.state_dict()
+        for k, v in adapter_wts.items():
+            model_state_dict[f'model.{k.replace(".weight", ".default.weight")}'].copy_(v)
+        log(f'Loaded adapter weights from {colorstr(adapter_path)} successfully.')
+        del adapter_wts
+    except KeyError:
+        log(f'Failed to load all of adapter weights from {adapter_path}. Please check the model weights..', level='warning')
+        raise KeyError
+    except ModuleNotFoundError:
+        log('Please install safetensors via pip install safetensors', level='error')
+        raise ModuleNotFoundError
