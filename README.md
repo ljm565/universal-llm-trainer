@@ -2,6 +2,7 @@
 
 
 ### Recent updates 📣
+* *April 2025 (v1.6.0)*: Universal LLM trainer now has supported Eleuther AI's harness evaluation.
 * *April 2025 (v1.5.8)*: Update multi-turn data training codes of Phi3, LLaMA 3, LLaMA 3.1, Gemma, and Gemma 2.
 * *April 2025 (v1.5.7)*: Update logic to not generate answers during the model validation step if they are not needed for efficient training.
 * *April 2025 (v1.5.6)*: Update code to convert our model checkpoints to Hugging Face model format.
