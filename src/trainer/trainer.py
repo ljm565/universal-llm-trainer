@@ -11,10 +11,11 @@ from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from tools import ModelEMA, Evaluator, TrainingLogger, EarlyStopper
-from utils import RANK, LOGGER, colorstr, init_seeds, TQDM
-from utils.func_utils import *
+from utils import RANK, is_rank_zero, set_rank_zero, log, colorstr, init_seeds, TQDM
+from utils.common_utils import *
 from utils.training_utils import *
 from utils.filesys_utils import yaml_save, make_project_dir
+from utils.peft_utils import merge_unmerged_checkpoints, load_hf_adapter
 from trainer.build import get_data_loader, get_model, get_peft_model, get_wrapped_model
 
 
@@ -28,18 +29,22 @@ class Trainer:
             multi_gpu_train_type=False,
             use_huggingface_trainer=False,
             resume_path=None,
+            **kwargs,
         ):
+        # Init basic settings
+        # torch.set_default_dtype(torch.bfloat16)
+        self.config = config
+        init_seeds(self.config.seed + 1 + RANK, self.config.deterministic)
+        set_rank_zero(True if not multi_gpu_train_type or (multi_gpu_train_type and device == 0) else False)
         self.is_ddp, self.is_fsdp = select_training_type(multi_gpu_train_type)
-        init_seeds(config.seed + 1 + RANK, config.deterministic)
-
-        # init
         self.mode = mode
         self.is_training_mode = self.mode in ['train', 'resume']
         self.device = torch.device(device)
-        self.is_rank_zero = True if not multi_gpu_train_type or (multi_gpu_train_type and device == 0) else False
-        self.config = config
+        self.is_rank_zero = is_rank_zero['value']
+        
+        # Init training settings
         self.world_size = len(self.config.device) if multi_gpu_train_type else 1
-        self.amp = True if self.config.amp_training or self.config.load_unnecessary_half else False
+        self.amp = True if self.config.amp_training else False
         self.ema = self.config.ema_updating
         self.epochs = self.config.epochs
         self.steps = self.config.steps
@@ -47,10 +52,13 @@ class Trainer:
         self.scheduler_type = self.config.scheduler_type
         self.metrics = self.config.metrics
         if self.is_training_mode:
+            self.do_generate_answer = False if self.metrics == ['ppl'] else True
             config.is_training_mode = True
-            self.save_dir = make_project_dir(self.config, self.is_rank_zero)
+            self.save_dir = make_project_dir(self.config)
             self.wdir = self.save_dir / 'weights'
         else:
+            self.do_generate_answer = True
+            config.fsdp_train = False
             config.is_training_mode = False
             config.data_verbose = False
         self.config.is_rank_zero = self.is_rank_zero
@@ -58,18 +66,19 @@ class Trainer:
         self.train_verbose = self.config.train_verbose
         self.use_huggingface_trainer = use_huggingface_trainer
         self.resume_path = resume_path
+        self.adapter_path = kwargs.get('adapter_path', None)
 
-        # sanity check
+        # Sanity check
         sanity_check(self)
         self.is_update_per_epoch = True if self.optimizer_step_criterion == 'epoch' else False
 
-        # save the yaml config
+        # Save the yaml config
         if self.is_rank_zero and self.is_training_mode:
             self.wdir.mkdir(parents=True, exist_ok=True)  # make dir
             self.config.save_dir = str(self.save_dir)
             yaml_save(self.save_dir / 'args.yaml', self.config)  # save run args
         
-        # init model, dataset, dataloader, etc.
+        # Init model, dataset, dataloader, etc.
         self.modes = ['train', 'validation'] if self.is_training_mode else ['validation']
         self.model, self.tokenizer = self._init_model(self.config, self.mode)
         self.model_module = self.model.module if self.is_ddp else self.model
@@ -81,7 +90,7 @@ class Trainer:
             self.do_train = self.huggingface_trainer
             return 
         
-        # init optimizer, scheduler
+        # Init optimizer, scheduler
         if self.is_training_mode:
             self.lr0 = self.config.lr0
             self.scaler = torch.GradScaler(device=self.device.type, enabled=self.amp) if self.amp else None
@@ -101,46 +110,47 @@ class Trainer:
 
 
     def _init_model(self, config, mode):
-        def _resume_model(resume_path, device, is_rank_zero):
+        def _resume_model(resume_path, device):
             checkpoints = torch.load(resume_path, map_location=device)
             model.load_state_dict(checkpoints['model'])
             del checkpoints
             torch.cuda.empty_cache()
             gc.collect()
-            if is_rank_zero:
-                LOGGER.info(f'Resumed model: {colorstr(resume_path)}')
+            log(f'Resumed model: {colorstr(resume_path)}')
             return model
 
-        # init model, loss function, and tokenizer
+        # Initialize model, loss function, and tokenizer
         resume_success = False
-        do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path)
+        do_resume = (mode == 'resume' and self.resume_path) or (mode == 'validation' and self.resume_path)
         model, tokenizer = get_model(config, self.device)
-        model._init_criterion()
+        model.init_criterion()
 
-        # init peft
+        # Initialize peft
         if config.peft_config_path:
             if config.training_stage != 0:
-                if config.is_rank_zero:
-                    LOGGER.info(f'PEFT is not applied due to training stage.')
+                log(f'PEFT is not applied due to training stage.')
             else:
-                # resume before applying peft
+                # Resume before applying peft
                 if do_resume:
                     try:
-                        model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
+                        model = _resume_model(self.resume_path, self.device)
                         resume_success = True
                     except:
-                        LOGGER.info(colorstr('yellow', 'Resume wiil be applied after PEFT applied..'))
+                        log('Resume wiil be applied after PEFT applied..', level='warning')
                         pass
                 model = get_peft_model(model, config)
         else:
-            if config.is_rank_zero:
-                LOGGER.info(f'PEFT is not applied.')
+            log('PEFT is not applied.')
 
-        # resume model or resume model after applying peft
+        # Resume model or resume model after applying peft
         if do_resume and not resume_success:
-            model = _resume_model(self.resume_path, self.device, config.is_rank_zero)
+            model = _resume_model(self.resume_path, self.device)
 
-        # init ddp
+        # Load adapter weights
+        if self.adapter_path:
+            load_hf_adapter(model, self.adapter_path)   # In-place logic
+
+        # Initialize DDP or FSDP
         if self.is_ddp:
             model = DDP(model, device_ids=[self.device])
         elif self.is_fsdp:
@@ -152,7 +162,7 @@ class Trainer:
     def _freeze_model(self):
         if self.config.training_stage:
             # Firstly, changing model dtype
-            if self.model_module.load16bit:
+            if self.model_module.bit == 16:
                 self.model.half()
             else:
                 self.model.float()
@@ -161,7 +171,7 @@ class Trainer:
             self.model_module.freeze_layers(self.config.training_stage)
 
             # Lastly, changing layers dtype those have to be float32
-            if self.model_module.load16bit:
+            if self.model_module.bit == 16:
                 self.model_module.mapping_neccessary_32bit()
 
 
@@ -189,10 +199,9 @@ class Trainer:
         if not self.is_update_per_epoch:
             self.epochs = math.ceil(self.steps / len(self.dataloaders['train']))
         
-        if self.is_rank_zero:
-            LOGGER.info(f'Using {self.dataloaders["train"].num_workers * (self.world_size or 1)} dataloader workers\n'
-                        f"Logging results to {colorstr('bold', self.save_dir)}\n"
-                        f'Starting training for {self.epochs} epochs...\n')
+        log(f'Using {self.dataloaders["train"].num_workers * (self.world_size or 1)} dataloader workers')
+        log(f"Logging results to {colorstr('bold', self.save_dir)}")
+        log(f'Starting training for {self.epochs} epochs...')
 
         if self.is_ddp or self.is_fsdp:
             dist.barrier()
@@ -201,12 +210,10 @@ class Trainer:
             start = time.time()
             self.epoch = epoch
 
-            if self.is_rank_zero:
-                print('-'*100)
+            log('='*200)
 
             for phase in self.modes:
-                if self.is_rank_zero:
-                    print('Phase: {}'.format(phase))
+                log('Phase: {}'.format(phase))
 
                 if phase == 'train':
                     self.epoch_train(phase, epoch)
@@ -217,7 +224,7 @@ class Trainer:
                     if self.is_ddp or self.is_fsdp:
                         dist.barrier()
 
-            # clears GPU vRAM at end of epoch, can help with out of memory errors
+            # Clear GPU vRAM at end of epoch to prevent OOM errors
             torch.cuda.empty_cache()
             gc.collect()
 
@@ -225,13 +232,17 @@ class Trainer:
             if self.stop:
                 break  # must break all DDP ranks
             
-            if self.is_rank_zero:
-                print(f"\nepoch {epoch+1} time: {time.time() - start} s\n")
-                print('\n'*2)
+            log(f"epoch {epoch+1} time: {time.time() - start} s\n\n\n")
 
-        if RANK in (-1, 0) and self.is_rank_zero:
-            LOGGER.info(f'\n{epoch - self.start_epoch + 1} epochs completed in '
-                        f'{(time.time() - self.train_time_start) / 3600:.3f} hours.')
+        log(f'{epoch - self.start_epoch + 1} epochs completed in {(time.time() - self.train_time_start) / 3600:.3f} hours.')
+
+        # Finally merge unmerged checkpoints at the end of training
+        if self.config.peft_config_path and self.config.adapter_save_type == 'merge':
+            if self.is_rank_zero:
+                merge_unmerged_checkpoints(self.wdir, self.model_module)
+            
+            if self.is_ddp or self.is_fsdp:
+                dist.barrier()
             
 
     def epoch_train(self, 
@@ -247,8 +258,7 @@ class Trainer:
             train_loader.sampler.set_epoch(epoch)
 
         # init progress bar
-        if RANK in (-1, 0):
-            pbar = init_train_progress_bar(train_loader, self.is_rank_zero, self.loss_names, nb)
+        pbar = init_train_progress_bar(train_loader, self.is_rank_zero, self.loss_names, nb)
     
         # training loop
         self.optimizer.zero_grad()
@@ -259,6 +269,7 @@ class Trainer:
             if warmup_step_or_epoch <= self.warmup_steps_n:
                 self.optimizer.param_groups[0]['lr'] = lr_warmup(warmup_step_or_epoch, self.warmup_steps_n, self.lr0, self.lf)
             cur_lr = self.optimizer.param_groups[0]['lr']
+            user_prompt_masking = False if self.config.is_multi_turn and self.config.user_prompt_masking_start_step > self.train_cur_step else True
             
             with torch.autocast(
                 device_type=self.device.type,
@@ -266,7 +277,7 @@ class Trainer:
             ):
                 batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                 batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
-                _, loss = self.model(batch, return_loss=True)
+                _, loss = self.model(batch, return_loss=True, user_prompt_masking=user_prompt_masking)
                 loss = loss / self.config.gradient_accumuate_step
             
             # backward and optimizer step
@@ -283,7 +294,7 @@ class Trainer:
                 batch_size, 
                 **{'train_loss': loss.item() * self.config.gradient_accumuate_step, 'lr': cur_lr}
             )
-            if RANK in (-1, 0) and self.is_rank_zero:
+            if self.is_rank_zero:
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                 loss_log = [loss.item() * self.config.gradient_accumuate_step]
                 msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log)
@@ -306,7 +317,7 @@ class Trainer:
                     dist.barrier()
         
         # upadate logs
-        if RANK in (-1, 0) and self.is_rank_zero:
+        if self.is_rank_zero:
             self.training_logger.update_phase_end(phase, printing=True)
         
         # scheduler step if update criterion is epoch
@@ -321,7 +332,7 @@ class Trainer:
         ):
         def _init_headline():
             header = tuple(['Epoch', 'GPU_mem'] + self.loss_names + self.metrics)
-            LOGGER.info(('\n' + '%15s' * (2 + len(self.loss_names) + len(self.metrics))) % header)
+            log(('\n' + '%15s' * (2 + len(self.loss_names) + len(self.metrics))) % header)
 
         def _get_val_pbar(dloader, nb, is_rank_zero):
             if is_rank_zero:
@@ -364,7 +375,7 @@ class Trainer:
                         greedy=True,
                         max_time=self.config.generation_max_time,
                         synced_gpus=True if self.is_fsdp else None,
-                    ) if response_gt else None
+                    ) if response_gt and self.do_generate_answer else None
 
                 # Evaluation
                 metric_results = self.metric_evaluation(loss, response_pred, response_gt)
@@ -382,18 +393,18 @@ class Trainer:
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                     loss_log = [loss.item()]
                     msg = tuple([f'{epoch+1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
-                    if self.config.inference_result_verbose and response_gt != None:
+                    if self.config.inference_result_verbose and response_gt != None and self.do_generate_answer:
                         _init_headline()
                     pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
 
-                    if self.config.inference_result_verbose and response_gt != None:
+                    if self.config.inference_result_verbose and response_gt != None and self.do_generate_answer:
                         for u, p, g in zip(user_prompt, response_pred, response_gt):
-                            LOGGER.info('\n\n' + '-'*100)
-                            LOGGER.info(colorstr('Prompt    : ') + u)
-                            LOGGER.info(colorstr('Prediction: ') + p)
-                            LOGGER.info(colorstr('GT        : ') + g)
-                            LOGGER.info('-'*100 + '\n')
-
+                            print('\n\n' + '-'*200)
+                            print(colorstr('\nPrompt    : ') + u)
+                            print(colorstr('\nPrediction: ') + p)
+                            print(colorstr('\nGT        : ') + g)
+                            print('-'*200 + '\n')
+            
             # Upadate logs and save model
             self.training_logger.update_phase_end(phase, printing=self.is_rank_zero)
 
@@ -415,7 +426,7 @@ class Trainer:
             
             if self.is_rank_zero:
                 for i, tmp in enumerate(gathered_list):
-                    LOGGER.info(colorstr('green', f'Rank{i}: {tmp}'))
+                    log(colorstr('green', f'Rank{i}: {tmp}'))
                 gathered_results = calculate_gathered_results(gathered_list)
             
             dist.barrier()
@@ -424,7 +435,13 @@ class Trainer:
 
     
     def save_model(self):
-        self.training_logger.save_model(self.wdir, self.model_module, self.is_fsdp)
+        self.training_logger.save_model(
+            save_dir=self.wdir,
+            model=self.model_module,
+            optimizer=self.optimizer,
+            is_fsdp=self.is_fsdp,
+            save_only_adapter=self.config.peft_config_path and self.config.adapter_save_type == 'adapter_only'
+        )
         self.training_logger.save_logs(self.save_dir)
 
         # re-freezing model for training phase
@@ -460,14 +477,14 @@ class Trainer:
                 try:
                     metric_results[m] = self.evaluator.cal_rouge_score(response_pred, response_gt, n=None)
                 except RecursionError:
-                    LOGGER.warning(f'Recursion error occured.\nPreds: {response_pred}\nGTs: {response_gt}')
+                    log(f'Recursion error occured.\nPreds: {response_pred}\nGTs: {response_gt}', level='warning')
                     metric_results[m] = 0.0
             elif m == 'meteor':
                 metric_results[m] = self.evaluator.cal_meteor_score(response_pred, response_gt)
             elif m == 'edit_distance':
                 metric_results[m] = self.evaluator.cal_edit_distance(response_pred, response_gt)
             else:
-                LOGGER.warning(f'Invalid key: {m}')
+                log(f'Invalid key: {m}', level='warning')
         
         return metric_results
     

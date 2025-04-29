@@ -1,5 +1,6 @@
 import os
 from sconf import Config
+from datasets import concatenate_datasets
 from peft import prepare_model_for_kbit_training
 
 import torch
@@ -11,7 +12,7 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (
     ShardingStrategy,
 )
 
-from utils import RANK, LOGGER, colorstr
+from utils import RANK, log, colorstr
 from utils.data_utils import seed_worker, choose_proper_dataset
 from utils.peft_utils import init_lora_config, apply_peft, print_trainable_parameters
 from utils.filesys_utils import pickle_load
@@ -31,7 +32,7 @@ def build_llm_dataset(config, tokenizer, mode):
         template_paths = [config.template_dir] if isinstance(config.template_dir, str) else config.template_dir
     
     if not all([os.path.exists(p) for p in template_paths]) and config.is_rank_zero:
-        raise FileNotFoundError(LOGGER.info(colorstr('red', 'Template directory is not found.')))
+        raise FileNotFoundError(log('Template directory is not found.', level='error'))
     
     dataset_classes = [choose_proper_dataset(d) for d in config.data_train_type]
 
@@ -47,7 +48,7 @@ def build_llm_dataset(config, tokenizer, mode):
             dset = dataset_classes[i](
                 mode=state,
                 config=config,
-                data=sum(data, []),
+                data=sum(data, []) if isinstance(data[0], list) else concatenate_datasets(data),
                 tokenizer=tokenizer,
                 template_dir=template_paths[i],
                 name=datasets[i]
@@ -97,17 +98,13 @@ def get_data_loader(config, tokenizer, mode, is_ddp=False):
 
 
 def get_model(config, device):
-    if config.model.lower() == 'kopolyglot':
-        from models import KoPolyglot
-        model = KoPolyglot(config, device)
-        tokenizer = model.tokenizer
-    elif config.model.lower() == 'kogemma':
-        from models import KoGemma
-        model = KoGemma(config, device)
-        tokenizer = model.tokenizer
-    elif config.model.lower() in ['gemma', 'gemma1', 'gemma2']:
+    if config.model.lower() in ['gemma', 'gemma1']:
         from models import Gemma
         model = Gemma(config, device)
+        tokenizer = model.tokenizer
+    elif config.model.lower() in ['gemma2', 'gemma3']:
+        from models import Gemma2
+        model = Gemma2(config, device)
         tokenizer = model.tokenizer
     elif config.model.lower() in ['llama3', 'llama3.1']:
         from models import Llama3
@@ -125,11 +122,11 @@ def get_model(config, device):
         raise NotImplementedError
     
     # Preparing for bits training
-    if model.is4bit or model.is8bit:
+    if model.bit in [4, 8]:
         try:
             model = prepare_model_for_kbit_training(model)
         except:
-            LOGGER.warning('Quantized model preparation is failed. It will not be a problem.')
+            log('Quantized model preparation is failed. It will not be a problem.', level='warning')
 
     return model, tokenizer
 
@@ -146,16 +143,14 @@ def get_peft_model(model, config):
         raise NotImplementedError
     
     # Logging
-    if config.is_rank_zero:
-        print_trainable_parameters(model)
-        LOGGER.info(f'Applied {colorstr(peft_type)} to the model.')
+    print_trainable_parameters(model)
+    log(f'Applied {colorstr(peft_type)} to the model.')
     return model
 
 
 
 def get_wrapped_model(config, model, device):
-    # Neither quantized nor PEFT case
-    if model.is32bit and not config.peft_config_path:
+    if not config.quant_config:
         model = FSDP(model, 
                      auto_wrap_policy=get_wrap_policy(config), 
                      device_id=device, 

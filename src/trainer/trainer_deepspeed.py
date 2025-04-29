@@ -1,7 +1,10 @@
 import gc
 import time
 import math
-import deepspeed
+try:
+    import deepspeed
+except:
+    pass
 
 import torch
 from torch.cuda import amp
@@ -15,7 +18,7 @@ from utils import (
     colorstr, init_seeds,
     TQDM
 )
-from utils.func_utils import *
+from utils.common_utils import *
 from utils.training_utils import *
 from utils.filesys_utils import yaml_save, make_project_dir, json_load, json_save
 
@@ -109,7 +112,7 @@ class TrainerDeepSpeed:
         resume_success = False
         do_resume = mode == 'resume' or (mode == 'validation' and self.resume_path)
         model, tokenizer = get_model(config, self.device)
-        model._init_criterion()
+        model.init_criterion()
 
         # init peft
         if config.peft_config_path:
@@ -357,7 +360,7 @@ class TrainerDeepSpeed:
 
             if is_training_now:
                 if self.is_rank_zero:
-                    self.training_logger.save_model(self.wdir, self.model_engine)
+                    self.training_logger.save_model(self.wdir, self.model_engine, self.optimizer)
                     self.training_logger.save_logs(self.save_dir)
 
                 # re-freezing model for training phase

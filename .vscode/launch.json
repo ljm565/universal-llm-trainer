@@ -18,7 +18,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/train.py",
-            "args": ["--config", "config/khc/llm_gemma2_med_korea_fulltuning.yaml", "--mode", "train"],
+            "args": ["--config", "config/example_llama3.1_arc.yaml", "--mode", "train"],
             "console": "integratedTerminal",
             "justMyCode": false
         },

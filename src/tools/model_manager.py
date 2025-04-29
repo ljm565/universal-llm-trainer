@@ -1,3 +1,5 @@
+import os
+
 import torch
 
 
@@ -18,10 +20,18 @@ class ModelManager:
         }
 
 
-    def save(self, model, model_path, log_data, is_rank_zero):
+    def save(self, model_path, model, optimizer, log_data, is_rank_zero, save_only_adapter=False):
         model_state_dict = model.state_dict()
+        optimizer_state_dict = optimizer.state_dict()
         if is_rank_zero:
-            checkpoint = {'model': model_state_dict, 'log_data': log_data}
+            if save_only_adapter:
+                adapter_saving_path = os.path.splitext(model_path)[0]
+                model.model.save_pretrained(adapter_saving_path)
+            checkpoint = {
+                'model': model_state_dict if not save_only_adapter else adapter_saving_path,
+                'optimizer': optimizer_state_dict,
+                'log_data': log_data
+            }
             torch.save(checkpoint, model_path)
 
 

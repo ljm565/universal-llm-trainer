@@ -1,6 +1,8 @@
 from sconf import Config
 from typing import Any, Dict, List, Tuple, Union
 
+import torch
+
 from utils import (
     OPTIM_CRITERION, 
     OPTIM_CRITERION_MSG,
@@ -8,6 +10,8 @@ from utils import (
     SCHEDULER_MSG, 
     FSDP_WRAP_TYPE,
     FSDP_WRAP_MSG,
+    ADAPTER_SAVE_TYPE_MSG,
+    ADAPTER_SAVE_TYPE,
     colorstr
 )
 
@@ -37,6 +41,9 @@ def sanity_check(clazz: Any) -> None:
     if clazz.config.attn_implementation:
         assert clazz.config.amp_training or (clazz.config.fsdp_train and clazz.config.fsdp_hyperparameters.amp_training), \
             colorstr('You must set amp_training option to True if you use attn_implementation option.')
+    if clazz.config.peft_config_path:
+        assert clazz.config.adapter_save_type in ADAPTER_SAVE_TYPE, \
+            ADAPTER_SAVE_TYPE_MSG + f' but got {colorstr(clazz.config.adapter_save_type)}.'
         
 
     
@@ -88,3 +95,32 @@ def replace_none_value(config: Config) -> Union[Dict[str, Any], List[Any], Any, 
         return None
     else:
         return config
+
+
+
+def instantiate(parent: Any, string: str) -> Any:
+    """
+    Converts a string representing a PyTorch dtype into the corresponding PyTorch dtype object.
+
+    Args:
+        parent (Any): Paraent library.
+        string (str): A string representing a PyTorch dtype (e.g., "float32", "bfloat16", "float16").
+
+    Returns:
+        Any: All types of instance
+
+    Raises:
+        ValueError: If the input string does not correspond to a valid PyTorch dtype.
+
+    Example:
+        >>> dtype = instantiate(torch, "bfloat16")
+        >>> print(dtype)
+        torch.bfloat16
+
+        >>> dtype = instantiate(torch, "invalid_dtype")
+        ValueError: 'invalid_dtype' is not a valid instance.
+    """
+    if hasattr(parent, string):
+        return getattr(parent, string)
+    else:
+        raise ValueError(colorstr(f"'{string}' is not a valid instance.", "red"))

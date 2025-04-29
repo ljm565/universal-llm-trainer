@@ -9,7 +9,7 @@ from utils.download_utils import load_data_list
 
 class ARC:
     def __init__(self, download_path, dataset=None, forTranslation=False):
-        self.dataset = 'ai2_arc'
+        self.dataset = 'allenai/ai2_arc'
         self.names = ['ARC-Challenge', 'ARC-Easy']
         if dataset:
             assert self.dataset == dataset

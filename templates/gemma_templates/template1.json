@@ -6,5 +6,6 @@
     "prompt_no_input": [
         "<start_of_turn>user\n{instruction}<end_of_turn>\n<start_of_turn>model\n"
     ],
-    "response_split": "<start_of_turn>model"
+    "response_split": "<start_of_turn>model",
+    "multiturn_split": "<end_of_turn>\n"
 }

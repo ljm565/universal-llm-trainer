@@ -1,12 +1,13 @@
 import os
 import sys
 from sconf import Config
+from pathlib import Path
 from argparse import ArgumentParser
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 import torch
 
-from utils.func_utils import replace_none_value
+from utils.common_utils import replace_none_value
 from utils.training_utils import choose_proper_resume_model
 from trainer import Trainer
 
@@ -25,15 +26,22 @@ def load_config(config_path):
 
 
 def main(args):    
-    # init config
-    config = load_config(os.path.join(args.resume_model_dir, 'args.yaml')) if args.resume_model_dir else load_config(args.config)
+    # Initialize config
+    if args.resume_model_dir:
+        config = load_config(os.path.join(args.resume_model_dir, 'args.yaml'))
+    elif args.adapter_path:
+        path =  Path(args.adapter_path).parent.parent / 'args.yaml'
+        config = load_config(path)
+    else:
+        load_config(args.config)
+    
     if 'training_stage' not in config:
         config.training_stage = 0
     
-    # init environment
+    # Initailize environment
     env_setup()
     
-    # validation
+    # Validation
     validation(args, config)
 
     
@@ -47,7 +55,8 @@ def validation(args, config):
         config, 
         'validation', 
         device, 
-        resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.resume_model_dir else None
+        resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.resume_model_dir else None,
+        adapter_path=args.adapter_path if args.adapter_path else None,
     )
 
     trainer.epoch_validate('validation', 0, False)
@@ -57,13 +66,14 @@ def validation(args, config):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('-r', '--resume_model_dir', type=str, required=False)
+    parser.add_argument('-r', '--resume_model_dir', default=None, type=str, required=False)
+    parser.add_argument('-a', '--adapter_path', default=None, type=str, required=False)
     parser.add_argument('-l', '--load_model_type', type=str, default='metric', required=False, choices=['metric', 'loss', 'last'])
     parser.add_argument('-c', '--config', type=str, required=False)
     parser.add_argument('-d', '--device', default=None, required=False)
     args = parser.parse_args()
 
-    if not args.resume_model_dir:
+    if not args.resume_model_dir and not args.adapter_path:
         assert args.config is not None, 'Please provide resume model directory or config path'
     main(args)
 

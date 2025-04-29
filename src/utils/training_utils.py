@@ -19,8 +19,8 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (
 )
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
-from utils import LOGGER, colorstr, TQDM
-from utils.func_utils import wrap_modules
+from utils import log, colorstr, TQDM
+from utils.common_utils import wrap_modules
 from utils.quant_utils import init_quant_config
 
 
@@ -82,7 +82,7 @@ def choose_proper_model(config) -> str:
     Args:
         config: Configuration object that contains the following attributes:
             - model_size (Union[str, float]): The target model size (e.g., '8B', 8).
-            - model (str): The name of the model family (e.g., 'kopolyglot', 'llama3', 'gemma').
+            - model (str): The name of the model family (e.g., 'llama3', 'gemma').
             - is_rank_zero (bool): Flag indicating whether this is the rank 0 process in distributed training.
 
     Returns:
@@ -96,20 +96,13 @@ def choose_proper_model(config) -> str:
         if isinstance(config.model_size, str) and config.model_size.lower().endswith('b') \
             else config.model_size
 
-    if config.model.lower() == 'kopolyglot':
-        model_list = [
-            'beomi/KoAlpaca-Polyglot-5.8B',
-        ]
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
-                            for text in model_list]
-        idx = size_diff.index(min(size_diff))
-    
-    elif config.model.lower() in ['llama3', 'llama3.1']:
+    if config.model.lower() in ['llama3', 'llama3.1']:
         model_list_3 = [
             'meta-llama/Meta-Llama-3-8B-Instruct',
         ]
         model_list_3_1 = [
-            'meta-llama/Llama-3.1-8B-Instruct'
+            'meta-llama/Llama-3.1-8B-Instruct',
+            'meta-llama/Llama-3.1-70B-Instruct',
         ]
         if config.model.lower() == 'llama3':
             model_list = model_list_3 
@@ -127,15 +120,7 @@ def choose_proper_model(config) -> str:
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
     
-    elif config.model.lower() == 'kogemma':
-        model_list = [
-            'gemmathon/gemma-2b-ko-dev-pbmt192',
-        ]
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0])) \
-                            for text in model_list]
-        idx = size_diff.index(min(size_diff))
-    
-    elif config.model.lower() in ['gemma', 'gemma1', 'gemma2']:
+    elif config.model.lower() in ['gemma', 'gemma1', 'gemma2', 'gemma3']:
         model_list_1 = [
             'google/gemma-2b',
             'google/gemma-7b',
@@ -143,10 +128,15 @@ def choose_proper_model(config) -> str:
         model_list_2 = [
             'google/gemma-2-9b-it',
         ]
+        model_list_3 = [
+            'google/gemma-3-12b-it',
+        ]
         if config.model.lower() in ['gemma', 'gemma1']:
             model_list = model_list_1
         elif config.model.lower() == 'gemma2':
             model_list = model_list_2
+        elif config.model.lower() == 'gemma3':
+            model_list = model_list_3
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
                             for text in model_list]
         idx = size_diff.index(min(size_diff))
@@ -166,8 +156,7 @@ def choose_proper_model(config) -> str:
         raise NotImplementedError
     
     # logs
-    if config.is_rank_zero:
-        LOGGER.info(f"Chosen model: {colorstr(model_list[idx])}")
+    log(f"Chosen model: {colorstr(model_list[idx])}")
     
     return model_list[idx]
 
@@ -279,7 +268,7 @@ def init_train_progress_bar(dloader,
     """
     if is_rank_zero:
         header = tuple(['Epoch', 'GPU_mem'] + loss_names)
-        LOGGER.info(('\n' + interval * (2 + len(loss_names))) % header)
+        log(('\n' + interval * (2 + len(loss_names))) % header)
         pbar = TQDM(enumerate(dloader), total=nb)
     else:
         pbar = enumerate(dloader)
@@ -348,7 +337,7 @@ def calculate_gathered_results(objs: List[dict]) -> dict:
 
 
 
-def init_model_config(config, load16bit: bool) -> dict:
+def init_model_config(config) -> dict:
     """
     Make additional kwags for Huggingface model initialization.
 
@@ -365,16 +354,14 @@ def init_model_config(config, load16bit: bool) -> dict:
     # Basic
     quant_config = init_quant_config(config)
     kwargs = {
-        'torch_dtype': torch.float16 if load16bit else torch.float32,
         'quantization_config': quant_config,
-        'use_cache': False if config.gradient_checkpointing else True
+        'use_cache': False if config.gradient_checkpointing.activate else True
     }
 
     # Determine attention mechanism
     if config.attn_implementation:
         kwargs['attn_implementation'] = config.attn_implementation
-        if config.is_rank_zero:
-            LOGGER.info(f"{colorstr(config.attn_implementation)} attention will be used.")
+        log(f"{colorstr(config.attn_implementation)} attention will be used.")
     
     return kwargs
 
@@ -449,7 +436,6 @@ def custom_wrap_policy(config, model: nn.Module, device: torch.device) -> nn.Mod
                 )
                 break       # due to leaf modules
     
-    if config.is_rank_zero:
-        LOGGER.info(colorstr('Custom Wrapping Process is applied because the quantization model is used'))
+    log('Custom Wrapping Process is applied because the quantization model is used', color=True)
     
     return model

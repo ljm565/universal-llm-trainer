@@ -28,4 +28,5 @@ config/
 config_lora/
 
 # Output folders
-outputs/
+output/*
+data_examples/*

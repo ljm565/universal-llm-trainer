@@ -10,11 +10,16 @@ from tqdm import tqdm as tqdm_original
 import torch
 
 
-LOGGING_NAME = 'LLM_TRAINER_1.5.1'
+
+# Initialize
+base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+version_file_path = os.path.join(base_path, 'version.txt')
+LOGGING_NAME = f"LLM_TRAINER_{open(version_file_path).read().strip()}"
 VERBOSE = True
 RANK = int(os.getenv('RANK', -1))
 MACOS, LINUX, WINDOWS = (platform.system() == x for x in ['Darwin', 'Linux', 'Windows'])  # environment booleans
 TQDM_BAR_FORMAT = '{l_bar}{bar:10}{r_bar}' if VERBOSE else None  # tqdm bar format
+is_rank_zero = {'value': True}
 
 
 def set_logging(name=LOGGING_NAME, verbose=True):
@@ -265,32 +270,47 @@ class TQDM(tqdm_original):
         super().__init__(*args, **kwargs)
 
 
+def set_rank_zero(value: bool):
+    global is_rank_zero
+    is_rank_zero['value'] = value
+
+
 def log_if_rank_zero(func):
     def wrapper(self, *args, **kwargs):
-        if self.is_rank_zero:
+        if is_rank_zero['value']:
             return func(self, *args, **kwargs)
     return wrapper
 
 
 @log_if_rank_zero
-def print_mem_consumption(self, path):
+def print_mem_consumption(path):
     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
     LOGGER.info(f'{colorstr(path)} accounts for {colorstr(mem)} of GPU memory.')
 
 
 @log_if_rank_zero
-def logger(self, message):
-    LOGGER.info(colorstr(message))
+def log(message, level='info', color=False):
+    if level.lower() == 'warning':
+        LOGGER.warning(message)
+    elif level.lower() == 'error':
+        LOGGER.error(message)
+    else:
+        if color:
+            LOGGER.info(colorstr(message))
+        else:
+            LOGGER.info(message)
 
 
 ########################## MSG ##########################
-DATASET_HELP_MSG = 'If you are looking for LLM benchmark datasets, you can choose from the following list: [gsm8k, ai2_arc, Rowan/hellaswag, winogrande, lukaemon/mmlu, truthful_qa]'
+DATASET_HELP_MSG = 'If you are looking for LLM benchmark datasets, you can choose from the following list: [gsm8k, allenai/ai2_arc, Rowan/hellaswag, winogrande, lukaemon/mmlu, truthful_qa]'
 OPTIM_CRITERION_MSG = 'optimizer_step_criterion must be belonged to' + f' [{colorstr("epoch")}, {colorstr("step")}] '
 SCHEDULER_MSG = 'scheduler_type must be belonged to' + f' [{colorstr("linear")}, {colorstr("cosine")}] '
 FSDP_WRAP_MSG = 'wrap_policy must be belonged to' + f' [{colorstr("size_based")}, {colorstr("transformer_based")}] '
-DATASET_TRAIN_TYPE_MSG = 'Currently, we only support' + f' [{colorstr("qa")}, {colorstr("ar")}] ' + 'as dataset_train_type'
+DATASET_TRAIN_TYPE_MSG = 'Currently, we only support' + f' [{colorstr("qa")}, {colorstr("ar")}, and {colorstr("arc")}] ' + 'as dataset_train_type'
+ADAPTER_SAVE_TYPE_MSG = 'We support' + f' [{colorstr("adapter_only")}, {colorstr("merge")}] ' + 'as dataset_train_type'
 
 ##################### Assertion List #####################
 OPTIM_CRITERION = ['epoch', 'step']
 SCHEDULER_TYPE = ['linear', 'cosine']
 FSDP_WRAP_TYPE = ['size_based', 'transformer_based']
+ADAPTER_SAVE_TYPE = ['merge', 'adapter_only']

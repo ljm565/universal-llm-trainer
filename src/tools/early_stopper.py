@@ -1,4 +1,4 @@
-from utils import LOGGER
+from utils import log
 
 
 
@@ -36,8 +36,8 @@ class EarlyStopper:
 
         stop = self.update_n > self.patience    # stop training if patience exceeded
         if stop:
-            LOGGER.info(f'Stopping training early as no improvement observed in last {self.patience} validations. '
-                        f'Best results observed at "{self.best_epoch} epochs / {self.best_step} steps".\n'
-                        f'To update EarlyStopping(patience={self.patience}) pass a new patience value, '
-                        f'i.e. `patience=300` or use `patience=None` to disable EarlyStopping.')
+            log(f'Stopping training early as no improvement observed in last {self.patience} validations. '
+                f'Best results observed at "{self.best_epoch} epochs / {self.best_step} steps".\n'
+                f'To update EarlyStopping(patience={self.patience}) pass a new patience value, '
+                f'i.e. `patience=300` or use `patience=None` to disable EarlyStopping.')
         return stop
