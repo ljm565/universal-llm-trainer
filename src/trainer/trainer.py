@@ -67,6 +67,7 @@ class Trainer:
         self.use_huggingface_trainer = use_huggingface_trainer
         self.resume_path = resume_path
         self.adapter_path = kwargs.get('adapter_path', None)
+        self.gpu_test = kwargs.get('gpu_test', False)
 
         # Sanity check
         sanity_check(self)
@@ -275,6 +276,10 @@ class Trainer:
                 device_type=self.device.type,
                 enabled=self.amp
             ):
+                if self.gpu_test:
+                    batch['src'] = torch.randint(0, self.tokenizer.vocab_size, batch['src'].size(), dtype=torch.long)
+                    batch['label'] = torch.randint(0, self.tokenizer.vocab_size, batch['label'].size(), dtype=torch.long)
+
                 batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                 batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
                 _, loss = self.model(batch, return_loss=True, user_prompt_masking=user_prompt_masking)
