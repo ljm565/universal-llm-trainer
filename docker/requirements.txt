@@ -16,3 +16,4 @@ bitsandbytes==0.45.0
 deepspeed==0.16.2
 flash-attn==2.6.3
 numpy==1.26.4
+lm_eval==0.4.8
