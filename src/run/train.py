@@ -54,6 +54,7 @@ def single_gpu_train(args, config):
         use_huggingface_trainer=args.use_huggingface_trainer,
         resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.resume_model_dir else None,
         adapter_path=args.adapter_path if args.adapter_path else None,
+        gpu_test=args.gpu_test,
     )
 
     if args.mode in ['train', 'resume']:
@@ -80,6 +81,7 @@ def multi_gpu_train(gpu, ngpus_per_node, config, args):
         multi_gpu_train_type='fsdp' if config.fsdp_train else 'ddp',
         resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.resume_model_dir else None,
         adapter_path=args.adapter_path if args.adapter_path else None,
+        gpu_test=args.gpu_test
     )
 
     if args.mode in ['train', 'resume']:
@@ -100,6 +102,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', type=str, default='10001', required=False)
     parser.add_argument('--ddp_timeout', type=int, default=86400, required=False)   # 24 hours
     parser.add_argument('--use_huggingface_trainer', action='store_true')
+    parser.add_argument('--gpu_test', action='store_true')
     args = parser.parse_args()
 
     # Sanity checks

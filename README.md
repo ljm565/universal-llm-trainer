@@ -42,6 +42,7 @@ For detailed usage instructions, please refer to the description below.
 
 ### GPU memory and training speed
 Below is an example of the memory requirements and training speed for different models.
+For the results of tests with more GPUs, please refer to [this page](./docs/gpu_test.md).
 
 > [!NOTE]
 > Training conditions: 
