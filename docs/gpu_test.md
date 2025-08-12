@@ -85,3 +85,46 @@ Below is an example of the memory requirements and training speed for different 
 
 *: FSDP training with CPU offloading + 32 gradient accumuation.<br>
 **: 4-bit QLoRA training. QLoRA does not always use less GPU than LoRA, but it varies depending on sequence length and model size. Experimentally, QLoRA use less GPU when less than 1,500 sequence length. Please refer to [Google document](https://cloud.google.com/vertex-ai/generative-ai/docs/model-garden/lora-qlora).
+
+&nbsp;
+
+### 3. NVIDIA A100
+> [!NOTE]
+> Training conditions: 
+> - Environments: Ubuntu 22.04.6 LTS, torch==2.5.1, transformers==4.49.0
+> - Batch size: 2
+> - Sequnece length: 8,192 (Without padding, fully filled tokens)
+> - Model type: torch.bfloat16
+> - Optimizer: torch.optim.AdamW
+> - w/ Gradient checkpointing (Tests were done with both "torch" and "Hugging Face" gradient checkpointing methods)
+> - Gradient accumulation: 
+>   - Full fine-tuning: 1
+>   - LoRA: 32
+
+
+| Model | Tuning Method | GPU | Peak Mem. (Model Mem.) | Sec/step |
+|:- |-:|-:|-:|-:|
+| [Llama 3.1 8B](../config/llm_llama3.1_full.yaml)                 | Full   | A100 x 1  | 78 GiB (16 GiB)           |  9.7    |
+| [Llama 3.1 8B](../config/llm_llama3.1_lora.yaml)                 | LoRA   | A100 x 1  | 36 GiB (16 GiB)           |  11.5   |
+| [Llama 3.1 8B](../config/llm_llama3.1_qlora.yaml) **             | QLoRA  | A100 x 1  | 48 GiB (7.8 GiB)          |  57.6   |
+| [Llama 3.1 70B](../config/llm_llama3.1_70B_lora_fsdp.yaml) *     | LoRA   | A100 x 2  | 65 GiB (CPU Offload)      |  84.1   |
+| [Llama 3 8B](../config/llm_llama3_full.yaml)                     | Full   | A100 x 1  | 78 GiB (16 GiB)           |  9.7    |
+| [Llama 3 8B](../config/llm_llama3_lora.yaml)                     | LoRA   | A100 x 1  | 36 GiB (16 GiB)           |  11.5   |
+| [Llama 3 8B](../config/llm_llama3_qlora.yaml) **                 | QLoRA  | A100 x 1  | 48 GiB (7.8 GiB)          |  57.6   |
+| [Llama 2 13B](../config/llm_llama2_full_fsdp.yaml) *             | Full   | A100 x 2  | 31 GiB (CPU Offload)      | 25.4    |  
+| [Llama 2 13B](../config/llm_llama2_lora.yaml)                    | LoRA   | A100 x 1  | 43 GiB (26.2 GiB)         | 17.9    |
+| [Llama 2 13B](../config/llm_llama2_qlora.yaml) **                | QLoRA  | A100 x 1  | 38 GiB (8.0 GiB)          | 96.5    |
+| [Gemma 2 9B](../config/llm_gemma2_full_fsdp.yaml) *              | Full   | A100 x 2  | 58 GiB (CPU Offload)      | 25.2    |
+| [Gemma 2 9B](../config/llm_gemma2_lora.yaml)                     | LoRA   | A100 x 1  | 60 GiB (18.5 GiB)         | 20.0    |
+| [Gemma 2 9B](../config/llm_gemma2_qlora.yaml) **                 | QLoRA  | A100 x 1  | OOM (8.2 GiB)             | OOM     |
+| [Gemma 7B](../config/llm_gemma_full_fsdp.yaml) *                 | Full   | A100 x 2  | 48 GiB (CPU Offload)      | 18.5    |   
+| [Gemma 7B](../config/llm_gemma_lora.yaml)                        | LoRA   | A100 x 1  | 51 GiB (17 GiB)           | 14.7    |
+| [Gemma 7B](../config/llm_gemma_qlora.yaml) **                    | QLoRA  | A100 x 1  | 70 GiB (7.2 GiB)          | 61.5    |
+| [Phi3-mini (3.8B)](../config/llm_phi3_full.yaml)                 | Full   | A100 x 1  | 40 GiB (7.7 GiB)          | 7.4     |
+| [Phi3-mini (3.8B)](../config/llm_phi3_lora.yaml)                 | LoRA   | A100 x 1  | 17 GiB (7.6 GiB)          | 8.5     |
+| [Phi3-mini (3.8B)](../config/llm_phi3_qlora.yaml) **             | QLoRA  | A100 x 1  | 21 GiB (2.7 GiB)          | 36.1    |
+
+*: FSDP training with CPU offloading + 32 gradient accumuation.<br>
+**: 4-bit QLoRA training. QLoRA does not always use less GPU than LoRA, but it varies depending on sequence length and model size. Experimentally, QLoRA use less GPU when less than 1,500 sequence length. Please refer to [Google document](https://cloud.google.com/vertex-ai/generative-ai/docs/model-garden/lora-qlora).
+
+&nbsp;
