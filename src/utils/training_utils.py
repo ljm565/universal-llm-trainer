@@ -151,6 +151,15 @@ def choose_proper_model(config) -> str:
             idx = 1
         else:
             idx = 0
+
+    elif config.model.lower() == 'qwen3':
+        model_list = [
+            'Qwen/Qwen3-8B',
+            'Qwen/Qwen3-14B',
+        ]
+        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
+                            for text in model_list]
+        idx = size_diff.index(min(size_diff))
     
     else:
         raise NotImplementedError

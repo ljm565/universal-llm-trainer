@@ -123,6 +123,9 @@ Below is an example of the memory requirements and training speed for different 
 | [Phi3-mini (3.8B)](../config/llm_phi3_full.yaml)                 | Full   | A100 x 1  | 40 GiB (7.7 GiB)          | 7.4     |
 | [Phi3-mini (3.8B)](../config/llm_phi3_lora.yaml)                 | LoRA   | A100 x 1  | 17 GiB (7.6 GiB)          | 8.5     |
 | [Phi3-mini (3.8B)](../config/llm_phi3_qlora.yaml) **             | QLoRA  | A100 x 1  | 21 GiB (2.7 GiB)          | 36.1    |
+| [Qwen 3 8B](../config/llm_qwen3_full.yaml)                       | Full   | A100 x 1  | 80 GiB (16.1 GiB)         | 10.9    |
+| [Qwen 3 8B](../config/llm_qwen3_lora.yaml)                       | LoRA   | A100 x 1  | 39 GiB (16.1 GiB)         | 12.5    |
+| [Qwen 3 8B](../config/llm_qwen3_qlora.yaml) **                   | QLoRA  | A100 x 1  | 53 GiB (15 GiB)           | 60.7    |
 
 *: FSDP training with CPU offloading + 32 gradient accumuation.<br>
 **: 4-bit QLoRA training. QLoRA does not always use less GPU than LoRA, but it varies depending on sequence length and model size. Experimentally, QLoRA use less GPU when less than 1,500 sequence length. Please refer to [Google document](https://cloud.google.com/vertex-ai/generative-ai/docs/model-garden/lora-qlora).

@@ -118,6 +118,10 @@ def get_model(config, device):
         from models import Phi3
         model = Phi3(config, device)
         tokenizer = model.tokenizer
+    elif config.model.lower() == 'qwen3':
+        from models import Qwen3
+        model = Qwen3(config, device)
+        tokenizer = model.tokenizer
     else:
         raise NotImplementedError
     

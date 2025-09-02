@@ -21,7 +21,7 @@ model = AutoModelForCausalLM.from_pretrained(
     model_path,
     trust_remote_code=True,
     device_map=device,
-    torch_dtype=torch.bfloat16,
+    dtype=torch.bfloat16,
     attn_implementation='flash_attention_2',
 )
 
