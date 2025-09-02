@@ -1,21 +1,21 @@
 import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM
-from transformers.models.gemma.modeling_gemma import GemmaDecoderLayer
+from transformers.models.qwen3.modeling_qwen3 import Qwen3DecoderLayer
 
 from torch.distributed.fsdp.wrap import ModuleWrapPolicy
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import apply_activation_checkpointing
 
-from tools.tokenizers import GemmaTokenizer
+from tools.tokenizers import Qwen3Tokenizer
 from utils import print_mem_consumption, log
 from utils.common_utils import instantiate
 from utils.training_utils import init_model_config, choose_proper_model
 
 
 
-class Gemma(nn.Module):
+class Qwen3(nn.Module):
     def __init__(self, config, device):
-        super(Gemma, self).__init__()
+        super(Qwen3, self).__init__()
         # Initialize environment settings
         self.is_rank_zero = config.is_rank_zero
         self.del_logits = config.del_logits_after_forward
@@ -33,7 +33,7 @@ class Gemma(nn.Module):
             **init_model_config(config)
         )
         self.__set_gradient_checkpointing(config)   # Gradient checkpointing setting.
-        self.tokenizer = GemmaTokenizer(config, self._model_path)
+        self.tokenizer = Qwen3Tokenizer(config, self._model_path)
         if hasattr(self.tokenizer, 'resized'):
             self.model.resize_token_embeddings(len(self.tokenizer))
             log('Model word embedding is resized to match the tokenizer')
@@ -41,7 +41,7 @@ class Gemma(nn.Module):
         # Freezing proper layers
         self.freeze_layers(config.training_stage)
         print_mem_consumption(self._model_path)
-        
+    
 
     def __set_bit(self, bit):
         if isinstance(bit, int):
@@ -61,7 +61,7 @@ class Gemma(nn.Module):
         if config.gradient_checkpointing.activate:
             if config.gradient_checkpointing.checkpoint_type.lower() == 'torch_checkpoint':
                 log('Torch gradient checkpointing will be applied.')
-                auto_wrap_policy=ModuleWrapPolicy({GemmaDecoderLayer})
+                auto_wrap_policy=ModuleWrapPolicy({Qwen3DecoderLayer})
                 apply_activation_checkpointing(self.model, auto_wrap_policy=auto_wrap_policy)
             else:
                 if config.gradient_checkpointing.checkpoint_type.lower() == 'hf_checkpoint':
@@ -70,7 +70,7 @@ class Gemma(nn.Module):
                     log('Invalid checkpoint type. Hugging Face gradient checkpointing will be applied.', 'warning')
                 self.model.enable_input_require_grads()
                 self.model.gradient_checkpointing_enable()
-
+    
     
     def mapping_neccessary_32bit(self):
         for param in self.model.parameters():
@@ -123,9 +123,9 @@ class Gemma(nn.Module):
         if greedy:
             return self.model.generate(
                 input_ids=src_tok,
-                # attention_mask=attention_mask,
+                attention_mask=attention_mask,
                 max_length=max_length,
-                use_cache=False, # if synced_gpus else True,
+                use_cache=True,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
                 max_time=max_time,
@@ -136,7 +136,7 @@ class Gemma(nn.Module):
             )
         return self.model.generate(
             input_ids=src_tok,
-            # attention_mask=attention_mask,
+            attention_mask=attention_mask,
             max_length=max_length,
             num_return_sequences=num_return_sequences,
             pad_token_id=self.tokenizer.pad_token_id,
@@ -148,7 +148,7 @@ class Gemma(nn.Module):
             no_repeat_ngram_size=3,
             num_beams=2,
             early_stopping=True,
-            use_cache=False, # True,
+            use_cache=True,
             max_time=max_time,
             synced_gpus=synced_gpus,
         )
@@ -158,7 +158,7 @@ class Gemma(nn.Module):
             log('Freezing all layers except for word embeddings')
 
             for name, param in self.model.named_parameters():
-                if 'embed_tokens' in name:
+                if 'embed' in name:
                     param.data = param.data.to(torch.float32)
                     param.requires_grad = True
                 else:
@@ -168,36 +168,29 @@ class Gemma(nn.Module):
             log('Freezing all layers except for the lm_head')
 
             for name, param in self.model.named_parameters():
-                param.requires_grad = False
-
-            for param in self.model.lm_head.parameters():
-                param.data = param.data.to(torch.float32)
-                param.requires_grad = True
-
+                if 'lm_head' in name:
+                    param.data = param.data.to(torch.float32)
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
         
         elif stage == 3:
             log('Freezing all layers except for word embeddings and lm_head')
 
             for name, param in self.model.named_parameters():
-                if 'embed_tokens' in name:
+                if 'embed' in name or 'lm_head' in name:
                     param.data = param.data.to(torch.float32)
                     param.requires_grad = True
                 else:
                     param.requires_grad = False
-            
-            for param in self.model.lm_head.parameters():
-                param.data = param.data.to(torch.float32)
-                param.requires_grad = True
         
         elif stage == 4:
             log('Unfreezing all layers except for word embeddings and lm_head')
-            
+
             for name, param in self.model.named_parameters():
-                if 'embed_tokens' in name:
+                if 'embed' in name or 'lm_head' in name:
                     param.requires_grad = False
                 else:
                     param.data = param.data.to(torch.float32)
                     param.requires_grad = True
-            
-            for param in self.model.lm_head.parameters():
-                param.requires_grad = False
+
