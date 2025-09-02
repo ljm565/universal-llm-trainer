@@ -1,4 +1,5 @@
 import os
+import shutil
 import pickle
 import numpy as np
 
@@ -104,8 +105,11 @@ class TrainingLogger:
     def delete_file(self, save_dir, flag):
         if self.is_rank_zero:
             file = list(filter(lambda x: flag in x, os.listdir(save_dir)))
-            if len(file) > 0:
-                os.remove(os.path.join(save_dir, file[0]))
+            for f in file:
+                if os.path.isfile(f):
+                    os.remove(os.path.join(save_dir, f))
+                elif os.path.isdir(f):
+                    shutil.rmtree(os.path.join(save_dir, f))
 
 
     def save_model(self, save_dir, model, optimizer, is_fsdp=False, save_only_adapter=False):
