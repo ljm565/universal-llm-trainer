@@ -2,6 +2,7 @@
 
 
 ### Recent updates 📣
+* *September 2025 (v1.6.2)*: We have supported the herd of Qwen 3 model.
 * *August 2025 (v1.6.1)*: We updated more GPU test results.
 * *April 2025 (v1.6.0)*: Universal LLM trainer now has supported Eleuther AI's harness evaluation.
 * *April 2025 (v1.5.8)*: Update multi-turn data training codes of Phi3, LLaMA 3, LLaMA 3.1, Gemma, and Gemma 2.
