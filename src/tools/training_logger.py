@@ -106,10 +106,11 @@ class TrainingLogger:
         if self.is_rank_zero:
             file = list(filter(lambda x: flag in x, os.listdir(save_dir)))
             for f in file:
-                if os.path.isfile(f):
-                    os.remove(os.path.join(save_dir, f))
-                elif os.path.isdir(f):
-                    shutil.rmtree(os.path.join(save_dir, f))
+                full_path = os.path.join(save_dir, f)
+                if os.path.isfile(full_path):
+                    os.remove(full_path)
+                elif os.path.isdir(full_path):
+                    shutil.rmtree(full_path)
 
 
     def save_model(self, save_dir, model, optimizer, is_fsdp=False, save_only_adapter=False):
