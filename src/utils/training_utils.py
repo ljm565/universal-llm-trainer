@@ -156,6 +156,7 @@ def choose_proper_model(config) -> str:
         model_list = [
             'Qwen/Qwen3-8B',
             'Qwen/Qwen3-14B',
+            'Qwen/Qwen3-30B-A3B-Instruct-2507'
         ]
         size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
                             for text in model_list]
