@@ -2,6 +2,7 @@
 
 
 ### Recent updates 📣
+* *September 2025 (v1.6.4)*: Updated demo page and real-time token streaming codes.
 * *September 2025 (v1.6.3)*: We fixed LoRA adapter saving bugs and have supported Qwen 3 30B.
 * *September 2025 (v1.6.2)*: We have supported the herd of Qwen 3 model.
 * *August 2025 (v1.6.1)*: We updated more GPU test results.
