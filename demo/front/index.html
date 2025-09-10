@@ -53,23 +53,12 @@
                 <div id="content">
                     
                     <p>
-                        Write <span class="highlight" style="color: rgb(0, 3, 206);">"Instruction"</span> or <span class="highlight" style="color: rgb(0, 3, 206);">"Instruction" + "Description"</span>
-
-                        <br>For example:
                         <ol>
-                            <li>Instruction-only case</li>
-                            <ul>
-                                <li>너는 삶이 힘들 때 어떻게 해?</li>
-                                <li>여름 휴가 장소 추천해줘</li>
-                            </ul>
-                            <li>Instruction + Description case (Description은 enter로 구분)</li>
-                            <ul>
-                                <li>아래 문구 영어로 번역해줘<br>나는 스위스로 휴가를 떠날거야</li>
-                                <li>아래 글 요약해줘<br>(글 내용)</li>
-                            </ul>
+                            <li>System prompt</li>
+                            <textarea id="system" rows="10" style="width:100%;"></textarea>                        
+                            <li>Instruction</li>
+                            <textarea id="instructions" rows="10" style="width:100%;" placeholder="Press ctrl+enter to send messages"></textarea>                        
                         </ol>
-                        
-                        <textarea id="instructions" rows="10" style="width:100%;" placeholder="Press ctrl+enter to send messages"></textarea>                        
                     </p>
                     <p>
                         <br>Response
@@ -90,7 +79,8 @@
 
         <script>
             detectScroll();
-
+            
+            const systemarea = document.getElementById('system');
             const textarea = document.getElementById('instructions');
             const responseDiv = document.getElementById('response');
             const statusDiv = document.getElementById('status');
@@ -102,14 +92,20 @@
             textarea.addEventListener('keydown', function(event) {
                 if (event.ctrlKey && event.key === 'Enter') {
                     event.preventDefault(); // 기본 동작인 줄 바꿈 방지
+                    const system = systemarea.value.trim() === "" ? null : systemarea.value; 
                     const message = textarea.value; 
-                    console.log(message);
-                    socket.send(message);
+                    const payload = {
+                        system: system,
+                        instruction: message
+                    };
+                    console.log(`sending payload: ${payload}`);
+                    socket.send(JSON.stringify(payload));
+                    // socket.send(message);
 
                     const responseDiv = document.getElementById('response');
                     responseDiv.innerHTML = ''
                     socket.onmessage = function(event) {
-                        responseDiv.innerHTML += event.data;
+                        responseDiv.innerHTML += event.data.replace(/\n/g, '<br>');;
                     };
                 }
             });
