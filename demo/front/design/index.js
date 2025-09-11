@@ -119,7 +119,7 @@ function detectScroll(){
 
 function connectWebSocket(statusDiv) {
     var status = false;
-    socket = new WebSocket('ws://143.248.157.68:8502/ws/stream');
+    socket = new WebSocket('ws://localhost:8502/ws/stream');
 
     socket.onopen = function(event) {
         status = true;
