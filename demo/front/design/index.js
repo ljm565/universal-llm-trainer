@@ -9,6 +9,8 @@ function darkMode(self){
         $('.highlight').css('color', 'rgb(159, 204, 255)');
         $('#instructions').css('background-color', 'rgb(26, 25, 25)');
         $('#instructions').css('color', 'white');
+        $('#system').css('background-color', 'rgb(26, 25, 25)');
+        $('#system').css('color', 'white');
         hoveringOn(self);
     } else{
         self.value = 'dark'
@@ -20,6 +22,8 @@ function darkMode(self){
         $('.highlight').css('color', 'rgb(0, 3, 206)');
         $('#instructions').css('background-color', 'rgb(255, 255, 255)');
         $('#instructions').css('color', 'black');
+        $('#system').css('background-color', 'rgb(255, 255, 255)');
+        $('#system').css('color', 'black');
         hoveringOn(self);
     }
 }
@@ -115,7 +119,7 @@ function detectScroll(){
 
 function connectWebSocket(statusDiv) {
     var status = false;
-    socket = new WebSocket('ws://localhost:8502/ws/stream');
+    socket = new WebSocket('ws://143.248.157.68:8502/ws/stream');
 
     socket.onopen = function(event) {
         status = true;
