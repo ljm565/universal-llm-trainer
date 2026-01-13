@@ -12,11 +12,11 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (
     ShardingStrategy,
 )
 
-from utils import RANK, log, colorstr
-from utils.data_utils import seed_worker, choose_proper_dataset
-from utils.peft_utils import init_lora_config, apply_peft, print_trainable_parameters
-from utils.filesys_utils import pickle_load
-from utils.training_utils import get_wrap_policy, custom_wrap_policy
+from univlt.utils import RANK, log, colorstr
+from univlt.utils.data_utils import seed_worker, choose_proper_dataset
+from univlt.utils.peft_utils import init_lora_config, apply_peft, print_trainable_parameters
+from univlt.utils.filesys_utils import pickle_load
+from univlt.utils.training_utils import get_wrap_policy, custom_wrap_policy
 
 PIN_MEMORY = str(os.getenv('PIN_MEMORY', True)).lower() == 'true'  # Global pin_memory for dataloaders
 
@@ -98,30 +98,38 @@ def get_data_loader(config, tokenizer, mode, is_ddp=False):
 
 
 def get_model(config, device):
-    if config.model.lower() in ['gemma', 'gemma1']:
-        from models import Gemma
-        model = Gemma(config, device)
-        tokenizer = model.tokenizer
-    elif config.model.lower() in ['gemma2', 'gemma3']:
-        from models import Gemma2
-        model = Gemma2(config, device)
-        tokenizer = model.tokenizer
-    elif config.model.lower() in ['llama3', 'llama3.1']:
+    if 'llama-3' in config.model.lower():
         from models import Llama3
         model = Llama3(config, device)
         tokenizer = model.tokenizer
-    elif config.model.lower() == 'llama2':
+    
+    elif 'llama-2' in config.model.lower():
         from models import Llama2
         model = Llama2(config, device)
         tokenizer = model.tokenizer
-    elif config.model.lower() == 'phi3':
+    
+    elif 'gemma' in config.model.lower():
+        # Models released after Gemma 2
+        if any(model in config.model.lower() for model in ['gemma-2', 'gemma-3']):
+            from models import Gemma2
+            model = Gemma2(config, device)
+            tokenizer = model.tokenizer
+        # Gemma 1 model
+        else:
+            from models import Gemma
+            model = Gemma(config, device)
+            tokenizer = model.tokenizer
+    
+    elif 'phi-3' in config.model.lower():
         from models import Phi3
         model = Phi3(config, device)
         tokenizer = model.tokenizer
-    elif config.model.lower() == 'qwen3':
+    
+    elif 'qwen3' in config.model.lower():
         from models import Qwen3
         model = Qwen3(config, device)
         tokenizer = model.tokenizer
+    
     else:
         raise NotImplementedError
     

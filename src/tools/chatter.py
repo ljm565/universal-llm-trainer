@@ -7,9 +7,9 @@ from transformers import TextIteratorStreamer
 
 import torch
 
-from utils import LOGGER, colorstr
-from utils.filesys_utils import json_load
-from utils.peft_utils import load_hf_adapter
+from univlt.utils import LOGGER, colorstr
+from univlt.utils.filesys_utils import json_load
+from univlt.utils.peft_utils import load_hf_adapter
 from trainer.build import get_model, get_peft_model
 
 

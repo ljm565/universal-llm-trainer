@@ -6,9 +6,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 import torch
 
-from utils import log, colorstr
-from utils.filesys_utils import json_save
-from utils.common_utils import instantiate
+from univlt.utils import log, colorstr
+from univlt.utils.filesys_utils import json_save
+from univlt.utils.common_utils import instantiate
 
 
 

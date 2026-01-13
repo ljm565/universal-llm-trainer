@@ -11,11 +11,11 @@ from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from tools import ModelEMA, Evaluator, TrainingLogger, EarlyStopper
-from utils import RANK, is_rank_zero, set_rank_zero, log, colorstr, init_seeds, TQDM
-from utils.common_utils import *
-from utils.training_utils import *
-from utils.filesys_utils import yaml_save, make_project_dir
-from utils.peft_utils import merge_unmerged_checkpoints, load_hf_adapter
+from univlt.utils import RANK, is_rank_zero, set_rank_zero, log, colorstr, init_seeds, TQDM
+from univlt.utils.common_utils import *
+from univlt.utils.training_utils import *
+from univlt.utils.filesys_utils import yaml_save, make_project_dir
+from univlt.utils.peft_utils import merge_unmerged_checkpoints, load_hf_adapter
 from trainer.build import get_data_loader, get_model, get_peft_model, get_wrapped_model
 
 

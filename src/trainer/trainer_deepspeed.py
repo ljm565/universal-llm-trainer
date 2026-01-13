@@ -13,14 +13,14 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from tools import Evaluator, TrainingLogger, EarlyStopper
 from trainer.build import get_data_loader, get_model, get_peft_model, get_wrapped_model
-from utils import (
+from univlt.utils import (
     RANK, LOGGER,
     colorstr, init_seeds,
     TQDM
 )
-from utils.common_utils import *
-from utils.training_utils import *
-from utils.filesys_utils import yaml_save, make_project_dir, json_load, json_save
+from univlt.utils.common_utils import *
+from univlt.utils.training_utils import *
+from univlt.utils.filesys_utils import yaml_save, make_project_dir, json_load, json_save
 
 
 __version__ = '0.0.1'

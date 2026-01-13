@@ -4,7 +4,7 @@ import pickle
 from pathlib import Path
 from typing import Any, List
 
-from utils import is_rank_zero, colorstr, log
+from univlt.utils import is_rank_zero, colorstr, log
 
 
 

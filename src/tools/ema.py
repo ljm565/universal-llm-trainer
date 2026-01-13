@@ -1,7 +1,7 @@
 import math
 from copy import deepcopy
 
-from utils.training_utils import de_parallel
+from univlt.utils.training_utils import de_parallel
 
 
 

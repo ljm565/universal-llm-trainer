@@ -17,9 +17,9 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Install packages
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-RUN rm requirements.txt
+# COPY requirements.txt .
+# RUN pip install -r requirements.txt
+# RUN rm requirements.txt
 
 # # Install bitsandbytes via wheel file if you failed to install pip install bitsandbytes
 # COPY bitsandbytes-0.42.0-py3-none-any.whl .

@@ -4,7 +4,7 @@ from peft import LoraConfig, get_peft_model
 
 import torch
 
-from utils import log, colorstr
+from univlt.utils import log, colorstr
 
 
 

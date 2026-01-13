@@ -19,9 +19,9 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (
 )
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
-from utils import log, colorstr, TQDM
-from utils.common_utils import wrap_modules
-from utils.quant_utils import init_quant_config
+from univlt.utils import log, colorstr, TQDM
+from univlt.utils.common_utils import wrap_modules
+from univlt.utils.quant_utils import init_quant_config
 
 
 
@@ -91,84 +91,51 @@ def choose_proper_model(config) -> str:
     Raises:
         NotImplementedError: If an unsupported model type is specified in the configuration.
     """
-    pattern = r'\b(\d+.\d+|\d+)b\b'
-    target_size = float(config.model_size.lower()[:-1]) \
-        if isinstance(config.model_size, str) and config.model_size.lower().endswith('b') \
-            else config.model_size
-
-    if config.model.lower() in ['llama3', 'llama3.1']:
-        model_list_3 = [
+    if 'llama-3' in config.model.lower():
+        model_list = [
             'meta-llama/Meta-Llama-3-8B-Instruct',
-        ]
-        model_list_3_1 = [
             'meta-llama/Llama-3.1-8B-Instruct',
             'meta-llama/Llama-3.1-70B-Instruct',
         ]
-        if config.model.lower() == 'llama3':
-            model_list = model_list_3 
-        elif config.model.lower() == 'llama3.1':
-            model_list = model_list_3_1
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
-                            for text in model_list]
-        idx = size_diff.index(min(size_diff))
+        assert config.model in model_list, log(f"Not supported model, got {config.model}, supported list {model_list}", level="error")
     
-    elif config.model.lower() == 'llama2':
+    elif 'llama-2' in config.model.lower():
         model_list = [
             'meta-llama/Llama-2-13b-hf',
         ]
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
-                            for text in model_list]
-        idx = size_diff.index(min(size_diff))
+        assert config.model in model_list, log(f"Not supported model, got {config.model}, supported list {model_list}", level="error")
     
-    elif config.model.lower() in ['gemma', 'gemma1', 'gemma2', 'gemma3']:
-        model_list_1 = [
+    elif 'gemma' in config.model.lower():
+        model_list = [
             'google/gemma-2b',
             'google/gemma-7b',
-        ]
-        model_list_2 = [
             'google/gemma-2-9b-it',
-        ]
-        model_list_3 = [
             'google/gemma-3-12b-it',
         ]
-        if config.model.lower() in ['gemma', 'gemma1']:
-            model_list = model_list_1
-        elif config.model.lower() == 'gemma2':
-            model_list = model_list_2
-        elif config.model.lower() == 'gemma3':
-            model_list = model_list_3
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
-                            for text in model_list]
-        idx = size_diff.index(min(size_diff))
+        assert config.model in model_list, log(f"Not supported model, got {config.model}, supported list {model_list}", level="error")
     
-    elif config.model.lower() == 'phi3':
-        pattern = r'\b(\d+.\d+|\d+)k\b'
+    elif 'phi-3' in config.model.lower():
         model_list = [
             'microsoft/Phi-3-mini-128k-instruct',
             'microsoft/Phi-3-medium-4k-instruct'
         ]
-        if target_size >= 10:
-            idx = 1
-        else:
-            idx = 0
+        assert config.model in model_list, log(f"Not supported model, got {config.model}, supported list {model_list}", level="error")
 
-    elif config.model.lower() == 'qwen3':
+    elif 'qwen3' in config.model.lower():
         model_list = [
             'Qwen/Qwen3-8B',
             'Qwen/Qwen3-14B',
             'Qwen/Qwen3-30B-A3B-Instruct-2507'
         ]
-        size_diff = [abs(target_size - float(re.findall(pattern, text.lower())[0].split('-')[-1])) \
-                            for text in model_list]
-        idx = size_diff.index(min(size_diff))
+        assert config.model in model_list, log(f"Not supported model, got {config.model}, supported list {model_list}", level="error")
     
     else:
         raise NotImplementedError
     
     # logs
-    log(f"Chosen model: {colorstr(model_list[idx])}")
+    log(f"Chosen model: {colorstr(config.model)}")
     
-    return model_list[idx]
+    return config.model
 
 
 

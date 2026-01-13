@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import Dataset
 
-from utils import log
-from utils.filesys_utils import txt_load, json_load
+from univlt.utils import log
+from univlt.utils.filesys_utils import txt_load, json_load
 
 
 

@@ -4,7 +4,7 @@ from transformers import BitsAndBytesConfig
 
 import torch
 
-from utils import colorstr
+from univlt.utils import colorstr
 
 
 

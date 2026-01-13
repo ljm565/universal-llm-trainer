@@ -6,7 +6,7 @@ import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 
 from .model_manager import ModelManager
-from utils import is_rank_zero, colorstr, log
+from univlt.utils import is_rank_zero, colorstr, log
 
 
 

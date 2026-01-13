@@ -7,8 +7,8 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 import torch
 
-from utils import colorstr
-from utils.training_utils import choose_proper_resume_model
+from univlt.utils import colorstr
+from univlt.utils.training_utils import choose_proper_resume_model
 from trainer import Trainer
 
 

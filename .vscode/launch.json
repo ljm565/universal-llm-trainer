@@ -18,7 +18,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/train.py",
-            "args": ["--config", "config/example_llama3.1_arc.yaml", "--mode", "train"],
+            "args": ["--config", "config/example_llama3.1_lora.yaml", "--mode", "train"],
             "console": "integratedTerminal",
             "justMyCode": false
         },
@@ -63,9 +63,18 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/run/validation.py",
-            "args": ["--config", "config/llm_llama3.yaml"],
+            "args": ["--adapter_path", "output/llama3.1/ehrcon2_lora_test_01/weights/model_epoch:1_step:5320_loss_best", "--device", "6", "--load_model_type", "loss"],
             "console": "integratedTerminal",
             "justMyCode": true
-        }
+        },
+        {
+            "name": "llm train dev",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/run/train.py",
+            "args": ["--config", "config/llm_qwen3_qlora.yaml", "--mode", "train", "--gpu_test"],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
     ]
 }

@@ -51,6 +51,10 @@
                 <div class="title" style="background-image:url(design/index_img/background.jpg);"></div>
 
                 <div id="content">
+                    <select id="endpointSelect">
+                        <option value="ws://143.248.157.68:8502/ws/stream">14B</option>
+                        <option value="ws://143.248.157.68:8503/ws/stream">30B MoE</option>
+                    </select>
                     
                     <p>
                         <ol>
@@ -87,7 +91,19 @@
             let socket = null;
             let status = null;
 
-            socket, status = connectWebSocket(statusDiv);
+            // Connect websocket when selected server is changed 
+            endpointSelect.addEventListener('change', () => {
+                const selectedEndpoint = endpointSelect.value;
+
+                if (socket) {
+                    socket.close();
+                }
+
+                socket, status = connectWebSocket(selectedEndpoint, statusDiv); // 선택된 endpoint로 연결
+            });
+
+            // Initial connection
+            socket, status = connectWebSocket(endpointSelect.value, statusDiv);
 
             textarea.addEventListener('keydown', function(event) {
                 if (event.ctrlKey && event.key === 'Enter') {

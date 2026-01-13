@@ -74,4 +74,4 @@ async def websocket_endpoint(websocket: WebSocket):
     await chatter.generate(websocket)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8502)
+    uvicorn.run(app, host="143.248.157.68", port=8503)

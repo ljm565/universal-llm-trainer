@@ -1,9 +1,7 @@
 from sconf import Config
 from typing import Any, Dict, List, Tuple, Union
 
-import torch
-
-from utils import (
+from univlt.utils import (
     OPTIM_CRITERION, 
     OPTIM_CRITERION_MSG,
     SCHEDULER_TYPE,

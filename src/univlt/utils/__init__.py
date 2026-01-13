@@ -5,6 +5,7 @@ import platform
 import numpy as np
 import logging.config
 from importlib import metadata
+from importlib import resources
 from tqdm import tqdm as tqdm_original
 
 import torch
@@ -12,9 +13,8 @@ import torch
 
 
 # Initialize
-base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-version_file_path = os.path.join(base_path, 'version.txt')
-LOGGING_NAME = f"LLM_TRAINER_{open(version_file_path).read().strip()}"
+version_file_path = resources.files("univlt").joinpath("version.txt")
+LOGGING_NAME = f"UnivLT_{open(version_file_path).read().strip()}"
 VERBOSE = True
 RANK = int(os.getenv('RANK', -1))
 MACOS, LINUX, WINDOWS = (platform.system() == x for x in ['Darwin', 'Linux', 'Windows'])  # environment booleans

@@ -117,9 +117,9 @@ function detectScroll(){
 }
 
 
-function connectWebSocket(statusDiv) {
+function connectWebSocket(endpoint, statusDiv) {
     var status = false;
-    socket = new WebSocket('ws://localhost:8502/ws/stream');
+    socket = new WebSocket(endpoint);
 
     socket.onopen = function(event) {
         status = true;

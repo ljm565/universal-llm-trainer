@@ -9,7 +9,7 @@ from data_collection import (
     ARCDataset,
     QADataset,
 )
-from utils import log, DATASET_TRAIN_TYPE_MSG
+from univlt.utils import log, DATASET_TRAIN_TYPE_MSG
 
 
 
