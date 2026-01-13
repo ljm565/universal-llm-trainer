@@ -1,11 +1,13 @@
 from transformers import AutoTokenizer
 
+from univlt.config import DataConfig
+
 
 
 class Phi3Tokenizer:
-    def __init__(self, config, path):
+    def __init__(self, cfg: DataConfig, path):
         self.tokenizer = AutoTokenizer.from_pretrained(path)
-        self.remapping_special_tokens(config)
+        self.remapping_special_tokens(cfg)
         
         # special tokens
         self.pad_token, self.pad_token_id = self.tokenizer.pad_token, self.tokenizer.pad_token_id
@@ -78,13 +80,13 @@ class Phi3Tokenizer:
         return self.vocab_size
     
 
-    def remapping_special_tokens(self, config):
+    def remapping_special_tokens(self, cfg: DataConfig):
         new_map = {
-            'pad_token_id': config.pad_token_id if isinstance(config.pad_token_id, int) else None,
-            'bos_token_id': config.bos_token_id if isinstance(config.bos_token_id, int) else None,
-            'eos_token_id': config.eos_token_id if isinstance(config.eos_token_id, int) else None,
-            'cls_token_id': config.cls_token_id if isinstance(config.cls_token_id, int) else None,
-            'sep_token_id': config.sep_token_id if isinstance(config.sep_token_id, int) else None,
+            'pad_token_id': cfg.pad_token_id if isinstance(cfg.pad_token_id, int) else None,
+            'bos_token_id': cfg.bos_token_id if isinstance(cfg.bos_token_id, int) else None,
+            'eos_token_id': cfg.eos_token_id if isinstance(cfg.eos_token_id, int) else None,
+            'cls_token_id': cfg.cls_token_id if isinstance(cfg.cls_token_id, int) else None,
+            'sep_token_id': cfg.sep_token_id if isinstance(cfg.sep_token_id, int) else None,
         }
 
         # check sanity of special token ids
@@ -102,11 +104,11 @@ class Phi3Tokenizer:
         
         # add special tokens
         add_tokens = {
-            'pad_token_id': config.pad_token_id if config.pad_token_id == 'add' else None,
-            'bos_token_id': config.bos_token_id if config.bos_token_id == 'add' else None,
-            'eos_token_id': config.eos_token_id if config.eos_token_id == 'add' else None,
-            'cls_token_id': config.cls_token_id if config.cls_token_id == 'add' else None,
-            'sep_token_id': config.sep_token_id if config.sep_token_id == 'add' else None,
+            'pad_token_id': cfg.pad_token_id if cfg.pad_token_id == 'add' else None,
+            'bos_token_id': cfg.bos_token_id if cfg.bos_token_id == 'add' else None,
+            'eos_token_id': cfg.eos_token_id if cfg.eos_token_id == 'add' else None,
+            'cls_token_id': cfg.cls_token_id if cfg.cls_token_id == 'add' else None,
+            'sep_token_id': cfg.sep_token_id if cfg.sep_token_id == 'add' else None,
         }
         
         for k, v in add_tokens.items():
