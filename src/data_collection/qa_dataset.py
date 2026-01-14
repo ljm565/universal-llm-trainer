@@ -6,26 +6,29 @@ import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import Dataset
 
+from univlt.config import TrainingConfig
 from univlt.utils import log
 from univlt.utils.filesys_utils import txt_load, json_load
 
 
 
 class QADataset(Dataset):
-    def __init__(self,
-                 mode,
-                 config,
-                 data, 
-                 tokenizer,
-                 template_dir=None,
-                 name=None):
+    def __init__(
+            self,
+            mode,
+            cfg: TrainingConfig,
+            data, 
+            tokenizer,
+            template_dir=None,
+            name=None
+        ):
         # init
         name = 'QA' if not name else name
         self.data = data
         self.tokenizer = tokenizer
         self.pad_token_id = self.tokenizer.pad_token_id
         self.ignore_index = self.pad_token_id if self.pad_token_id != self.tokenizer.eos_token_id else -100
-        self.generate_prompt = self.generate_prompt_multi_turn if config.is_multi_turn else self.generate_prompt_single_turn
+        self.generate_prompt = self.generate_prompt_multi_turn if cfg.data_cfg.is_multi_turn else self.generate_prompt_single_turn
         
         # read data and template
         template_paths = [p for p in filter(lambda x: x.startswith('template'), os.listdir(template_dir))]
@@ -34,15 +37,15 @@ class QADataset(Dataset):
                                 else json_load(os.path.join(template_dir, p)) for p in template_paths]
 
         # params
-        self.max_length = config.max_length
-        self.add_bos = config.add_bos_token_when_response_start
-        self.add_eos = config.add_eos_token_when_response_end
-        self.verbose = config.data_verbose
+        self.max_length = cfg.max_length
+        self.add_bos = cfg.data_cfg.add_bos_token_when_response_start
+        self.add_eos = cfg.data_cfg.add_eos_token_when_response_end
+        self.verbose = cfg.data_cfg.data_verbose
         self.length = len(self.data)
 
         # calculate statistics
-        if config.is_rank_zero and self.verbose:
-            save_dir = os.path.join(config.save_dir, 'vis_data')
+        if cfg.is_rank_zero and self.verbose:
+            save_dir = os.path.join(cfg.save_dir, 'vis_data')
             os.makedirs(save_dir, exist_ok=True)
 
             log(f'Calculating statistics of {name} data...')

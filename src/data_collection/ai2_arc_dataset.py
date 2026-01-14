@@ -11,7 +11,7 @@ from univlt.utils import log
 from univlt.utils.filesys_utils import txt_load, json_load
 
 
-
+# TODO: Deprecated, integrating into SFTTrainer
 class ARCDataset(Dataset):
     def __init__(self,
                  mode,

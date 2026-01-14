@@ -7,19 +7,22 @@ import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import Dataset
 
+from univlt.config import TrainingConfig
 from univlt.utils import log
 from univlt.utils.filesys_utils import txt_load, json_load
 
 
 
 class AutoregressiveDataset(Dataset):
-    def __init__(self,
-                 mode,
-                 config,
-                 data, 
-                 tokenizer,
-                 template_dir=None,
-                 name=None):
+    def __init__(
+            self,
+            mode,
+            cfg: TrainingConfig,
+            data, 
+            tokenizer,
+            template_dir=None,
+            name=None
+        ):
         # init
         name = 'Autoregressive' if not name else name
         self.data = data
@@ -33,15 +36,15 @@ class AutoregressiveDataset(Dataset):
                                 else json_load(os.path.join(template_dir, p)) for p in template_paths]
 
         # params
-        self.max_length = config.max_length
-        self.add_bos = config.add_bos_token_when_response_start
-        self.add_eos = config.add_eos_token_when_response_end
-        self.verbose = config.data_verbose
+        self.max_length = cfg.max_length
+        self.add_bos = cfg.data_cfg.add_bos_token_when_response_start
+        self.add_eos = cfg.data_cfg.add_eos_token_when_response_end
+        self.verbose = cfg.data_cfg.data_verbose
         self.length = len(self.data)
 
         # calculate statistics
-        if config.is_rank_zero and self.verbose:
-            save_dir = os.path.join(config.save_dir, 'vis_data')
+        if cfg.is_rank_zero and self.verbose:
+            save_dir = os.path.join(cfg.save_dir, 'vis_data')
             os.makedirs(save_dir, exist_ok=True)
 
             log(f'Calculating statistics of {name} data...')
