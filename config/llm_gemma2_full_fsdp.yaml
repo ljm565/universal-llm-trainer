@@ -1,8 +1,7 @@
 # base
 seed: 0
 deterministic: True
-model: gemma2
-model_size: 9b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
+model: google/gemma-2-9b-it
 model_cache_dir: null
 
 # data config
