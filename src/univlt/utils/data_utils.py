@@ -4,7 +4,7 @@ from typing import Type, Union
 
 import torch
 
-from data_collection import (
+from univlt.data_collection import (
     AutoregressiveDataset,
     ARCDataset,
     QADataset,

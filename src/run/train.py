@@ -9,7 +9,7 @@ import torch
 
 from univlt.utils import colorstr
 from univlt.utils.training_utils import choose_proper_resume_model
-from trainer import Trainer
+from univlt.trainer import BaseTrainer
 from univlt.config import *
 
 
@@ -136,7 +136,7 @@ def single_gpu_train(args, cfg: TrainingConfig):
     device = torch.device('cpu') if cfg.env_cfg.device == 'cpu' else torch.device(f'cuda:{cfg.env_cfg.device[0]}')
     if device.type == 'cuda':
         torch.cuda.set_device(cfg.env_cfg.device[0])
-    trainer = Trainer(
+    trainer = BaseTrainer(
         cfg, 
         args.mode, 
         device, 
@@ -163,7 +163,7 @@ def multi_gpu_train(gpu, ngpus_per_node, cfg: TrainingConfig, args):
     )
     torch.cuda.set_device(gpu)
     torch.distributed.barrier()
-    trainer = Trainer(
+    trainer = BaseTrainer(
         cfg,
         args.mode,
         gpu,
