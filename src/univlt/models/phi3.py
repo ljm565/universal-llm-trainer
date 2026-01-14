@@ -6,7 +6,7 @@ from transformers.models.phi3.modeling_phi3 import Phi3DecoderLayer
 from torch.distributed.fsdp.wrap import ModuleWrapPolicy
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import apply_activation_checkpointing
 
-from tools.tokenizers import Phi3Tokenizer
+from univlt.tools.tokenizers import Phi3Tokenizer
 from univlt.utils import print_mem_consumption, log
 from univlt.utils.common_utils import instantiate
 from univlt.utils.training_utils import init_model_config, choose_proper_model

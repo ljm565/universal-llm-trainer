@@ -9,7 +9,7 @@ import torch.optim as optim
 from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from tools import ModelEMA, Evaluator, TrainingLogger, EarlyStopper
+from univlt.tools import ModelEMA, Evaluator, TrainingLogger, EarlyStopper
 from univlt.config import TrainingConfig
 from univlt.utils import RANK, is_rank_zero, set_rank_zero, log, colorstr, init_seeds, TQDM
 from univlt.utils.common_utils import *

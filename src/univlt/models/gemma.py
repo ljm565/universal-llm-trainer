@@ -6,7 +6,7 @@ from transformers.models.gemma.modeling_gemma import GemmaDecoderLayer
 from torch.distributed.fsdp.wrap import ModuleWrapPolicy
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import apply_activation_checkpointing
 
-from tools.tokenizers import GemmaTokenizer
+from univlt.tools.tokenizers import GemmaTokenizer
 from univlt.utils import print_mem_consumption, log
 from univlt.utils.common_utils import instantiate
 from univlt.utils.training_utils import init_model_config, choose_proper_model
