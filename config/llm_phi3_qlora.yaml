@@ -5,7 +5,7 @@ model: microsoft/Phi-3-mini-128k-instruct
 model_cache_dir: null
 
 # data config
-data_train_type: ['qa']
+data_train_type: ['sft']
 data_path: ['./data_examples/allenai_ai2_arc']
 template_dir: ['templates/phi3_templates']   # list(path) or path, if null, template will be chosen according to the {data_path}/templates
 

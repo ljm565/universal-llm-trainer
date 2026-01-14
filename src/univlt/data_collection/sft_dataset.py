@@ -12,7 +12,7 @@ from univlt.utils.filesys_utils import txt_load, json_load
 
 
 
-class QADataset(Dataset):
+class SFTDataset(Dataset):
     def __init__(
             self,
             mode,

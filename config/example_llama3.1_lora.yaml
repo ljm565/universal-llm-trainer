@@ -5,8 +5,8 @@ model: meta-llama/Llama-3.1-8B-Instruct
 model_cache_dir: null
 
 # data config
-data_train_type: ['qa']
-data_path: ['./data/kopolyglot_easy_v2']
+data_train_type: ['arc']
+data_path: ['./data_examples/allenai_ai2_arc']
 template_dir: [templates/llama3_templates]   # list(directory) or directory, if null, template will be chosen according to the {data_path}/templates.
 
 # project config
