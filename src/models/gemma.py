@@ -10,36 +10,37 @@ from tools.tokenizers import GemmaTokenizer
 from univlt.utils import print_mem_consumption, log
 from univlt.utils.common_utils import instantiate
 from univlt.utils.training_utils import init_model_config, choose_proper_model
+from univlt.config import TrainingConfig
 
 
 
 class Gemma(nn.Module):
-    def __init__(self, config, device):
+    def __init__(self, cfg: TrainingConfig, device):
         super(Gemma, self).__init__()
         # Initialize environment settings
-        self.is_rank_zero = config.is_rank_zero
-        self.del_logits = config.del_logits_after_forward
-        self._model_path = choose_proper_model(config)
-        self.bit = self.__set_bit(config.bit)
+        self.is_rank_zero = cfg.is_rank_zero
+        self.del_logits = cfg.del_logits_after_forward
+        self._model_path = choose_proper_model(cfg)
+        self.bit = self.__set_bit(cfg.dtype)
         self.device = device
 
         # Initialize model and training settings
         self.model = AutoModelForCausalLM.from_pretrained(
             self._model_path, 
-            device_map=self.device if not config.fsdp_train else None,      # Does not need to pre-define device_map for FSDP training
+            device_map=self.device if cfg.fsdp_train is None else None,      # Does not need to pre-define device_map for FSDP training
             low_cpu_mem_usage=True,
             dtype=instantiate(torch, self.bit) if isinstance(self.bit, str) else torch.float32,
-            cache_dir=config.model_cache_dir if config.model_cache_dir else None,
-            **init_model_config(config)
+            cache_dir=cfg.model_cache_dir if cfg.model_cache_dir else None,
+            **init_model_config(cfg)
         )
-        self.__set_gradient_checkpointing(config)   # Gradient checkpointing setting.
-        self.tokenizer = GemmaTokenizer(config, self._model_path)
+        self.__set_gradient_checkpointing(cfg)   # Gradient checkpointing setting.
+        self.tokenizer = GemmaTokenizer(cfg.data_cfg, self._model_path)
         if hasattr(self.tokenizer, 'resized'):
             self.model.resize_token_embeddings(len(self.tokenizer))
             log('Model word embedding is resized to match the tokenizer')
         
         # Freezing proper layers
-        self.freeze_layers(config.training_stage)
+        self.freeze_layers(cfg.training_stage)
         print_mem_consumption(self._model_path)
         
 
@@ -57,14 +58,14 @@ class Gemma(nn.Module):
         return bit
 
     
-    def __set_gradient_checkpointing(self, config):
-        if config.gradient_checkpointing.activate:
-            if config.gradient_checkpointing.checkpoint_type.lower() == 'torch_checkpoint':
+    def __set_gradient_checkpointing(self, cfg: TrainingConfig):
+        if cfg.gradient_checkpointing:
+            if cfg.gradient_checkpoint_type.lower() == 'torch_checkpoint':
                 log('Torch gradient checkpointing will be applied.')
                 auto_wrap_policy=ModuleWrapPolicy({GemmaDecoderLayer})
                 apply_activation_checkpointing(self.model, auto_wrap_policy=auto_wrap_policy)
             else:
-                if config.gradient_checkpointing.checkpoint_type.lower() == 'hf_checkpoint':
+                if cfg.gradient_checkpoint_type.lower() == 'hf_checkpoint':
                     log('Hugging Face gradient checkpointing will be applied.')
                 else:
                     log('Invalid checkpoint type. Hugging Face gradient checkpointing will be applied.', 'warning')
