@@ -5,15 +5,16 @@ from transformers import BitsAndBytesConfig
 import torch
 
 from univlt.utils import colorstr
+from univlt.config import TrainingConfig
 
 
 
-def init_quant_config(config: Config) -> Optional[BitsAndBytesConfig]:
+def init_quant_config(cfg: TrainingConfig) -> Optional[BitsAndBytesConfig]:
     """
     Initializes the quantization configuration for 4-bit or 8-bit quantization.
 
     Args:
-        config (Config): A configuration object containing quantization settings.
+        cfg (TrainingConfig): A configuration object containing quantization settings.
             - config.bit (int): The desired quantization bit-width (4 or 8).
             - config.quant_config (str): Path to the quantization configuration file.
 
@@ -25,12 +26,13 @@ def init_quant_config(config: Config) -> Optional[BitsAndBytesConfig]:
         AssertionError: If the required quantization configuration path is not provided.
         AssertionError: If `load_in_4bit` or `load_in_8bit` is not properly set in the configuration.
     """
-    if config.bit in [4, 8]:
+    if cfg.dtype in [4, 8]:
         # Sanity check
-        assert config.quant_config, colorstr('red','You have to set qunatization config path')
-        quant_config = Config(config.quant_config)
+        assert cfg.peft_train is not None, colorstr('red', 'You have to specify PEFT training configuration.')
+        assert cfg.peft_train.quant_config_path, colorstr('red', 'You have to specify qunatization configuration')
+        quant_config = Config(cfg.peft_train.quant_config_path)
 
-        if config.bit == 4:
+        if cfg.peft_train.bit == 4:
             assert 'load_in_4bit' in quant_config and quant_config.load_in_4bit, \
                             f'You have to set {colorstr("red", "load_in_4bit")} to {colorstr("red", "True")}'
         else:

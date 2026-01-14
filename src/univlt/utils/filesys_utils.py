@@ -1,9 +1,16 @@
 import os
+import yaml
 import json
 import pickle
 from pathlib import Path
 from typing import Any, List
+from dataclasses import asdict, is_dataclass
+from ruamel.yaml.comments import CommentedSeq, CommentedMap
+from ruamel.yaml.scalarfloat import ScalarFloat
+from ruamel.yaml.scalarint import ScalarInt
+from ruamel.yaml.scalarstring import ScalarString
 
+from univlt.config import TrainingConfig
 from univlt.utils import is_rank_zero, colorstr, log
 
 
@@ -95,19 +102,19 @@ def json_save(path: str, data: dict) -> None:
 
 
 
-def make_project_dir(config) -> Path:
+def make_project_dir(cfg: TrainingConfig) -> Path:
     """
     Make project folder.
 
     Args:
-        config: yaml config.
+        cfg (TrainingConfig): Training configurations.
 
     Returns:
         (path): project folder path.
     """
     prefix = colorstr('make project folder')
-    project = config.project
-    name = config.name
+    project = cfg.project
+    name = cfg.name
 
     save_dir = os.path.join(project, name)
     if os.path.exists(save_dir):
@@ -122,7 +129,61 @@ def make_project_dir(config) -> Path:
 
 
 
-def yaml_save(file:str='data.yaml', data:Any=None) -> None:
+def to_builtin(x: Any) -> Any:
+    """
+    Recursively convert non-builtin Python objects into YAML/JSON-serializable builtin types.
+
+    Args:
+        x (Any): An arbitrary Python object to be converted into builtin types.
+
+    Returns:
+        Any: A YAML/JSON-serializable object composed only of builtin Python types (dict, list, str, int, float, bool, None).
+    """
+    # dataclass → dict
+    if is_dataclass(x):
+        x = asdict(x)
+
+    # ruamel sequence / mapping
+    if isinstance(x, CommentedSeq):
+        return [to_builtin(v) for v in list(x)]
+
+    if isinstance(x, CommentedMap):
+        return {str(k): to_builtin(v) for k, v in dict(x).items()}
+
+    # ruamel scalar types
+    if isinstance(x, ScalarFloat):
+        return float(x)
+
+    if isinstance(x, ScalarInt):
+        return int(x)
+
+    if isinstance(x, ScalarString):
+        return str(x)
+
+    # dict
+    if isinstance(x, dict):
+        return {str(k): to_builtin(v) for k, v in x.items()}
+
+    # list / tuple / set
+    if isinstance(x, (list, tuple, set)):
+        return [to_builtin(v) for v in x]
+
+    # Path → str
+    if isinstance(x, Path):
+        return str(x)
+
+    # class / type → name
+    if isinstance(x, type):
+        return x.__name__
+
+    return x
+
+
+
+def yaml_save(
+        file: str = 'data.yaml', 
+        data: Any = None
+    ):
     """
     Save data to an YAML file.
 
@@ -130,8 +191,14 @@ def yaml_save(file:str='data.yaml', data:Any=None) -> None:
         file (str, optional): File name. Default is 'data.yaml'.
         data (Any, optional): Data to save in YAML format.
     """
+    if data is None:
+        raise ValueError(colorstr("red", "data must be provided"))
+    
+    payload = to_builtin(data)
     save_path = Path(file)
-    log(data.dumps())
+    log(payload)
+
     with open(save_path, "w") as f:
-        f.write(data.dumps(modified_color=None, quote_str=True))
-        log(f"Config is saved at {save_path}")
+        yaml.safe_dump(payload, f, sort_keys=False, allow_unicode=True)
+
+    log(f"Config is saved at {save_path}")

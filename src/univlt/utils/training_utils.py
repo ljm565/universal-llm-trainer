@@ -22,6 +22,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from univlt.utils import log, colorstr, TQDM
 from univlt.utils.common_utils import wrap_modules
 from univlt.utils.quant_utils import init_quant_config
+from univlt.config import TrainingConfig
 
 
 
@@ -74,16 +75,14 @@ def de_parallel(model: nn.Module) -> nn.Module:
 
 
 
-def choose_proper_model(config) -> str:
+def choose_proper_model(cfg: TrainingConfig) -> str:
     """
     Chooses the appropriate model from a predefined list based on the given configuration.
     The model selection is based on the specified model size and model type (e.g., 'llama3', 'gemma', 'phi3').
 
     Args:
-        config: Configuration object that contains the following attributes:
-            - model_size (Union[str, float]): The target model size (e.g., '8B', 8).
+        cfg (TrainingConfig): Configuration object that contains the following attributes:
             - model (str): The name of the model family (e.g., 'llama3', 'gemma').
-            - is_rank_zero (bool): Flag indicating whether this is the rank 0 process in distributed training.
 
     Returns:
         str: The name of the selected model based on the configuration.
@@ -91,51 +90,51 @@ def choose_proper_model(config) -> str:
     Raises:
         NotImplementedError: If an unsupported model type is specified in the configuration.
     """
-    if 'llama-3' in config.model.lower():
+    if 'llama-3' in cfg.model.lower():
         model_list = [
             'meta-llama/Meta-Llama-3-8B-Instruct',
             'meta-llama/Llama-3.1-8B-Instruct',
             'meta-llama/Llama-3.1-70B-Instruct',
         ]
-        assert config.model in model_list, log(f"Not supported model, got {config.model}, supported list {model_list}", level="error")
+        assert cfg.model in model_list, log(f"Not supported model, got {cfg.model}, supported list: {model_list}", level="error")
     
-    elif 'llama-2' in config.model.lower():
+    elif 'llama-2' in cfg.model.lower():
         model_list = [
             'meta-llama/Llama-2-13b-hf',
         ]
-        assert config.model in model_list, log(f"Not supported model, got {config.model}, supported list {model_list}", level="error")
+        assert cfg.model in model_list, log(f"Not supported model, got {cfg.model}, supported list: {model_list}", level="error")
     
-    elif 'gemma' in config.model.lower():
+    elif 'gemma' in cfg.model.lower():
         model_list = [
             'google/gemma-2b',
             'google/gemma-7b',
             'google/gemma-2-9b-it',
             'google/gemma-3-12b-it',
         ]
-        assert config.model in model_list, log(f"Not supported model, got {config.model}, supported list {model_list}", level="error")
+        assert cfg.model in model_list, log(f"Not supported model, got {cfg.model}, supported list: {model_list}", level="error")
     
-    elif 'phi-3' in config.model.lower():
+    elif 'phi-3' in cfg.model.lower():
         model_list = [
             'microsoft/Phi-3-mini-128k-instruct',
             'microsoft/Phi-3-medium-4k-instruct'
         ]
-        assert config.model in model_list, log(f"Not supported model, got {config.model}, supported list {model_list}", level="error")
+        assert cfg.model in model_list, log(f"Not supported model, got {cfg.model}, supported list: {model_list}", level="error")
 
-    elif 'qwen3' in config.model.lower():
+    elif 'qwen3' in cfg.model.lower():
         model_list = [
             'Qwen/Qwen3-8B',
             'Qwen/Qwen3-14B',
             'Qwen/Qwen3-30B-A3B-Instruct-2507'
         ]
-        assert config.model in model_list, log(f"Not supported model, got {config.model}, supported list {model_list}", level="error")
+        assert cfg.model in model_list, log(f"Not supported model, got {cfg.model}, supported list: {model_list}", level="error")
     
     else:
         raise NotImplementedError
     
     # logs
-    log(f"Chosen model: {colorstr(config.model)}")
+    log(f"Chosen model: {colorstr(cfg.model)}")
     
-    return config.model
+    return cfg.model
 
 
 
@@ -314,42 +313,41 @@ def calculate_gathered_results(objs: List[dict]) -> dict:
 
 
 
-def init_model_config(config) -> dict:
+def init_model_config(cfg: TrainingConfig) -> dict:
     """
     Make additional kwags for Huggingface model initialization.
 
     Args:
-        config: Configuration object containing training settings.
-        load16bit (bool): Whether loading to 16-bit or not.
+        cfg (TrainingConfig): Configuration object containing training settings.
 
     Returns:
         dict: Additional kwags
     """
-    if config.bit in [4, 8]:
-        assert config.peft_config_path, colorstr('red', 'If you quantize the model, you need LoRA etc. due to gradients upating...')
+    if cfg.dtype in [4, 8]:
+        assert cfg.peft_train is not None, colorstr('red', 'If you quantize the model, you need LoRA etc. due to gradients upating...')
     
     # Basic
-    quant_config = init_quant_config(config)
+    quant_config = init_quant_config(cfg)
     kwargs = {
         'quantization_config': quant_config,
-        'use_cache': False if config.gradient_checkpointing.activate else True
+        'use_cache': False if cfg.gradient_checkpointing else True
     }
 
     # Determine attention mechanism
-    if config.attn_implementation:
-        kwargs['attn_implementation'] = config.attn_implementation
-        log(f"{colorstr(config.attn_implementation)} attention will be used.")
+    if cfg.attn_implementation is not None:
+        kwargs['attn_implementation'] = cfg.attn_implementation
+        log(f"{colorstr(cfg.attn_implementation)} attention will be used.")
     
     return kwargs
 
 
 
-def get_wrap_policy(config):
+def get_wrap_policy(cfg: TrainingConfig):
     """
     Returns a function for wrapping modules based on the specified wrap policy in the config.
 
     Args:
-        config: Configuration object containing FSDP-related hyperparameters.
+        cfg (TrainingConfig): Configuration object containing FSDP-related hyperparameters.
 
     Returns:
         Callable: A function that wraps the modules according to the chosen policy.
@@ -357,7 +355,7 @@ def get_wrap_policy(config):
     Raises:
         NotImplementedError: If the wrap policy specified in the config is unsupported.
     """
-    params = config.fsdp_hyperparameters
+    params = cfg.fsdp_train
     wrap_policy = params.wrap_policy
     if wrap_policy.lower() == 'size_based':
         return functools.partial(size_based_auto_wrap_policy, min_num_params=params.size_based.min_num_params)
@@ -368,13 +366,13 @@ def get_wrap_policy(config):
 
     
 
-def custom_wrap_policy(config, model: nn.Module, device: torch.device) -> nn.Module:
+def custom_wrap_policy(cfg: TrainingConfig, model: nn.Module, device: torch.device) -> nn.Module:
     """
     Applies a custom wrapping policy to the model based on the configuration, specifically 
     using Fully Sharded Data Parallel (FSDP) for leaf modules with float32 parameters.
 
     Args:
-        config: Configuration object containing settings for FSDP and CPU offload.
+        cfg (TrainingConfig): Configuration object containing settings for FSDP and CPU offload.
         model (nn.Module): The model to which the custom wrapping will be applied.
         device (torch.device): The device (CPU or GPU) where the model is located.
 
@@ -408,7 +406,7 @@ def custom_wrap_policy(config, model: nn.Module, device: torch.device) -> nn.Mod
                         FSDP(module, 
                              device_id=device, 
                              sharding_strategy=ShardingStrategy.FULL_SHARD,
-                             cpu_offload=CPUOffload(offload_params=True) if config.fsdp_hyperparameters.cpu_offload else None
+                             cpu_offload=CPUOffload(offload_params=True) if cfg.fsdp_train.cpu_offload else None
                         )
                 )
                 break       # due to leaf modules

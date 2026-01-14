@@ -11,6 +11,7 @@ from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from tools import ModelEMA, Evaluator, TrainingLogger, EarlyStopper
+from univlt.config import TrainingConfig
 from univlt.utils import RANK, is_rank_zero, set_rank_zero, log, colorstr, init_seeds, TQDM
 from univlt.utils.common_utils import *
 from univlt.utils.training_utils import *
@@ -23,7 +24,7 @@ from trainer.build import get_data_loader, get_model, get_peft_model, get_wrappe
 class Trainer:
     def __init__(
             self, 
-            config,
+            cfg: TrainingConfig,
             mode: str,
             device,
             multi_gpu_train_type=False,
@@ -33,8 +34,8 @@ class Trainer:
         ):
         # Init basic settings
         # torch.set_default_dtype(torch.bfloat16)
-        self.config = config
-        init_seeds(self.config.seed + 1 + RANK, self.config.deterministic)
+        self.cfg = cfg
+        init_seeds(self.cfg.env_cfg.seed + 1 + RANK, self.cfg.env_cfg.deterministic)
         set_rank_zero(True if not multi_gpu_train_type or (multi_gpu_train_type and device == 0) else False)
         self.is_ddp, self.is_fsdp = select_training_type(multi_gpu_train_type)
         self.mode = mode
@@ -43,27 +44,27 @@ class Trainer:
         self.is_rank_zero = is_rank_zero['value']
         
         # Init training settings
-        self.world_size = len(self.config.device) if multi_gpu_train_type else 1
-        self.amp = True if self.config.amp_training else False
-        self.ema = self.config.ema_updating
-        self.epochs = self.config.epochs
-        self.steps = self.config.steps
-        self.optimizer_step_criterion = self.config.optimizer_step_criterion
-        self.scheduler_type = self.config.scheduler_type
-        self.metrics = self.config.metrics
+        self.world_size = len(self.cfg.env_cfg.device) if multi_gpu_train_type else 1
+        self.amp = True if self.cfg.amp_training else False
+        self.ema = self.cfg.ema_updating
+        self.epochs = self.cfg.epochs
+        self.steps = self.cfg.steps
+        self.optimizer_step_criterion = self.cfg.optimizer_step_criterion
+        self.scheduler_type = self.cfg.scheduler_type
+        self.metrics = self.cfg.log_cfg.metrics
         if self.is_training_mode:
             self.do_generate_answer = False if self.metrics == ['ppl'] else True
-            config.is_training_mode = True
-            self.save_dir = make_project_dir(self.config)
+            cfg.is_training_mode = True
+            self.save_dir = make_project_dir(self.cfg)
             self.wdir = self.save_dir / 'weights'
         else:
             self.do_generate_answer = True
-            config.fsdp_train = False
-            config.is_training_mode = False
-            config.data_verbose = False
-        self.config.is_rank_zero = self.is_rank_zero
+            cfg.fsdp_train = None
+            cfg.is_training_mode = False
+            cfg.data_cfg.data_verbose = False
+        self.cfg.is_rank_zero = self.is_rank_zero
         self.loss_names = ['cross_entropy']
-        self.train_verbose = self.config.train_verbose
+        self.train_verbose = self.cfg.train_verbose
         self.use_huggingface_trainer = use_huggingface_trainer
         self.resume_path = resume_path
         self.adapter_path = kwargs.get('adapter_path', None)
@@ -76,41 +77,41 @@ class Trainer:
         # Save the yaml config
         if self.is_rank_zero and self.is_training_mode:
             self.wdir.mkdir(parents=True, exist_ok=True)  # make dir
-            self.config.save_dir = str(self.save_dir)
-            yaml_save(self.save_dir / 'args.yaml', self.config)  # save run args
+            self.cfg.save_dir = str(self.save_dir)
+            yaml_save(self.save_dir / 'args.yaml', self.cfg)  # save run args
         
         # Init model, dataset, dataloader, etc.
         self.modes = ['train', 'validation'] if self.is_training_mode else ['validation']
-        self.model, self.tokenizer = self._init_model(self.config, self.mode)
+        self.model, self.tokenizer = self._init_model(self.cfg, self.mode)
         self.model_module = self.model.module if self.is_ddp else self.model
         self.evaluator = Evaluator(self.tokenizer)
-        self.training_logger = TrainingLogger(self.config, self.is_training_mode)
-        self.stopper, self.stop = EarlyStopper(self.config.early_stop_criterion), False
-        self.dataloaders = get_data_loader(self.config, self.tokenizer, self.modes, self.is_ddp or self.is_fsdp)
+        self.training_logger = TrainingLogger(self.cfg.log_cfg, self.save_dir, self.is_training_mode)
+        self.stopper, self.stop = EarlyStopper(self.cfg.early_stop_criterion), False
+        self.dataloaders = get_data_loader(self.cfg, self.tokenizer, self.modes, self.is_ddp or self.is_fsdp)
         if self.use_huggingface_trainer:
             self.do_train = self.huggingface_trainer
             return 
         
         # Init optimizer, scheduler
         if self.is_training_mode:
-            self.lr0 = self.config.lr0
+            self.lr0 = self.cfg.lr0
             self.scaler = torch.GradScaler(device=self.device.type, enabled=self.amp) if self.amp else None
             self.ema = ModelEMA(self.model_module) if self.ema else None
             self.start_epoch = 0
-            self.optimizer = optim.AdamW(self.model.parameters(), lr=self.lr0, betas=(self.config.momentum, 0.999), weight_decay=self.config.weight_decay)
+            self.optimizer = optim.AdamW(self.model.parameters(), lr=self.lr0, betas=(self.cfg.momentum, 0.999), weight_decay=self.cfg.weight_decay)
             all_steps_n = self.epochs if self.is_update_per_epoch else self.steps
-            self.warmup_steps_n = max(0, self.config.warmup_epochs if self.is_update_per_epoch else self.config.warmup_steps)
+            self.warmup_steps_n = max(0, self.cfg.warmup_epochs if self.is_update_per_epoch else self.cfg.warmup_steps)
             if self.scheduler_type == 'cosine':
-                self.lf = one_cycle(1, self.config.lrf, all_steps_n)
+                self.lf = one_cycle(1, self.cfg.lrf, all_steps_n)
             elif self.scheduler_type == 'linear':
-                self.lf = lambda x: (1 - (x - self.warmup_steps_n) / (all_steps_n - self.warmup_steps_n)) * (1.0 - self.config.lrf) + self.config.lrf
+                self.lf = lambda x: (1 - (x - self.warmup_steps_n) / (all_steps_n - self.warmup_steps_n)) * (1.0 - self.cfg.lrf) + self.cfg.lrf
             self.scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lf)
             self.scheduler.last_epoch = self.start_epoch - 1  # do not move
             if self.is_rank_zero and self.train_verbose:
-                draw_training_lr_curve(self.config, self.lf, all_steps_n, self.warmup_steps_n, self.is_ddp or self.is_fsdp, self.world_size)
+                draw_training_lr_curve(self.cfg, self.lf, all_steps_n, self.warmup_steps_n, self.is_ddp or self.is_fsdp, self.world_size)
 
 
-    def _init_model(self, config, mode):
+    def _init_model(self, cfg: TrainingConfig, mode):
         def _resume_model(resume_path, device):
             checkpoints = torch.load(resume_path, map_location=device)
             model.load_state_dict(checkpoints['model'])
@@ -123,12 +124,12 @@ class Trainer:
         # Initialize model, loss function, and tokenizer
         resume_success = False
         do_resume = (mode == 'resume' and self.resume_path) or (mode == 'validation' and self.resume_path)
-        model, tokenizer = get_model(config, self.device)
+        model, tokenizer = get_model(cfg, self.device)
         model.init_criterion()
 
         # Initialize peft
-        if config.peft_config_path:
-            if config.training_stage != 0:
+        if cfg.peft_train is not None:
+            if cfg.training_stage != 0:
                 log(f'PEFT is not applied due to training stage.')
             else:
                 # Resume before applying peft
@@ -139,7 +140,7 @@ class Trainer:
                     except:
                         log('Resume wiil be applied after PEFT applied..', level='warning')
                         pass
-                model = get_peft_model(model, config)
+                model = get_peft_model(model, cfg.peft_train)
         else:
             log('PEFT is not applied.')
 
@@ -155,13 +156,13 @@ class Trainer:
         if self.is_ddp:
             model = DDP(model, device_ids=[self.device])
         elif self.is_fsdp:
-            model = get_wrapped_model(config, model, self.device)
+            model = get_wrapped_model(cfg, model, self.device)
 
         return model, tokenizer    
     
 
     def _freeze_model(self):
-        if self.config.training_stage:
+        if self.cfg.training_stage:
             # Firstly, changing model dtype
             if self.model_module.bit == 16:
                 self.model.half()
@@ -169,7 +170,7 @@ class Trainer:
                 self.model.float()
             
             # Secondly, freezing layer except for that need to be trained 
-            self.model_module.freeze_layers(self.config.training_stage)
+            self.model_module.freeze_layers(self.cfg.training_stage)
 
             # Lastly, changing layers dtype those have to be float32
             if self.model_module.bit == 16:
@@ -178,7 +179,7 @@ class Trainer:
 
     def optimizer_step(self, step, is_last_step=False):
         """Perform a single step of the training optimizer with gradient clipping and EMA update."""
-        if (step + 1) % self.config.gradient_accumuate_step == 0 or is_last_step:
+        if (step + 1) % self.cfg.gradient_accumuate_step == 0 or is_last_step:
             if self.amp:
                 self.scaler.unscale_(self.optimizer)  # unscale gradients
                 nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)  # clip gradients
@@ -238,7 +239,7 @@ class Trainer:
         log(f'{epoch - self.start_epoch + 1} epochs completed in {(time.time() - self.train_time_start) / 3600:.3f} hours.')
 
         # Finally merge unmerged checkpoints at the end of training
-        if self.config.peft_config_path and self.config.adapter_save_type == 'merge':
+        if self.cfg.peft_train is not None and self.cfg.peft_train.adapter_save_type == 'merge':
             if self.is_rank_zero:
                 merge_unmerged_checkpoints(self.wdir, self.model_module)
             
@@ -253,7 +254,7 @@ class Trainer:
         self.model.train()
         train_loader = self.dataloaders[phase]
         nb = len(train_loader)
-        validation_step_interval = int(self.config.validation_step_interval_prop * nb)
+        validation_step_interval = int(self.cfg.log_cfg.validation_step_interval_prop * nb)
         
         if self.is_ddp or self.is_fsdp:
             train_loader.sampler.set_epoch(epoch)
@@ -270,7 +271,7 @@ class Trainer:
             if warmup_step_or_epoch <= self.warmup_steps_n:
                 self.optimizer.param_groups[0]['lr'] = lr_warmup(warmup_step_or_epoch, self.warmup_steps_n, self.lr0, self.lf)
             cur_lr = self.optimizer.param_groups[0]['lr']
-            user_prompt_masking = False if self.config.is_multi_turn and self.config.user_prompt_masking_start_step > self.train_cur_step else True
+            user_prompt_masking = False if self.cfg.data_cfg.is_multi_turn and self.cfg.data_cfg.user_prompt_masking_start_step > self.train_cur_step else True
             
             with torch.autocast(
                 device_type=self.device.type,
@@ -283,7 +284,7 @@ class Trainer:
                 batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                 batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
                 _, loss = self.model(batch, return_loss=True, user_prompt_masking=user_prompt_masking)
-                loss = loss / self.config.gradient_accumuate_step
+                loss = loss / self.cfg.gradient_accumuate_step
             
             # backward and optimizer step
             self.scaler.scale(loss).backward() if self.amp else loss.backward()
@@ -297,11 +298,11 @@ class Trainer:
                 epoch+1, 
                 self.train_cur_step, 
                 batch_size, 
-                **{'train_loss': loss.item() * self.config.gradient_accumuate_step, 'lr': cur_lr}
+                **{'train_loss': loss.item() * self.cfg.gradient_accumuate_step, 'lr': cur_lr}
             )
             if self.is_rank_zero:
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-                loss_log = [loss.item() * self.config.gradient_accumuate_step]
+                loss_log = [loss.item() * self.cfg.gradient_accumuate_step]
                 msg = tuple([f'{epoch + 1}/{self.epochs}', mem] + loss_log)
                 pbar.set_description(('%15s' * 2 + '%15.4g' * len(loss_log)) % msg)
                 
@@ -310,7 +311,7 @@ class Trainer:
                 break
 
             # validataion
-            if self.train_cur_step != 0 and self.train_cur_step % validation_step_interval == 0 and self.config.validation_step_interval_prop != 1:
+            if self.train_cur_step != 0 and self.train_cur_step % validation_step_interval == 0 and self.cfg.log_cfg.validation_step_interval_prop != 1:
                 self.epoch_validate('validation', epoch)
                 
                 # early stop
@@ -350,7 +351,7 @@ class Trainer:
             nb = len(val_loader)
             pbar = _get_val_pbar(val_loader, nb, self.is_rank_zero)
 
-            if (self.is_ddp or self.is_fsdp) and (self.config.fast_validation_step_interval or self.config.fast_validation_n) and is_training_now:
+            if (self.is_ddp or self.is_fsdp) and (self.cfg.log_cfg.fast_validation_step_interval or self.cfg.log_cfg.fast_validation_n) and is_training_now:
                 val_loader.sampler.set_epoch(epoch)
 
             model = self.ema.ema or self.model if self.ema else self.model
@@ -358,27 +359,27 @@ class Trainer:
 
             # Validation loop
             for i, batch in pbar:
-                if self.config.fast_validation_step_interval and i % self.config.fast_validation_step_interval != 0:
+                if self.cfg.log_cfg.fast_validation_step_interval and i % self.cfg.log_cfg.fast_validation_step_interval != 0:
                     continue                    
                 
                 with torch.autocast(
                     device_type=self.device.type,
-                    enabled=self.amp or self.config.half_inference
+                    enabled=self.amp or self.cfg.half_inference
                 ):
                     batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                     batch_size = batch['src'].size(0)   # src is always present whether the model is seq2seq or not
                     _, loss = self.model(batch, return_loss=True)
 
                     # Preparing for model evaluation
-                    inference_batch_size = min(batch_size, self.config.fast_validation_n) if self.config.fast_validation_n else batch_size
+                    inference_batch_size = min(batch_size, self.cfg.log_cfg.fast_validation_n) if self.cfg.log_cfg.fast_validation_n else batch_size
                     user_prompt = batch['user_prompt'][:inference_batch_size] if 'user_prompt' in batch else batch['src'][:inference_batch_size]
                     response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
                     response_pred = self.model_module.inference(
                         src=user_prompt,
-                        max_length=self.config.max_length,
+                        max_length=self.cfg.max_length,
                         num_return_sequences=1,
                         greedy=True,
-                        max_time=self.config.generation_max_time,
+                        max_time=self.cfg.generation_max_time,
                         synced_gpus=True if self.is_fsdp else None,
                     ) if response_gt and self.do_generate_answer else None
 
@@ -398,11 +399,11 @@ class Trainer:
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                     loss_log = [loss.item()]
                     msg = tuple([f'{epoch+1}/{self.epochs}', mem] + loss_log + [metric_results[k] for k in self.metrics])
-                    if self.config.inference_result_verbose and response_gt != None and self.do_generate_answer:
+                    if self.cfg.inference_result_verbose and response_gt != None and self.do_generate_answer:
                         _init_headline()
                     pbar.set_description(('%15s' * 2 + '%15.4g' * (len(loss_log) + len(self.metrics))) % msg)
 
-                    if self.config.inference_result_verbose and response_gt != None and self.do_generate_answer:
+                    if self.cfg.inference_result_verbose and response_gt != None and self.do_generate_answer:
                         for u, p, g in zip(user_prompt, response_pred, response_gt):
                             print('\n\n' + '-'*200)
                             print(colorstr('\nPrompt    : ') + u)
@@ -445,7 +446,7 @@ class Trainer:
             model=self.model_module,
             optimizer=self.optimizer,
             is_fsdp=self.is_fsdp,
-            save_only_adapter=self.config.peft_config_path and self.config.adapter_save_type == 'adapter_only'
+            save_only_adapter=self.cfg.peft_train is not None and self.cfg.peft_train.adapter_save_type == 'adapter_only'
         )
         self.training_logger.save_logs(self.save_dir)
 
@@ -513,11 +514,11 @@ class Trainer:
             train_dataset=datasets['train'],
             eval_dataset=datasets['validation'] if 'validation' in datasets else None,
             args=TrainingArguments(
-                per_device_train_batch_size=self.config.batch_size,
+                per_device_train_batch_size=self.cfg.batch_size,
                 gradient_accumulation_steps=1,
-                warmup_steps=self.config.warmup_steps,
+                warmup_steps=self.cfg.warmup_steps,
                 max_steps=self.steps,
-                learning_rate=self.config.lr0,
+                learning_rate=self.cfg.lr0,
                 fp16=self.amp,
                 logging_steps=1,
                 output_dir='outputs'

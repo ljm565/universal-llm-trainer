@@ -6,24 +6,25 @@ import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 
 from .model_manager import ModelManager
+from univlt.config import LoggingConfig
 from univlt.utils import is_rank_zero, colorstr, log
 
 
 
 class TrainingLogger:
-    def __init__(self, config, training=True):
+    def __init__(self, cfg: LoggingConfig, save_dir: str, training=True):
         self.training = training
         self.log_data = {'step': [], 'epoch': []}
-        self.log_keys = config.common + config.metrics
+        self.log_keys = cfg.common + cfg.metrics
         self.log_data.update({k: [] for k in self.log_keys})
         self.train_batch_sizes, self.val_batch_sizes = [], []
         self.is_rank_zero = is_rank_zero['value']
         self.st = 0
         log(f'{colorstr("Logging data")}: {self.log_keys}')
         if self.is_rank_zero and self.training:
-            self.writer = SummaryWriter(log_dir=config.save_dir)
+            self.writer = SummaryWriter(log_dir=save_dir)
         self.model_manager = ModelManager()
-        self.tensorboard_logging_interval = config.tensorboard_logging_interval
+        self.tensorboard_logging_interval = cfg.tensorboard_logging_interval
     
 
     def nan_value_filtering(self, values, batch_sizes):

@@ -12,6 +12,7 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (
     ShardingStrategy,
 )
 
+from univlt.config import TrainingConfig, PeftConfig
 from univlt.utils import RANK, log, colorstr
 from univlt.utils.data_utils import seed_worker, choose_proper_dataset
 from univlt.utils.peft_utils import init_lora_config, apply_peft, print_trainable_parameters
@@ -22,19 +23,19 @@ PIN_MEMORY = str(os.getenv('PIN_MEMORY', True)).lower() == 'true'  # Global pin_
 
 
 
-def build_llm_dataset(config, tokenizer, mode):
+def build_llm_dataset(cfg: TrainingConfig, tokenizer, mode):
     dataset_dict = {}
-    datasets = [path.split('/')[-1] for path in config.data_path]
-    dataset_paths = [os.path.join(p, d + '.pkl') for p, d in zip(config.data_path, datasets)]
-    if not config.template_dir:
-        template_paths = [os.path.join(p, 'templates') for p in config.data_path]
+    datasets = [path.split('/')[-1] for path in cfg.data_cfg.data_path]
+    dataset_paths = [os.path.join(p, d + '.pkl') for p, d in zip(cfg.data_cfg.data_path, datasets)]
+    if not cfg.data_cfg.template_dir:
+        template_paths = [os.path.join(p, 'templates') for p in cfg.data_cfg.data_path]
     else:
-        template_paths = [config.template_dir] if isinstance(config.template_dir, str) else config.template_dir
+        template_paths = [cfg.data_cfg.template_dir] if isinstance(cfg.data_cfg.template_dir, str) else cfg.data_cfg.template_dir
     
-    if not all([os.path.exists(p) for p in template_paths]) and config.is_rank_zero:
+    if not all([os.path.exists(p) for p in template_paths]) and cfg.is_rank_zero:
         raise FileNotFoundError(log('Template directory is not found.', level='error'))
     
-    dataset_classes = [choose_proper_dataset(d) for d in config.data_train_type]
+    dataset_classes = [choose_proper_dataset(d) for d in cfg.data_cfg.data_train_type]
 
     for i in range(len(datasets)):
         raw_data = pickle_load(dataset_paths[i])
@@ -47,7 +48,7 @@ def build_llm_dataset(config, tokenizer, mode):
             
             dset = dataset_classes[i](
                 mode=state,
-                config=config,
+                cfg=cfg,
                 data=sum(data, []) if isinstance(data[0], list) else concatenate_datasets(data),
                 tokenizer=tokenizer,
                 template_dir=template_paths[i],
@@ -86,48 +87,48 @@ def build_dataloader(dataset, batch, workers, shuffle=True, is_ddp=False):
 
 
 
-def get_data_loader(config, tokenizer, mode, is_ddp=False):
-    datasets = build_llm_dataset(config, tokenizer, mode)
+def get_data_loader(cfg: TrainingConfig, tokenizer, mode, is_ddp=False):
+    datasets = build_llm_dataset(cfg, tokenizer, mode)
     dataloaders = {m: build_dataloader(datasets[m], 
-                                        config.batch_size, 
-                                        min([config.workers, config.total_cpu_use]),
-                                        shuffle=(m == 'train' or config.fast_validation_n is not None or config.fast_validation_step_interval is not None), 
+                                        cfg.batch_size, 
+                                        min([cfg.env_cfg.workers, cfg.env_cfg.total_cpu_use]),
+                                        shuffle=(m == 'train' or cfg.log_cfg.fast_validation_n is not None or cfg.log_cfg.fast_validation_step_interval is not None), 
                                         is_ddp=is_ddp) for m in mode}
     return dataloaders
 
 
 
-def get_model(config, device):
-    if 'llama-3' in config.model.lower():
+def get_model(cfg: TrainingConfig, device):
+    if 'llama-3' in cfg.model.lower():
         from models import Llama3
-        model = Llama3(config, device)
+        model = Llama3(cfg, device)
         tokenizer = model.tokenizer
     
-    elif 'llama-2' in config.model.lower():
+    elif 'llama-2' in cfg.model.lower():
         from models import Llama2
-        model = Llama2(config, device)
+        model = Llama2(cfg, device)
         tokenizer = model.tokenizer
     
-    elif 'gemma' in config.model.lower():
+    elif 'gemma' in cfg.model.lower():
         # Models released after Gemma 2
-        if any(model in config.model.lower() for model in ['gemma-2', 'gemma-3']):
+        if any(model in cfg.model.lower() for model in ['gemma-2', 'gemma-3']):
             from models import Gemma2
-            model = Gemma2(config, device)
+            model = Gemma2(cfg, device)
             tokenizer = model.tokenizer
         # Gemma 1 model
         else:
             from models import Gemma
-            model = Gemma(config, device)
+            model = Gemma(cfg, device)
             tokenizer = model.tokenizer
     
-    elif 'phi-3' in config.model.lower():
+    elif 'phi-3' in cfg.model.lower():
         from models import Phi3
-        model = Phi3(config, device)
+        model = Phi3(cfg, device)
         tokenizer = model.tokenizer
     
-    elif 'qwen3' in config.model.lower():
+    elif 'qwen3' in cfg.model.lower():
         from models import Qwen3
-        model = Qwen3(config, device)
+        model = Qwen3(cfg, device)
         tokenizer = model.tokenizer
     
     else:
@@ -144,8 +145,8 @@ def get_model(config, device):
 
 
 
-def get_peft_model(model, config):
-    peft_config = Config(config.peft_config_path)
+def get_peft_model(model, cfg: PeftConfig):
+    peft_config = Config(cfg.peft_config_path)
     peft_type = peft_config.type
 
     if peft_type == 'lora':
@@ -161,16 +162,16 @@ def get_peft_model(model, config):
 
 
 
-def get_wrapped_model(config, model, device):
-    if not config.quant_config:
+def get_wrapped_model(cfg: TrainingConfig, model, device):
+    if not (cfg.peft_train and cfg.peft_train.quant_config_path):
         model = FSDP(model, 
-                     auto_wrap_policy=get_wrap_policy(config), 
+                     auto_wrap_policy=get_wrap_policy(cfg), 
                      device_id=device, 
                      sharding_strategy=ShardingStrategy.FULL_SHARD,
-                     cpu_offload=CPUOffload(offload_params=True) if config.fsdp_hyperparameters.cpu_offload else None,
-                     mixed_precision=MixedPrecision(param_dtype=torch.float16, cast_forward_inputs=True) if config.fsdp_hyperparameters.amp_training else None,
+                     cpu_offload=CPUOffload(offload_params=True) if cfg.fsdp_train.cpu_offload else None,
+                     mixed_precision=MixedPrecision(param_dtype=torch.float16, cast_forward_inputs=True) if cfg.fsdp_train.amp_training else None,
                 )
     # Quantized case
     else:
-        model = custom_wrap_policy(config, model, device)
+        model = custom_wrap_policy(cfg, model, device)
     return model

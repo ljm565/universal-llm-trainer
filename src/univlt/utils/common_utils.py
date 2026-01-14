@@ -33,15 +33,15 @@ def sanity_check(clazz: Any) -> None:
         OPTIM_CRITERION_MSG + f' but got {colorstr(clazz.optimizer_step_criterion)}.'
     assert clazz.scheduler_type in SCHEDULER_TYPE, \
         SCHEDULER_MSG + f' but got {colorstr(clazz.scheduler_type)}.'
-    if clazz.config.fsdp_train:
-        assert clazz.config.fsdp_hyperparameters.wrap_policy in FSDP_WRAP_TYPE, \
-            FSDP_WRAP_MSG + f' but got {colorstr(clazz.config.fsdp_hyperparameters.wrap_policy)}.'
-    if clazz.config.attn_implementation:
-        assert clazz.config.amp_training or (clazz.config.fsdp_train and clazz.config.fsdp_hyperparameters.amp_training), \
+    if clazz.cfg.fsdp_train is not None:
+        assert clazz.cfg.fsdp_train.wrap_policy in FSDP_WRAP_TYPE, \
+            FSDP_WRAP_MSG + f' but got {colorstr(clazz.cfg.fsdp_train.wrap_policy)}.'
+    if clazz.cfg.attn_implementation:
+        assert clazz.cfg.amp_training or (clazz.cfg.fsdp_train is not None and clazz.cfg.fsdp_train.amp_training), \
             colorstr('You must set amp_training option to True if you use attn_implementation option.')
-    if clazz.config.peft_config_path:
-        assert clazz.config.adapter_save_type in ADAPTER_SAVE_TYPE, \
-            ADAPTER_SAVE_TYPE_MSG + f' but got {colorstr(clazz.config.adapter_save_type)}.'
+    if clazz.cfg.peft_train is not None:
+        assert clazz.cfg.peft_train.adapter_save_type in ADAPTER_SAVE_TYPE, \
+            ADAPTER_SAVE_TYPE_MSG + f' but got {colorstr(clazz.cfg.peft_train.adapter_save_type)}.'
         
 
     
