@@ -1,8 +1,7 @@
 # base
 seed: 0
 deterministic: True
-model: qwen3
-model_size: 8b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b character)
+model: Qwen/Qwen3-8B
 model_cache_dir: null
 
 # data config
