@@ -9,7 +9,7 @@ import torch
 
 from univlt.utils import colorstr
 from univlt.utils.training_utils import choose_proper_resume_model
-from univlt.trainer import BaseTrainer
+from univlt.trainer import *
 from univlt.config import *
 
 
