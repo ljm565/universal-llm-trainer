@@ -19,7 +19,7 @@ class QADataset(Dataset):
             cfg: TrainingConfig,
             data, 
             tokenizer,
-            template_dir=None,
+            template_path=None,
             name=None
         ):
         # init
@@ -31,10 +31,7 @@ class QADataset(Dataset):
         self.generate_prompt = self.generate_prompt_multi_turn if cfg.data_cfg.is_multi_turn else self.generate_prompt_single_turn
         
         # read data and template
-        template_paths = [p for p in filter(lambda x: x.startswith('template'), os.listdir(template_dir))]
-        assert all([p.endswith('.txt') or p.endswith('.json') for p in template_paths]), f'Invalid template file format in {template_dir}, only possible format is .txt or .json'
-        self.templates = ['\n'.join(txt_load(os.path.join(template_dir, p))) if p.endswith('.txt') \
-                                else json_load(os.path.join(template_dir, p)) for p in template_paths]
+        self.template = json_load(template_path)
 
         # params
         self.max_length = cfg.max_length
@@ -84,7 +81,7 @@ class QADataset(Dataset):
 
     def generate_prompt_single_turn(self, idx):
         single_data = self.data[idx]
-        template = random.choice(self.templates)
+        template = self.template
         response = single_data['output'][0]
         if len(single_data['input']) == 0:
             template = random.choice(template['prompt_no_input'])

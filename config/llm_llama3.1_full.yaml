@@ -7,7 +7,7 @@ model_cache_dir: /home/data_storage/huggingface/
 # data config
 data_train_type: ['ar']
 data_path: ['./data/med_noteevent']
-template_dir: templates/llama3_templates
+template_path: templates/template_llama3.json
 
 # project config
 project: ./output/llama3.1

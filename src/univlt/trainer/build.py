@@ -44,7 +44,7 @@ def build_llm_dataset(cfg: TrainingConfig, tokenizer, mode):
                 cfg=cfg,
                 data=sum(data, []) if isinstance(data[0], list) else concatenate_datasets(data),
                 tokenizer=tokenizer,
-                template_dir=cfg.data_cfg.template_dir,
+                template_path=cfg.data_cfg.template_path,
                 name=datasets[i]
             )
 

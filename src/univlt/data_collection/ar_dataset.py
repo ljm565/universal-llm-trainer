@@ -20,7 +20,7 @@ class AutoregressiveDataset(Dataset):
             cfg: TrainingConfig,
             data, 
             tokenizer,
-            template_dir=None,
+            template_path=None,
             name=None
         ):
         # init
@@ -30,10 +30,7 @@ class AutoregressiveDataset(Dataset):
         self.pad_token_id = self.tokenizer.pad_token_id
         
         # read data and template
-        template_paths = [p for p in filter(lambda x: x.startswith('template'), os.listdir(template_dir))]
-        assert all([p.endswith('.txt') or p.endswith('.json') for p in template_paths]), f'Invalid template file format in {template_dir}, only possible format is .txt or .json'
-        self.templates = ['\n'.join(txt_load(os.path.join(template_dir, p))) if p.endswith('.txt') \
-                                else json_load(os.path.join(template_dir, p)) for p in template_paths]
+        self.template = json_load(template_path)
 
         # params
         self.max_length = cfg.max_length
@@ -83,8 +80,7 @@ class AutoregressiveDataset(Dataset):
 
     def make_ar_data(self, idx):
         single_data = self.data[idx]
-        template = random.choice(self.templates)
-        template = random.choice(template['prompt_no_input'])
+        template = self.template['prompt_no_input'][0]
         
         instruction = single_data['instruction'][0]
         full_prompt = template.format(instruction=instruction)

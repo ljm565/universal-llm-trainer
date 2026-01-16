@@ -7,7 +7,7 @@ model_cache_dir: null
 # data config
 data_train_type: ['qa']
 data_path: ['./data_examples/allenai_ai2_arc']
-template_dir: templates/qwen3_templates
+template_path: templates/template_qwen3.json
 
 # project config
 project: ./output/qwen3

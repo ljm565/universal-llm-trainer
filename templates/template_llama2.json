@@ -1,5 +1,5 @@
 {
-    "description": "llama3 template",
+    "description": "llama2 template",
     "prompt_input": [
         "[INST] <<SYS>>\n{input}\n<</SYS>>\n\n{instruction} [/INST] "
     ],
@@ -8,5 +8,3 @@
     ],
     "response_split": "[/INST]"
 }
-
-
