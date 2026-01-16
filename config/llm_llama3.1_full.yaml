@@ -2,7 +2,7 @@
 seed: 0
 deterministic: True
 model: meta-llama/Llama-3.1-8B-Instruct
-model_cache_dir: null
+model_cache_dir: /home/data_storage/huggingface/
 
 # data config
 data_train_type: ['sft']
