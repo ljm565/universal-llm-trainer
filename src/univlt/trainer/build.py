@@ -27,13 +27,6 @@ def build_llm_dataset(cfg: TrainingConfig, tokenizer, mode):
     dataset_dict = {}
     datasets = [path.split('/')[-1] for path in cfg.data_cfg.data_path]
     dataset_paths = [os.path.join(p, d + '.pkl') for p, d in zip(cfg.data_cfg.data_path, datasets)]
-    if not cfg.data_cfg.template_dir:
-        template_paths = [os.path.join(p, 'templates') for p in cfg.data_cfg.data_path]
-    else:
-        template_paths = [cfg.data_cfg.template_dir] if isinstance(cfg.data_cfg.template_dir, str) else cfg.data_cfg.template_dir
-    
-    if not all([os.path.exists(p) for p in template_paths]) and cfg.is_rank_zero:
-        raise FileNotFoundError(log('Template directory is not found.', level='error'))
     
     dataset_classes = [choose_proper_dataset(d) for d in cfg.data_cfg.data_train_type]
 
@@ -51,7 +44,7 @@ def build_llm_dataset(cfg: TrainingConfig, tokenizer, mode):
                 cfg=cfg,
                 data=sum(data, []) if isinstance(data[0], list) else concatenate_datasets(data),
                 tokenizer=tokenizer,
-                template_dir=template_paths[i],
+                template_dir=cfg.data_cfg.template_dir,
                 name=datasets[i]
             )
 

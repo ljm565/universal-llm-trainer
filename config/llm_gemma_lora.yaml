@@ -7,7 +7,7 @@ model_cache_dir: null
 # data config
 data_train_type: ['qa']
 data_path: ['./data_examples/allenai_ai2_arc']
-template_dir: [templates/gemma_templates]   # list(directory) or directory, if null, template will be chosen according to the {data_path}/templates.
+template_dir: templates/gemma_templates
 
 # project config
 project: ./output/gemma
