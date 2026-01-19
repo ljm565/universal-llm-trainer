@@ -1,4 +1,6 @@
 import os
+import json
+from collections import defaultdict
 from sconf import Config
 from datasets import concatenate_datasets
 from peft import prepare_model_for_kbit_training
@@ -24,40 +26,41 @@ PIN_MEMORY = str(os.getenv('PIN_MEMORY', True)).lower() == 'true'  # Global pin_
 
 
 def build_llm_dataset(cfg: TrainingConfig, tokenizer, mode):
-    dataset_dict = {}
-    datasets = [path.split('/')[-1] for path in cfg.data_cfg.data_path]
-    dataset_paths = [os.path.join(p, d + '.pkl') for p, d in zip(cfg.data_cfg.data_path, datasets)]
-    
+    dataset_dict = defaultdict(list)
+    datasets = [os.path.basename(path) for path in cfg.data_cfg.data_path]
     dataset_classes = [choose_proper_dataset(d) for d in cfg.data_cfg.data_train_type]
+    
+    # Build dataset path mapping: (dataset_idx, state) -> path
+    dataset_path_map = {
+        (i, state): os.path.join(data_dir, f"{state}.json")
+        for i, data_dir in enumerate(cfg.data_cfg.data_path)
+        for state in mode
+        if os.path.isfile(os.path.join(data_dir, f"{state}.json"))
+    }
 
-    for i in range(len(datasets)):
-        raw_data = pickle_load(dataset_paths[i])
-        for state in mode:
-            data = [raw_data[name][state] for name in raw_data.keys() if raw_data[name][state] is not None]
-            
-            # None case
-            if len(data) == 0:
-                continue
-            
-            dset = dataset_classes[i](
-                mode=state,
-                cfg=cfg,
-                data=sum(data, []) if isinstance(data[0], list) else concatenate_datasets(data),
-                tokenizer=tokenizer,
-                template_path=cfg.data_cfg.template_path,
-                name=datasets[i]
-            )
+    # Load and process datasets
+    for (i, state), path in dataset_path_map.items():
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        if not data:
+            continue
+        
+        dset = dataset_classes[i](
+            mode=state,
+            cfg=cfg,
+            data=data,
+            tokenizer=tokenizer,
+            template_path=cfg.data_cfg.template_path,
+            name=datasets[i]
+        )
+        dataset_dict[state].append(dset)
 
-            if state not in dataset_dict:
-                dataset_dict[state] = [dset]
-            else:
-                dataset_dict[state].append(dset)
-
-    # Concatenate multiple datasets' class
-    for state, dsets in dataset_dict.items():
-        dataset_dict[state] = ConcatDataset(dsets) if len(dsets) > 1 else dsets[0]
-
-    return dataset_dict
+    # Concatenate multiple datasets per state
+    return {
+        state: ConcatDataset(dsets) if len(dsets) > 1 else dsets[0]
+        for state, dsets in dataset_dict.items()
+    }
 
 
 

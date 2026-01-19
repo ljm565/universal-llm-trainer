@@ -1,11 +1,6 @@
 {
     "description": "gemma template",
-    "prompt_input": [
-        "<start_of_turn>user\n{input}\n\n{instruction}<end_of_turn>\n<start_of_turn>model\n"
-    ],
-    "prompt_no_input": [
-        "<start_of_turn>user\n{instruction}<end_of_turn>\n<start_of_turn>model\n"
-    ],
+    "system_prompt_template": "<start_of_turn>user\n{system_prompt}\n\n{user_prompt}<end_of_turn>\n<start_of_turn>model\n",
     "response_split": "<start_of_turn>model",
     "multiturn_split": "<end_of_turn>\n"
 }

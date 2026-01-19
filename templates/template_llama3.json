@@ -1,12 +1,6 @@
 {
     "description": "llama3 template",
     "system_prompt_template": "<|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n",
-    "prompt_input": [
-        "<|start_header_id|>system<|end_header_id|>\n\n{input}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{instruction}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
-    ],
-    "prompt_no_input": [
-        "<|start_header_id|>user<|end_header_id|>\n\n{instruction}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
-    ],
     "response_split": "<|start_header_id|>assistant<|end_header_id|>",
     "multiturn_split": "<|eot_id|>"
 }

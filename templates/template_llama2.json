@@ -1,10 +1,5 @@
 {
     "description": "llama2 template",
-    "prompt_input": [
-        "[INST] <<SYS>>\n{input}\n<</SYS>>\n\n{instruction} [/INST] "
-    ],
-    "prompt_no_input": [
-        "[INST] {instruction} [/INST] "
-    ],
+    "system_prompt_template": "[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{user_prompt} [/INST] ",
     "response_split": "[/INST]"
 }

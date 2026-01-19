@@ -1,11 +1,6 @@
 {
     "description": "phi3 template",
-    "prompt_input": [
-        "<|user|>{input}\n\n{instruction}<|end|>\n<|assistant|>\n"
-    ],
-    "prompt_no_input": [
-        "<|user|>\n\n{instruction}<|end|>\n<|assistant|>\n"
-    ],
+    "system_prompt_template": "<|user|>{system_prompt}\n\n{user_prompt}<|end|>\n<|assistant|>\n",
     "response_split": "<|assistant|>",
     "multiturn_split": "<|end|>"
 }

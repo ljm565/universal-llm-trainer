@@ -80,13 +80,18 @@ class AutoregressiveDataset(Dataset):
 
     def make_ar_data(self, idx):
         single_data = self.data[idx]
-        template = self.template['prompt_no_input'][0]
+        template = self.template['system_prompt_template']
         
-        instruction = single_data['instruction'][0]
-        full_prompt = template.format(instruction=instruction)
-        full_prompt_tokens = self.tokenizer.encode(full_prompt)
+        # Assume the data has the single key 'text' for user prompt
+        system_prompt = None
+        user_prompt = single_data['text'][0]
+        formatted_prompt = template.format(
+            system_prompt='' if system_prompt is None else system_prompt,
+            user_prompt=user_prompt
+        )
+        full_prompt_tokens = self.tokenizer.encode(formatted_prompt)
 
-        return full_prompt_tokens, full_prompt
+        return full_prompt_tokens, formatted_prompt
         
 
     def _pad(self, data, max_length, pad_token_id, bos_token=None, eos_token=None, return_data_len=False, bos_masking=False):
@@ -113,7 +118,7 @@ class AutoregressiveDataset(Dataset):
     
 
     def __getitem__(self, idx):
-        full_prompt_token, full_prompt = self.make_ar_data(idx)
+        full_prompt_token, formatted_prompt = self.make_ar_data(idx)
         
         # padding
         full_prompt_token, data_len = self._pad(
@@ -127,15 +132,15 @@ class AutoregressiveDataset(Dataset):
         attention_mask = self._pad(self.get_mask(data_len), self.max_length, 0)
 
         if self.add_bos:
-            full_prompt = self.tokenizer.bos_token + full_prompt
+            formatted_prompt = self.tokenizer.bos_token + formatted_prompt
         if self.add_eos:
-            full_prompt = full_prompt + self.tokenizer.eos_token
+            formatted_prompt = formatted_prompt + self.tokenizer.eos_token
 
         label = deepcopy(full_prompt_token)        
 
         return {'src': torch.tensor(full_prompt_token, dtype=torch.long), 'src_attention_mask': torch.tensor(attention_mask, dtype=torch.long),
                 'label': torch.tensor(label, dtype=torch.long),
-                'user_prompt': full_prompt}
+                'formatted_prompt': formatted_prompt}
     
 
     def __len__(self):
