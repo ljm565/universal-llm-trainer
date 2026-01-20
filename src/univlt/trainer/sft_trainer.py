@@ -213,7 +213,7 @@ class SFTTrainer(BaseTrainer):
 
                     # Preparing for model evaluation
                     inference_batch_size = min(batch_size, self.cfg.log_cfg.fast_validation_n) if self.cfg.log_cfg.fast_validation_n else batch_size
-                    user_prompt = batch['user_prompt'][:inference_batch_size] if 'user_prompt' in batch else batch['src'][:inference_batch_size]
+                    user_prompt = batch['formatted_prompt'][:inference_batch_size] if 'formatted_prompt' in batch else batch['src'][:inference_batch_size]
                     response_gt = batch['response'][:inference_batch_size] if 'response' in batch else None
                     response_pred = self.model_module.inference(
                         src=user_prompt,

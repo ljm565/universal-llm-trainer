@@ -19,7 +19,7 @@ class SFTDataset(Dataset):
             cfg: TrainingConfig,
             data, 
             tokenizer,
-            template_dir=None,
+            template_path=None,
             name=None
         ):
         # init
@@ -31,10 +31,7 @@ class SFTDataset(Dataset):
         self.generate_prompt = self.generate_prompt_multi_turn if cfg.data_cfg.is_multi_turn else self.generate_prompt_single_turn
         
         # read data and template
-        template_paths = [p for p in filter(lambda x: x.startswith('template'), os.listdir(template_dir))]
-        assert all([p.endswith('.txt') or p.endswith('.json') for p in template_paths]), f'Invalid template file format in {template_dir}, only possible format is .txt or .json'
-        self.templates = ['\n'.join(txt_load(os.path.join(template_dir, p))) if p.endswith('.txt') \
-                                else json_load(os.path.join(template_dir, p)) for p in template_paths]
+        self.template = json_load(template_path)
 
         # params
         self.max_length = cfg.max_length
@@ -84,21 +81,17 @@ class SFTDataset(Dataset):
 
     def generate_prompt_single_turn(self, idx):
         single_data = self.data[idx]
-        template = random.choice(self.templates)
-        response = single_data['output'][0]
-        if len(single_data['input']) == 0:
-            template = random.choice(template['prompt_no_input'])
-            instruction = single_data['instruction'][0]
-            user_prompt = template.format(instruction=instruction)
-        else:
-            template = random.choice(template['prompt_input'])
-            instruction, input = single_data['instruction'][0], single_data['input'][0]
-            user_prompt = template.format(instruction=instruction, input=input)
+        template = self.template['system_prompt_template']
+        response = single_data['response'][0]
+        
+        system_prompt = single_data['system_prompt'][0] if len(single_data['system_prompt']) > 0 else ''
+        user_prompt = single_data['user_prompt'][0]
+        formatted_prompt = template.format(system_prompt=system_prompt, user_prompt=user_prompt)
 
-        user_prompt_tokens = self.tokenizer.encode(user_prompt)
+        formatted_prompt_tokens = self.tokenizer.encode(formatted_prompt)
         response_tokens = self.tokenizer.encode(response)
-        full_prompt_tokens = user_prompt_tokens + response_tokens
-        label = [self.ignore_index] * len(user_prompt_tokens) + response_tokens
+        full_prompt_tokens = formatted_prompt_tokens + response_tokens
+        label = [self.ignore_index] * len(formatted_prompt_tokens) + response_tokens
 
         # sanity check
         assert len(full_prompt_tokens) == len(label), \
@@ -107,52 +100,51 @@ class SFTDataset(Dataset):
         for f, l in zip(full_prompt_tokens, label):
             assert f == l or l == self.ignore_index, f'Full prompt and label are not same: {f}, {l}'
         
-        return full_prompt_tokens, label, user_prompt, response
+        return full_prompt_tokens, label, formatted_prompt, response
     
 
     def generate_prompt_multi_turn(self, idx):
         single_data = self.data[idx]
-        template = random.choice(self.templates)
-        if len(single_data['instruction']) < 2:
+        template = self.template['system_prompt_template']
+        if len(single_data['user_prompt']) < 2:
             return self.generate_prompt_single_turn(idx)
         
         # multi-turn sanity check
-        responses = single_data['output']
-        instructions = single_data['instruction']
-        assert len(responses) == len(instructions), f'Length of instruction and response are not same: {len(instructions)}, {len(responses)}'
+        responses = single_data['response']
+        user_prompts = single_data['user_prompt']
+        assert len(responses) == len(user_prompts), f'Length of user_prompt and response are not same: {len(user_prompts)}, {len(responses)}'
 
         # conversation template
-        input_template = random.choice(template['prompt_input'])
-        no_input_template = random.choice(template['prompt_no_input'])
         try:
-            multiturn_split = template['multiturn_split']
+            multiturn_split = self.template['multiturn_split']
         except:
             log("Current model does not support multi-turn training", level='error')
 
-        full_prompt_tokens, label, user_prompt = [], [], ''
+        full_prompt_tokens, label, formatted_prompt = [], [], ''
 
-        for i, (instruction, response) in enumerate(zip(instructions, responses)):
+        for i, (user_prompt, response) in enumerate(zip(user_prompts, responses)):
             is_first = i == 0
-            is_last = i == len(instructions) - 1    # Whether the last turn or not
+            is_last = i == len(user_prompts) - 1
             one_response = response + multiturn_split if not is_last else response
 
             # Processing the current turn
-            if is_first and len(single_data['input']) != 0:
-                one_user_prompt = input_template.format(input=single_data['input'][0], instruction=instruction)
-            else:
-                one_user_prompt = no_input_template.format(instruction=instruction)
-            one_user_prompt_tokens = self.tokenizer.encode(one_user_prompt)
+            one_formatted_prompt = template.format(
+                system_prompt = '' if (len(single_data['system_prompt']) == 0 or not is_first) else single_data['system_prompt'][0],
+                user_prompt=user_prompt
+            )
+            
+            one_formatted_prompt_tokens = self.tokenizer.encode(one_formatted_prompt)
             one_response_tokens = self.tokenizer.encode(one_response)
-            one_full_prompt_tokens = one_user_prompt_tokens + one_response_tokens
-            one_label = [self.ignore_index] * len(one_user_prompt_tokens) + one_response_tokens
+            one_full_prompt_tokens = one_formatted_prompt_tokens + one_response_tokens
+            one_label = [self.ignore_index] * len(one_formatted_prompt_tokens) + one_response_tokens
 
             # Sanity check
-            assert one_full_prompt_tokens == self.tokenizer.encode(one_user_prompt + one_response)
+            assert one_full_prompt_tokens == self.tokenizer.encode(one_formatted_prompt + one_response)
             
             # Processing the entire turns
             full_prompt_tokens += one_full_prompt_tokens
             label += one_label
-            user_prompt += self.tokenizer.decode(one_full_prompt_tokens) if not is_last else self.tokenizer.decode(one_user_prompt_tokens)
+            formatted_prompt += self.tokenizer.decode(one_full_prompt_tokens) if not is_last else self.tokenizer.decode(one_formatted_prompt_tokens)
         
         # sanity check
         assert len(full_prompt_tokens) == len(label), \
@@ -161,7 +153,7 @@ class SFTDataset(Dataset):
         for f, l in zip(full_prompt_tokens, label):
             assert f == l or l == self.ignore_index, f'Full prompt and label are not same: {f}, {l}'
         
-        return full_prompt_tokens, label, user_prompt, response
+        return full_prompt_tokens, label, formatted_prompt, response
         
 
     def _pad(self, data, max_length, pad_token_id, bos_token_id=None, eos_token_id=None, return_data_len=False, bos_masking=False):
@@ -188,7 +180,7 @@ class SFTDataset(Dataset):
     
 
     def __getitem__(self, idx):
-        full_prompt_token, label, user_prompt, response = self.generate_prompt(idx)
+        full_prompt_token, label, formatted_prompt, response = self.generate_prompt(idx)
         
         # padding
         full_prompt_token, data_len = self._pad(
@@ -210,7 +202,7 @@ class SFTDataset(Dataset):
         attention_mask = self._pad(self.get_mask(data_len), self.max_length, 0)
 
         if self.add_bos:
-            user_prompt = self.tokenizer.bos_token + user_prompt
+            formatted_prompt = self.tokenizer.bos_token + formatted_prompt
         if self.add_eos:
             response = response + self.tokenizer.eos_token
         
@@ -219,7 +211,7 @@ class SFTDataset(Dataset):
 
         return {'src': torch.tensor(full_prompt_token, dtype=torch.long), 'src_attention_mask': torch.tensor(attention_mask, dtype=torch.long),
                 'label': torch.tensor(label, dtype=torch.long),
-                'user_prompt': user_prompt, 'response': response}
+                'formatted_prompt': formatted_prompt, 'response': response}
     
 
     def __len__(self):

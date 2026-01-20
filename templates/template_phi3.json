@@ -1,0 +1,6 @@
+{
+    "description": "phi3 template",
+    "system_prompt_template": "<|user|>{system_prompt}\n\n{user_prompt}<|end|>\n<|assistant|>\n",
+    "response_split": "<|assistant|>",
+    "multiturn_split": "<|end|>"
+}

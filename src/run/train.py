@@ -40,7 +40,7 @@ def main(args):
     data_cfg = DataConfig(
         data_train_type=config.data_train_type,
         data_path=config.data_path,
-        template_dir=config.template_dir,
+        template_path=config.template_path,
         add_bos_token_when_response_start=config.add_bos_token_when_response_start,
         add_eos_token_when_response_end=config.add_eos_token_when_response_end,
         data_verbose=config.data_verbose,

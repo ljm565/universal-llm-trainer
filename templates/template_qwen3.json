@@ -1,0 +1,6 @@
+{
+    "description": "qwen3 template",
+    "system_prompt_template": "<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{user_prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "response_split": "<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "multiturn_split": "<|im_end|>"
+}

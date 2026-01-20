@@ -78,12 +78,11 @@ class Chatter:
 
 
     def preprocess(self, user_prompt, system_prompt=None):
-        if not system_prompt:
-            template = self.template['prompt_no_input'][0]
-            user_prompt = template.format(instruction=user_prompt)
-        else:
-            template = self.template['prompt_input'][0]
-            user_prompt = template.format(instruction=user_prompt, input=system_prompt)
+        template = self.template['system_prompt_template']
+        user_prompt = template.format(
+            system_prompt='' if system_prompt is None else system_prompt,
+            user_prompt=user_prompt
+        )
 
         if self.config.add_bos_token_when_response_start:
             user_prompt = self.tokenizer.bos_token + user_prompt

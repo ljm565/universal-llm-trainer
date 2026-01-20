@@ -11,7 +11,7 @@ class DataConfig:
     # Training dataset
     data_train_type: list[str]
     data_path: list[str]
-    template_dir: str
+    template_path: str
 
     # Tokenizing method, TODO: Deprecated, change to automatically use official template according to the model.
     add_bos_token_when_response_start: bool = True
@@ -37,8 +37,8 @@ class DataConfig:
             raise ValueError(colorstr("red", f"DataConfig.data_train_type {self.data_train_type} is not supported. Supported list: ['linear', 'cosine']"))
         if not len(self.data_train_type) == len(self.data_path):
             raise AssertionError(colorstr("red", "Lengths of DataConfig.data_train_type and DataConfig.data_path must be the same"))
-        if not os.path.exists(self.template_dir):
-            raise FileNotFoundError(colorstr("red", f"DataConfig.template_dir `{self.template_dir}` is not found."))
+        if not os.path.exists(self.template_path):
+            raise FileNotFoundError(colorstr("red", f"DataConfig.template_path `{self.template_path}` is not found."))
         
         # Tokenizer option sanity check, TODO: Deprecated
         if not (self.pad_token_id in ['add', None] or isinstance(self.pad_token_id, int)):

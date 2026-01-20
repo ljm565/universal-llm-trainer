@@ -18,7 +18,7 @@ model_size: 8b     # valid pattern examples: 10b, 1.2b, 2.8, 5 (you can omit b c
 # data config
 data_train_type: ['qa']
 data_path: ['/llm_data/training_dataset/incorporated_ner_data_v1']
-template_dir: templates/llama3_templates
+template_path: templates/template_llama3.json
 
 # project config
 project: /full_training/output/llama3.1
