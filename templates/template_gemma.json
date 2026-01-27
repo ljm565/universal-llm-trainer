@@ -1,6 +1,8 @@
 {
     "description": "gemma template",
-    "system_prompt_template": "<start_of_turn>user\n{system_prompt}\n\n{user_prompt}<end_of_turn>\n<start_of_turn>model\n",
+    "beginning_text": "<bos>",
+    "system_prompt_template": "<start_of_turn>user\n{system_prompt} {user_prompt}<end_of_turn>\n<start_of_turn>model\n{response}<end_of_turn>\n",
+    "user_prompt_template": "<start_of_turn>user\n{user_prompt}<end_of_turn>\n<start_of_turn>model\n{response}<end_of_turn>\n",
     "response_split": "<start_of_turn>model",
     "multiturn_split": "<end_of_turn>\n"
 }
