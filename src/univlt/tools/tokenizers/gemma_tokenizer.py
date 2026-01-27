@@ -7,7 +7,6 @@ from univlt.config import DataConfig
 class GemmaTokenizer:
     def __init__(self, cfg: DataConfig, path):
         self.tokenizer = AutoTokenizer.from_pretrained(path)
-        self.remapping_special_tokens(cfg)
         
         # special tokens
         self.pad_token, self.pad_token_id = self.tokenizer.pad_token, self.tokenizer.pad_token_id
@@ -80,39 +79,39 @@ class GemmaTokenizer:
         return self.vocab_size
     
 
-    def remapping_special_tokens(self, cfg: DataConfig):
-        new_map = {
-            'pad_token_id': cfg.pad_token_id if isinstance(cfg.pad_token_id, int) else None,
-            'bos_token_id': cfg.bos_token_id if isinstance(cfg.bos_token_id, int) else None,
-            'eos_token_id': cfg.eos_token_id if isinstance(cfg.eos_token_id, int) else None,
-            'cls_token_id': cfg.cls_token_id if isinstance(cfg.cls_token_id, int) else None,
-            'sep_token_id': cfg.sep_token_id if isinstance(cfg.sep_token_id, int) else None,
-        }
+    # def remapping_special_tokens(self, cfg: DataConfig):
+    #     new_map = {
+    #         'pad_token_id': cfg.pad_token_id if isinstance(cfg.pad_token_id, int) else None,
+    #         'bos_token_id': cfg.bos_token_id if isinstance(cfg.bos_token_id, int) else None,
+    #         'eos_token_id': cfg.eos_token_id if isinstance(cfg.eos_token_id, int) else None,
+    #         'cls_token_id': cfg.cls_token_id if isinstance(cfg.cls_token_id, int) else None,
+    #         'sep_token_id': cfg.sep_token_id if isinstance(cfg.sep_token_id, int) else None,
+    #     }
 
-        # check sanity of special token ids
-        for k, v in new_map.items():
-            if v is not None and v > len(self.tokenizer):
-                raise ValueError(f'Invalid special token id: {k}={v} > vocab size={len(self.tokenizer)}')
+    #     # check sanity of special token ids
+    #     for k, v in new_map.items():
+    #         if v is not None and v > len(self.tokenizer):
+    #             raise ValueError(f'Invalid special token id: {k}={v} > vocab size={len(self.tokenizer)}')
     
-        # remapping special tokens, not add tokens
-        for k, v in new_map.items():
-            if v is not None:
-                if hasattr(self.tokenizer, k):
-                    setattr(self.tokenizer, k, v)
-                else:
-                    raise AttributeError(f'No attribute: {k} in tokenizer. Please check the attribute name.')
+    #     # remapping special tokens, not add tokens
+    #     for k, v in new_map.items():
+    #         if v is not None:
+    #             if hasattr(self.tokenizer, k):
+    #                 setattr(self.tokenizer, k, v)
+    #             else:
+    #                 raise AttributeError(f'No attribute: {k} in tokenizer. Please check the attribute name.')
         
-        # add special tokens
-        add_tokens = {
-            'pad_token_id': cfg.pad_token_id if cfg.pad_token_id == 'add' else None,
-            'bos_token_id': cfg.bos_token_id if cfg.bos_token_id == 'add' else None,
-            'eos_token_id': cfg.eos_token_id if cfg.eos_token_id == 'add' else None,
-            'cls_token_id': cfg.cls_token_id if cfg.cls_token_id == 'add' else None,
-            'sep_token_id': cfg.sep_token_id if cfg.sep_token_id == 'add' else None,
-        }
+    #     # add special tokens
+    #     add_tokens = {
+    #         'pad_token_id': cfg.pad_token_id if cfg.pad_token_id == 'add' else None,
+    #         'bos_token_id': cfg.bos_token_id if cfg.bos_token_id == 'add' else None,
+    #         'eos_token_id': cfg.eos_token_id if cfg.eos_token_id == 'add' else None,
+    #         'cls_token_id': cfg.cls_token_id if cfg.cls_token_id == 'add' else None,
+    #         'sep_token_id': cfg.sep_token_id if cfg.sep_token_id == 'add' else None,
+    #     }
         
-        for k, v in add_tokens.items():
-            if v is not None:
-                token = f"<{k.split('_')[0]}>"
-                self.tokenizer.add_special_tokens({f'{k[:-3]}': token})
-                self.resized = True
+    #     for k, v in add_tokens.items():
+    #         if v is not None:
+    #             token = f"<{k.split('_')[0]}>"
+    #             self.tokenizer.add_special_tokens({f'{k[:-3]}': token})
+    #             self.resized = True
