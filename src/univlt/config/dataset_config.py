@@ -29,27 +29,3 @@ class DataConfig:
             raise AssertionError(colorstr("red", "Lengths of DataConfig.data_train_type and DataConfig.data_path must be the same"))
         if not os.path.exists(self.template_path):
             raise FileNotFoundError(colorstr("red", f"DataConfig.template_path `{self.template_path}` is not found."))
-        
-        # Tokenizer option sanity check, TODO: Deprecated
-        if not (self.pad_token_id in ['add', None] or isinstance(self.pad_token_id, int)):
-            raise TypeError(colorstr("red", "DataConfig.pad_token_id must be [`add`, `None`, int]"))
-        if not (self.bos_token_id in ['add', None] or isinstance(self.bos_token_id, int)):
-            raise TypeError(colorstr("red", "DataConfig.pad_token_id must be [`add`, `None`, int]"))
-        if not (self.eos_token_id in ['add', None] or isinstance(self.eos_token_id, int)):
-            raise TypeError(colorstr("red", "DataConfig.pad_token_id must be [`add`, `None`, int]"))
-        if not (self.cls_token_id in ['add', None] or isinstance(self.cls_token_id, int)):
-            raise TypeError(colorstr("red", "DataConfig.pad_token_id must be [`add`, `None`, int]"))
-        if not (self.sep_token_id in ['add', None] or isinstance(self.sep_token_id, int)):
-            raise TypeError(colorstr("red", "DataConfig.pad_token_id must be [`add`, `None`, int]"))
-        if not (self.unk_token_id in ['add', None] or isinstance(self.unk_token_id, int)):
-            raise TypeError(colorstr("red", "DataConfig.pad_token_id must be [`add`, `None`, int]"))
-
-
-
-
-
-
-        
-
-
-
