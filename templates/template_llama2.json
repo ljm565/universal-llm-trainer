@@ -1,5 +1,7 @@
 {
     "description": "llama2 template",
-    "system_prompt_template": "[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{user_prompt} [/INST] ",
+    "beginning_text": "<s>",
+    "system_prompt_template": "[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{user_prompt} [/INST] {response} </s>\n<s>",
+    "user_prompt_template": "[INST] {user_prompt} [/INST] {response} </s>\n<s>",
     "response_split": "[/INST]"
 }
