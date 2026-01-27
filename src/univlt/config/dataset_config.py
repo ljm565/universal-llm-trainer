@@ -13,16 +13,6 @@ class DataConfig:
     data_path: list[str]
     template_path: str
 
-    # Tokenizing method, TODO: Deprecated, change to automatically use official template according to the model.
-    add_bos_token_when_response_start: bool = True
-    add_eos_token_when_response_end: bool = True
-    pad_token_id: Optional[Union[str, int]] = None     # [add, null, int] if null, tokenizer pad_token_id will not be overrided
-    bos_token_id: Optional[Union[str, int]] = None     # [add, null, int] if null, tokenizer bos_token_id will not be overrided
-    eos_token_id: Optional[Union[str, int]] = None     # [add, null, int] if null, tokenizer eos_token_id will not be overrided
-    cls_token_id: Optional[Union[str, int]] = None     # [add, null, int] if null, tokenizer cls_token_id will not be overrided
-    sep_token_id: Optional[Union[str, int]] = None     # [add, null, int] if null, tokenizer sep_token_id will not be overrided
-    unk_token_id: Optional[Union[str, int]] = None     # [add, null, int] if null, tokenizer unk_token_id will not be overrided
-
     # Multi-turn data training method
     is_multi_turn: bool = False
     user_prompt_masking_start_step: int = 0  # It activate when you set the is_multi_turn to True. After this steps, user prompts will be masked during computing loss.

@@ -41,17 +41,9 @@ def main(args):
         data_train_type=config.data_train_type,
         data_path=config.data_path,
         template_path=config.template_path,
-        add_bos_token_when_response_start=config.add_bos_token_when_response_start,
-        add_eos_token_when_response_end=config.add_eos_token_when_response_end,
         data_verbose=config.data_verbose,
         is_multi_turn=config.is_multi_turn,
         user_prompt_masking_start_step=config.user_prompt_masking_start_step if config.is_multi_turn else 0,
-        pad_token_id=config.pad_token_id,
-        bos_token_id=config.bos_token_id,
-        eos_token_id=config.eos_token_id,
-        cls_token_id=config.cls_token_id,
-        sep_token_id=config.sep_token_id,
-        unk_token_id=config.unk_token_id,
     )
     log_cfg = LoggingConfig(
         common=config.common,
