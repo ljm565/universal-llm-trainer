@@ -81,8 +81,7 @@ class Phi3(nn.Module):
     
 
     def init_criterion(self):
-        ignore_index = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id != self.tokenizer.eos_token_id else -100
-        self.criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
+        self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
     
 
     def forward(self, batch, return_loss=False, output_hidden_states=False, **kwargs):
