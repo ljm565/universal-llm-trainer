@@ -287,7 +287,7 @@ class BaseTrainer:
             
             # backward and optimizer step
             self.scaler.scale(loss).backward() if self.amp else loss.backward()
-            self.optimizer_step(i, is_last_step=i-1 == nb)
+            self.optimizer_step(i, is_last_step=i == nb-1)
             if not self.is_update_per_epoch:
                 self.scheduler.step()
 
