@@ -24,7 +24,9 @@ class DataConfig:
     def __post_init__(self):
         # Dataset condition sanity check
         if not all(_type in ['sft', 'ar'] for _type in self.data_train_type):
-            raise ValueError(colorstr("red", f"DataConfig.data_train_type {self.data_train_type} is not supported. Supported list: ['linear', 'cosine']"))
+            raise ValueError(colorstr("red", f"DataConfig.data_train_type {self.data_train_type} is not supported. Supported list: ['sft', 'ar']"))
+        if not all(_type == self.data_train_type[0] for _type in self.data_train_type):
+            raise ValueError(colorstr("red", f"All of the DataConfig.data_train_type {self.data_train_type} must be the same"))
         if not len(self.data_train_type) == len(self.data_path):
             raise AssertionError(colorstr("red", "Lengths of DataConfig.data_train_type and DataConfig.data_path must be the same"))
         if not os.path.exists(self.template_path):

@@ -113,26 +113,29 @@ def main(args):
     
     # Init environment
     env_setup()
+    if data_cfg.data_train_type[0] == 'sft':
+        trainer_clazz = SFTTrainer
+    elif data_cfg.data_train_type[0] == 'ar':
+        trainer_clazz = AutoregressiveTrainer
     
     # Training (cpu/single_gpu or multi_gpu)
     if len(cfg.env_cfg.device) <= 1 or cfg.env_cfg.device == 'cpu':
-        single_gpu_train(args, cfg)
+        single_gpu_train(args, cfg, trainer_clazz)
     else:
         os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, cfg.env_cfg.device))
         ngpus_per_node = len(cfg.env_cfg.device)
-        torch.multiprocessing.spawn(multi_gpu_train, nprocs=ngpus_per_node, args=(ngpus_per_node, cfg, args))
+        torch.multiprocessing.spawn(multi_gpu_train, nprocs=ngpus_per_node, args=(ngpus_per_node, cfg, args, trainer_clazz))
 
     
-def single_gpu_train(args, cfg: TrainingConfig):
+def single_gpu_train(args, cfg: TrainingConfig, trainer_clazz: BaseTrainer):
     torch.set_num_threads(cfg.env_cfg.total_cpu_use)
     device = torch.device('cpu') if cfg.env_cfg.device == 'cpu' else torch.device(f'cuda:{cfg.env_cfg.device[0]}')
     if device.type == 'cuda':
         torch.cuda.set_device(cfg.env_cfg.device[0])
-    trainer = SFTTrainer(
+    trainer = trainer_clazz(
         cfg, 
         args.mode, 
         device, 
-        use_huggingface_trainer=args.use_huggingface_trainer,
         resume_path=choose_proper_resume_model(args.resume_model_dir, args.load_model_type) if args.resume_model_dir else None,
         adapter_path=args.adapter_path if args.adapter_path else None,
         gpu_test=args.gpu_test,
@@ -142,7 +145,7 @@ def single_gpu_train(args, cfg: TrainingConfig):
         trainer.do_train()
 
 
-def multi_gpu_train(gpu, ngpus_per_node, cfg: TrainingConfig, args):
+def multi_gpu_train(gpu, ngpus_per_node, cfg: TrainingConfig, args, trainer_clazz: BaseTrainer):
     torch.set_num_threads(cfg.env_cfg.total_cpu_use // ngpus_per_node)
 
     # Init distribution
@@ -155,7 +158,7 @@ def multi_gpu_train(gpu, ngpus_per_node, cfg: TrainingConfig, args):
     )
     torch.cuda.set_device(gpu)
     torch.distributed.barrier()
-    trainer = SFTTrainer(
+    trainer = trainer_clazz(
         cfg,
         args.mode,
         gpu,
