@@ -1,31 +1,41 @@
 import os
 import json
-from collections import defaultdict
 from sconf import Config
-from datasets import concatenate_datasets
+from collections import defaultdict
 from peft import prepare_model_for_kbit_training
 
 import torch
-from torch.utils.data import distributed, DataLoader, ConcatDataset
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
     CPUOffload,
     ShardingStrategy,
 )
+from torch.utils.data import Dataset, distributed, DataLoader, ConcatDataset
 
 from univlt.config import TrainingConfig, PeftConfig
 from univlt.utils import RANK, log, colorstr
 from univlt.utils.data_utils import seed_worker, choose_proper_dataset
-from univlt.utils.peft_utils import init_lora_config, apply_peft, print_trainable_parameters
-from univlt.utils.filesys_utils import pickle_load
 from univlt.utils.training_utils import get_wrap_policy, custom_wrap_policy
+from univlt.utils.peft_utils import init_lora_config, apply_peft, print_trainable_parameters
 
 PIN_MEMORY = str(os.getenv('PIN_MEMORY', True)).lower() == 'true'  # Global pin_memory for dataloaders
 
 
 
-def build_llm_dataset(cfg: TrainingConfig, tokenizer, mode):
+def build_llm_dataset(cfg: TrainingConfig, tokenizer, mode: list[str]) -> dict[str, Dataset]:
+    """
+    Build LLM datasets for the given modes by loading JSON files from
+    multiple data directories and aggregating them per mode.
+
+    Args:
+        cfg (TrainingConfig): Training and dataset configuration.
+        tokenizer (CustomTokenizer): Tokenizer used for dataset encoding.
+        mode (list[str]): Dataset modes to load (e.g., ["train", "validation", "test"]).
+
+    Returns:
+        dict[str, Dataset]: Mapping from mode to Dataset or ConcatDataset.
+    """
     dataset_dict = defaultdict(list)
     datasets = [os.path.basename(path) for path in cfg.data_cfg.data_path]
     dataset_classes = [choose_proper_dataset(d) for d in cfg.data_cfg.data_train_type]

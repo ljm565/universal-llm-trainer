@@ -6,8 +6,7 @@ import torch
 
 from univlt.data_collection import (
     AutoregressiveDataset,
-    ARCDataset,
-    QADataset,
+    SFTDataset,
 )
 from univlt.utils import log, DATASET_TRAIN_TYPE_MSG
 
@@ -36,15 +35,15 @@ def seed_worker(worker_id):  # noqa
 
 
 
-def choose_proper_dataset(dataset_name: str) -> Type[Union[QADataset, AutoregressiveDataset, ARCDataset]]:
+def choose_proper_dataset(dataset_type: str) -> Type[Union[SFTDataset, AutoregressiveDataset]]:
     """
     Select the appropriate dataset class based on the given dataset name.
 
     Args:
-        dataset_name (str): Name of the dataset. Expected values are 'qa', 'ar', or 'arc' (case-insensitive).
+        dataset_type (str): Name of the dataset. Expected values are 'qa', 'ar', or 'arc' (case-insensitive).
 
     Returns:
-        Type[Union[QADataset, AutoregressiveDataset, ARCDataset]]: 
+        Type[Union[SFTDataset, AutoregressiveDataset]]: 
             The class corresponding to the specified dataset name.
 
     Raises:
@@ -53,13 +52,11 @@ def choose_proper_dataset(dataset_name: str) -> Type[Union[QADataset, Autoregres
     Example:
         >>> dataset_class = choose_proper_dataset("qa")
         >>> print(dataset_class)
-        <class 'data_collection.qa_dataset.QADataset'>
+        <class 'data_collection.qa_dataset.SFTDataset'>
     """
-    if 'qa' == dataset_name.lower():
-        return QADataset
-    elif 'ar' == dataset_name.lower():
+    if 'sft' == dataset_type.lower():
+        return SFTDataset
+    elif 'ar' == dataset_type.lower():
         return AutoregressiveDataset
-    elif 'arc' == dataset_name.lower():
-        return ARCDataset
     else:
-        raise ValueError(log(f'Invalid dataset name: {dataset_name}\n{DATASET_TRAIN_TYPE_MSG}', level='error'))
+        raise ValueError(log(f'Invalid dataset name: {dataset_type}\n{DATASET_TRAIN_TYPE_MSG}', level='error'))

@@ -1,8 +1,7 @@
-# TODO: jmlee
-
 import gc
 import time
 import math
+from typing import Optional
 
 import torch
 from torch import distributed as dist
@@ -21,10 +20,9 @@ class SFTTrainer(BaseTrainer):
             self, 
             cfg: TrainingConfig,
             mode: str,
-            device,
-            multi_gpu_train_type=False,
-            use_huggingface_trainer=False,
-            resume_path=None,
+            device: torch.device,
+            multi_gpu_train_type: bool = False,
+            resume_path: Optional[str] = None,
             **kwargs,
         ):
         super().__init__(
@@ -32,7 +30,6 @@ class SFTTrainer(BaseTrainer):
             mode=mode,
             device=device,
             multi_gpu_train_type=multi_gpu_train_type,
-            use_huggingface_trainer=use_huggingface_trainer,
             resume_path=resume_path,
             **kwargs,
         )
@@ -131,7 +128,7 @@ class SFTTrainer(BaseTrainer):
             
             # backward and optimizer step
             self.scaler.scale(loss).backward() if self.amp else loss.backward()
-            self.optimizer_step(i, is_last_step=i-1 == nb)
+            self.optimizer_step(i, is_last_step=i == nb-1)
             if not self.is_update_per_epoch:
                 self.scheduler.step()
 
