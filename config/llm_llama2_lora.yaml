@@ -34,8 +34,6 @@ fsdp_hyperparameters:
 # data config
 max_length: 8192
 is_multi_turn: False
-add_bos_token_when_response_start: True
-add_eos_token_when_response_end: True
 data_verbose: False
 
 # tokenizer config (I recommend to double check the tokenizer's special token map)
