@@ -188,7 +188,7 @@ class AutoregressiveDataset(Dataset):
 
         # When pad_token_id == eos_token_id, padding positions use EOS tokens
         # set to ignore_index so CrossEntropyLoss(ignore_index=ignore_index) excludes them from loss
-        if self.pad_token_id == self.tokenizer.eos_token_id:
+        if self.pad_token_id == self.eos_token_id:
             label[data_len:self.max_length] = [self.ignore_index] * (self.max_length - data_len)
         
         assert len(full_prompt_token) == len(attention_mask) == len(label) == self.max_length, \
